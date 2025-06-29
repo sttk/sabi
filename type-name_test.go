@@ -152,8 +152,7 @@ func TestTypeOfTypeParam_value(t *testing.T) {
 	assert.Equal(t, typeNameOfTypeParam[V](), "sabi.V")
 	assert.Equal(t, typeNameOfTypeParam[*V](), "*sabi.V")
 	assert.Equal(t, typeNameOfTypeParam[I](), "sabi.I")
-	assert.Equal(t, typeNameOfTypeParam[map[string]string](),
-		"map[string]string")
+	assert.Equal(t, typeNameOfTypeParam[map[string]string](), "map[string]string")
 	assert.Equal(t, typeNameOfTypeParam[func()](), "func()")
 	assert.Equal(t, typeNameOfTypeParam[chan int](), "chan int")
 	assert.Equal(t, typeNameOfTypeParam[chan V](), "chan sabi.V")
@@ -181,8 +180,7 @@ func TestTypeOfTypeParam_pointer(t *testing.T) {
 	assert.Equal(t, typeNameOfTypeParam[*V](), "*sabi.V")
 	assert.Equal(t, typeNameOfTypeParam[**V](), "**sabi.V")
 	assert.Equal(t, typeNameOfTypeParam[*I](), "*sabi.I")
-	assert.Equal(t, typeNameOfTypeParam[*map[string]string](),
-		"*map[string]string")
+	assert.Equal(t, typeNameOfTypeParam[*map[string]string](), "*map[string]string")
 	assert.Equal(t, typeNameOfTypeParam[*func()](), "*func()")
 	assert.Equal(t, typeNameOfTypeParam[*chan int](), "*chan int")
 	assert.Equal(t, typeNameOfTypeParam[*chan V](), "*chan sabi.V")

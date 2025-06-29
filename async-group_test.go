@@ -5,153 +5,152 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
-
-	"github.com/sttk/sabi/errs"
+	"github.com/sttk/errs"
 )
 
-func TestAsyncGroup_asyncGroupSync_ok(t *testing.T) {
-	var ag asyncGroupSync
-	assert.True(t, ag.err.IsOk())
+func TestAsyncGroup(t *testing.T) {
+	t.Run("zero", func(t *testing.T) {
+		var ag AsyncGroup
 
-	exec := false
-	fn := func() errs.Err {
-		exec = true
-		return errs.Ok()
-	}
+		m := make(map[string]errs.Err, 0)
+		ag.joinAndPutErrorsInto(m)
+		assert.Equal(t, len(m), 0)
+	})
 
-	ag.Add(fn)
-	assert.True(t, ag.err.IsOk())
-	assert.True(t, exec)
-}
+	t.Run("ok", func(t *testing.T) {
+		var ag AsyncGroup
 
-func TestAsyncGroup_asyncGroupSync_error(t *testing.T) {
-	var ag asyncGroupSync
-	assert.True(t, ag.err.IsOk())
+		executed := false
+		fn := func() errs.Err {
+			time.Sleep(50)
+			executed = true
+			return errs.Ok()
+		}
 
-	type FailToDoSomething struct{}
+		ag.name = "foo"
+		ag.Add(fn)
+		assert.False(t, executed)
 
-	exec := false
-	fn := func() errs.Err {
-		exec = true
-		return errs.New(FailToDoSomething{})
-	}
+		m := make(map[string]errs.Err, 0)
+		ag.joinAndPutErrorsInto(m)
+		assert.Equal(t, len(m), 0)
+		assert.True(t, executed)
+	})
 
-	ag.Add(fn)
-	switch ag.err.Reason().(type) {
-	case FailToDoSomething:
-	default:
-		assert.Fail(t, ag.err.Error())
-	}
-	assert.True(t, exec)
-}
+	t.Run("error", func(t *testing.T) {
+		var ag AsyncGroup
 
-func TestAsyncGroup_asyncGroupAsync_ok(t *testing.T) {
-	var ag asyncGroupAsync[string]
-	assert.False(t, ag.hasErr())
+		type FailToDoSomething struct{}
 
-	exec := false
-	fn := func() errs.Err {
-		time.Sleep(50)
-		exec = true
-		return errs.Ok()
-	}
+		executed := false
+		fn := func() errs.Err {
+			time.Sleep(50)
+			executed = true
+			return errs.New(FailToDoSomething{})
+		}
 
-	ag.name = "foo"
-	ag.Add(fn)
-	assert.False(t, ag.hasErr())
-	assert.False(t, exec)
+		ag.name = "foo"
+		ag.Add(fn)
+		assert.False(t, executed)
 
-	ag.wait()
-	assert.False(t, ag.hasErr())
-	assert.True(t, exec)
+		m := make(map[string]errs.Err, 0)
+		ag.joinAndPutErrorsInto(m)
+		assert.Equal(t, len(m), 1)
+		assert.True(t, executed)
 
-	assert.Equal(t, len(ag.makeErrs()), 0)
-	assert.True(t, exec)
-}
+		switch m["foo"].Reason().(type) {
+		case FailToDoSomething:
+		default:
+			assert.Fail(t, m["foo"].Error())
+		}
+	})
 
-func TestAsyncGroup_asyncGroupAsync_error(t *testing.T) {
-	var ag asyncGroupAsync[string]
-	assert.False(t, ag.hasErr())
+	t.Run("multiple errors with an error map", func(t *testing.T) {
+		var ag AsyncGroup
 
-	type FailToDoSomething struct{}
+		type Reason0 struct{}
+		type Reason1 struct{}
+		type Reason2 struct{}
 
-	exec := false
-	fn := func() errs.Err {
-		time.Sleep(50)
-		exec = true
-		return errs.New(FailToDoSomething{})
-	}
+		executed0 := false
+		executed1 := false
+		executed2 := false
 
-	ag.name = "foo"
-	ag.Add(fn)
-	assert.False(t, ag.hasErr())
-	assert.False(t, exec)
+		fn0 := func() errs.Err {
+			time.Sleep(200)
+			executed0 = true
+			return errs.New(Reason0{})
+		}
+		fn1 := func() errs.Err {
+			time.Sleep(400)
+			executed1 = true
+			return errs.New(Reason1{})
+		}
+		fn2 := func() errs.Err {
+			time.Sleep(800)
+			executed2 = true
+			return errs.New(Reason2{})
+		}
 
-	ag.wait()
-	assert.True(t, ag.hasErr())
-	assert.True(t, exec)
+		ag.name = "foo0"
+		ag.Add(fn0)
+		ag.name = "foo1"
+		ag.Add(fn1)
+		ag.name = "foo2"
+		ag.Add(fn2)
 
-	m := ag.makeErrs()
-	assert.Equal(t, len(m), 1)
-	switch m["foo"].Reason().(type) {
-	case FailToDoSomething:
-	default:
-		assert.Fail(t, m["foo"].Error())
-	}
-	assert.True(t, exec)
-}
+		m := make(map[string]errs.Err, 0)
+		ag.joinAndPutErrorsInto(m)
+		assert.Equal(t, len(m), 3)
+		assert.True(t, executed0)
+		assert.True(t, executed1)
+		assert.True(t, executed2)
 
-func TestAsyncGroup_asyncGroupAsync_multipleErrors(t *testing.T) {
-	var ag asyncGroupAsync[string]
-	assert.False(t, ag.hasErr())
+		assert.Equal(t, m["foo0"].Error(),
+			"github.com/sttk/errs.Err { reason = github.com/sttk/sabi.Reason0, file = async-group_test.go, line = 82 }")
+		assert.Equal(t, m["foo1"].Error(),
+			"github.com/sttk/errs.Err { reason = github.com/sttk/sabi.Reason1, file = async-group_test.go, line = 87 }")
+		assert.Equal(t, m["foo2"].Error(),
+			"github.com/sttk/errs.Err { reason = github.com/sttk/sabi.Reason2, file = async-group_test.go, line = 92 }")
+	})
 
-	type Err0 struct{}
-	type Err1 struct{}
-	type Err2 struct{}
+	t.Run("multiple errors without an error map", func(t *testing.T) {
+		var ag AsyncGroup
 
-	exec0 := false
-	exec1 := false
-	exec2 := false
+		type Reason0 struct{}
+		type Reason1 struct{}
+		type Reason2 struct{}
 
-	fn0 := func() errs.Err {
-		time.Sleep(200)
-		exec0 = true
-		return errs.New(Err0{})
-	}
-	fn1 := func() errs.Err {
-		time.Sleep(400)
-		exec1 = true
-		return errs.New(Err1{})
-	}
-	fn2 := func() errs.Err {
-		time.Sleep(800)
-		exec2 = true
-		return errs.New(Err2{})
-	}
+		executed0 := false
+		executed1 := false
+		executed2 := false
 
-	ag.name = "foo0"
-	ag.Add(fn0)
-	ag.name = "foo1"
-	ag.Add(fn1)
-	ag.name = "foo2"
-	ag.Add(fn2)
-	assert.False(t, ag.hasErr())
-	assert.False(t, exec0)
-	assert.False(t, exec1)
-	assert.False(t, exec2)
+		fn0 := func() errs.Err {
+			time.Sleep(200)
+			executed0 = true
+			return errs.New(Reason0{})
+		}
+		fn1 := func() errs.Err {
+			time.Sleep(400)
+			executed1 = true
+			return errs.New(Reason1{})
+		}
+		fn2 := func() errs.Err {
+			time.Sleep(800)
+			executed2 = true
+			return errs.New(Reason2{})
+		}
 
-	ag.wait()
-	assert.True(t, ag.hasErr())
-	assert.True(t, exec0)
-	assert.True(t, exec1)
-	assert.True(t, exec2)
+		ag.name = "foo0"
+		ag.Add(fn0)
+		ag.name = "foo1"
+		ag.Add(fn1)
+		ag.name = "foo2"
+		ag.Add(fn2)
 
-	m := ag.makeErrs()
-	assert.Equal(t, len(m), 3)
-	assert.Equal(t, m["foo0"].ReasonName(), "Err0")
-	assert.Equal(t, m["foo1"].ReasonName(), "Err1")
-	assert.Equal(t, m["foo2"].ReasonName(), "Err2")
-	assert.True(t, exec0)
-	assert.True(t, exec1)
-	assert.True(t, exec2)
+		ag.joinAndIgnoreErrors()
+		assert.True(t, executed0)
+		assert.True(t, executed1)
+		assert.True(t, executed2)
+	})
 }
