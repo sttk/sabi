@@ -128,7 +128,7 @@ func Setup() errs.Err {
 	return errs.Ok()
 }
 
-// Closes and removes the all global data sourecs.
+// Closes and removes all global data sources.
 func Shutdown() {
 	globalDataSrcList.closeDataSrcs()
 }

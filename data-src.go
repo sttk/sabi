@@ -12,7 +12,7 @@ import (
 // to external data services, such as databases, file systems, or messaging services.
 //
 // It receives configuration for connecting to an external data service and then
-// creates and supplies `DataConn` instance, representing a single session connection.
+// creates and supplies a `DataConn` instance, representing a single session connection.
 type DataSrc interface {
 	// Performs the setup process for the data source.
 	//

@@ -13,7 +13,9 @@ of DataAcc derived struct, allowing for flexible grouping, often by data service
 
 The DataHub bridges these two parts.
 Since the DataHub derived struct embeds all DataAcc derived structs, it can provide all data
-access methods. Then, by type assertion from the data hub to the interface which is only one argument of a logic function, the logic function can perform the necessary data access through that interface, while also begin prevented from performing any other data access.
+access methods. Then, by type assertion from the data hub to the interface which is only one
+argument of a logic function, the logic function can perform the necessary data access through
+that interface, while also being prevented from performing any other data access.
 
 Furthermore, the DataHub provides transaction control for data operations performed
 within the logic.
@@ -98,8 +100,8 @@ The following is a sample code using this framework
 		*FooDataAcc
 		*BarDataAcc
 	}
-	func NewMyDataHub sabi.DataHub {
-		hub := sabi.NewDataHun()
+	func NewMyDataHub() sabi.DataHub {
+		hub := sabi.NewDataHub()
 		return MyDataHub {
 			DataHub: hub,
 			FooDataAcc: &FooDataAcc{DataAcc: hub},
