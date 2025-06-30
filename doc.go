@@ -3,7 +3,7 @@
 // See the file LICENSE in this distribution for more details.
 
 /*
-Package sabi provides a small framework for Go lang, designed to separate application logic
+Package sabi provides a small framework for Go, designed to separate application logic
 from data access.
 
 In this framework, the logic exclusively takes a data access interface as its argument,
@@ -105,7 +105,7 @@ The following is a sample code using this framework
 		return MyDataHub {
 			DataHub: hub,
 			FooDataAcc: &FooDataAcc{DataAcc: hub},
-			BarDataAcc: &FooDataAcc{DataAcc: hub},
+			BarDataAcc: &BarDataAcc{DataAcc: hub},
 		}
 	}
 
