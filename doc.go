@@ -19,8 +19,8 @@ that interface, while also being prevented from performing any other data access
 
 Furthermore, the DataHub provides transaction control for data operations performed
 within the logic.
-You can execute logic functions with transaction control using the DataHub#txn method,
-or without it using the DataHub#run method.
+You can execute logic functions with transaction control using the DataHub#Txn method,
+or without it using the DataHub#Run method.
 This framework brings clear separation and robustness to Go application design.
 
 # Example
