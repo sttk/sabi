@@ -8,9 +8,29 @@ import (
 	"github.com/sttk/errs"
 )
 
+// The interface that abstracts a data source responsible for managing connections
+// to external data services, such as databases, file systems, or messaging services.
+//
+// It receives configuration for connecting to an external data service and then
+// creates and supplies a `DataConn` instance, representing a single session connection.
 type DataSrc interface {
+	// Performs the setup process for the data source.
+	//
+	// This method is responsible for establishing global connections, configuring
+	// connection pools, or performing any necessary initializations required
+	// before DataConn instances can be created.
 	Setup(ag *AsyncGroup) errs.Err
+
+	// Closes the data source and releases any globally held resources.
+	//
+	// This method should perform cleanup operations, such as closing global connections
+	// or shutting down connection pools, that were established during the Setup phase.
 	Close()
+
+	// Creates a new DataConn instance which is a connection per session.
+	//
+	// Each call to this method should yield a distinct DataConn object tailored
+	// for a single session's operations.
 	CreateDataConn() (DataConn, errs.Err)
 }
 

@@ -16,6 +16,12 @@ type errEntry struct {
 	next *errEntry
 }
 
+// AsyncGroup allows for the asynchronous execution of multiple functions and
+// waits for all of them to complete. Functions are added using the Add
+// method and are then run concurrently in separate goroutines.
+//
+// The AsyncGroup ensures that all added tasks finish before proceeding,
+// collecting any errors that occur during their execution.
 type AsyncGroup struct {
 	errHead *errEntry
 	errLast *errEntry
@@ -24,6 +30,10 @@ type AsyncGroup struct {
 	name    string
 }
 
+// Add an asynchronous function to the group, and starts it in a new goroutine.
+//
+// This given function is executed asynchronously with other similarly given functions,
+// awaiting completion and collecting errors internally.
 func (ag *AsyncGroup) Add(fn func() errs.Err) {
 	ag.wg.Add(1)
 	go func(name string) {

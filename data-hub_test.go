@@ -156,15 +156,15 @@ func (conn *AsyncDataConn2) Close() {
 	conn.logger.PushBack(fmt.Sprintf("AsyncDataConn2 %d closed", conn.id))
 }
 
-func resetGlobalVariables() {
+func ResetGlobalVariables() {
 	globalDataSrcsFixed = false
 	globalDataSrcList.closeDataSrcs()
 }
 
 func TestOfGlobalFunctions(t *testing.T) {
 	t.Run("setup and shutdown", func(t *testing.T) {
-		resetGlobalVariables()
-		defer resetGlobalVariables()
+		ResetGlobalVariables()
+		defer ResetGlobalVariables()
 
 		logger := list.New()
 
@@ -188,7 +188,7 @@ func TestOfGlobalFunctions(t *testing.T) {
 		func() {
 			err := Setup()
 			assert.True(t, err.IsOk())
-			defer Close()
+			defer Shutdown()
 
 			assert.Nil(t, globalDataSrcList.notSetupHead)
 
@@ -218,8 +218,8 @@ func TestOfGlobalFunctions(t *testing.T) {
 	})
 
 	t.Run("fail to setup", func(t *testing.T) {
-		resetGlobalVariables()
-		defer resetGlobalVariables()
+		ResetGlobalVariables()
+		defer ResetGlobalVariables()
 
 		logger := list.New()
 
@@ -268,8 +268,8 @@ func TestOfGlobalFunctions(t *testing.T) {
 	})
 
 	t.Run("cannot add global data srcs after setup", func(t *testing.T) {
-		resetGlobalVariables()
-		defer resetGlobalVariables()
+		ResetGlobalVariables()
+		defer ResetGlobalVariables()
 
 		assert.Nil(t, globalDataSrcList.notSetupHead)
 		assert.Nil(t, globalDataSrcList.didSetupHead)
@@ -289,7 +289,7 @@ func TestOfGlobalFunctions(t *testing.T) {
 		func() {
 			err := Setup()
 			assert.True(t, err.IsOk())
-			defer Close()
+			defer Shutdown()
 
 			assert.Nil(t, globalDataSrcList.notSetupHead)
 
@@ -322,8 +322,8 @@ func TestOfGlobalFunctions(t *testing.T) {
 	})
 
 	t.Run("do nothing if executing setup twice", func(t *testing.T) {
-		resetGlobalVariables()
-		defer resetGlobalVariables()
+		ResetGlobalVariables()
+		defer ResetGlobalVariables()
 
 		assert.Nil(t, globalDataSrcList.notSetupHead)
 		assert.Nil(t, globalDataSrcList.didSetupHead)
@@ -343,7 +343,7 @@ func TestOfGlobalFunctions(t *testing.T) {
 		func() {
 			err := Setup()
 			assert.True(t, err.IsOk())
-			defer Close()
+			defer Shutdown()
 
 			assert.Nil(t, globalDataSrcList.notSetupHead)
 
@@ -379,8 +379,8 @@ func TestOfGlobalFunctions(t *testing.T) {
 
 func TestOfDatHubLocal(t *testing.T) {
 	t.Run("new and close with no global data srcs", func(t *testing.T) {
-		resetGlobalVariables()
-		defer resetGlobalVariables()
+		ResetGlobalVariables()
+		defer ResetGlobalVariables()
 
 		hub := NewDataHub()
 		hubImpl := hub.(*dataHubImpl)
@@ -393,8 +393,8 @@ func TestOfDatHubLocal(t *testing.T) {
 	})
 
 	t.Run("new and close with global data srcs", func(t *testing.T) {
-		resetGlobalVariables()
-		defer resetGlobalVariables()
+		ResetGlobalVariables()
+		defer ResetGlobalVariables()
 
 		logger := list.New()
 
@@ -404,7 +404,7 @@ func TestOfDatHubLocal(t *testing.T) {
 		func() {
 			err := Setup()
 			assert.True(t, err.IsOk())
-			defer Close()
+			defer Shutdown()
 
 			assert.Nil(t, globalDataSrcList.notSetupHead)
 
@@ -453,8 +453,8 @@ func TestOfDatHubLocal(t *testing.T) {
 	})
 
 	t.Run("uses and disuses", func(t *testing.T) {
-		resetGlobalVariables()
-		defer resetGlobalVariables()
+		ResetGlobalVariables()
+		defer ResetGlobalVariables()
 
 		logger := list.New()
 
@@ -464,7 +464,7 @@ func TestOfDatHubLocal(t *testing.T) {
 		func() {
 			err := Setup()
 			assert.True(t, err.IsOk())
-			defer Close()
+			defer Shutdown()
 
 			hub := NewDataHub()
 			hubImpl := hub.(*dataHubImpl)
@@ -552,15 +552,15 @@ func TestOfDatHubLocal(t *testing.T) {
 	})
 
 	t.Run("cannot add and remove data src between begin and end", func(t *testing.T) {
-		resetGlobalVariables()
-		defer resetGlobalVariables()
+		ResetGlobalVariables()
+		defer ResetGlobalVariables()
 
 		logger := list.New()
 
 		func() {
 			err := Setup()
 			assert.True(t, err.IsOk())
-			defer Close()
+			defer Shutdown()
 
 			hub := NewDataHub()
 			hubImpl := hub.(*dataHubImpl)
@@ -677,8 +677,8 @@ func TestOfDatHubLocal(t *testing.T) {
 	})
 
 	t.Run("begin and end", func(t *testing.T) {
-		resetGlobalVariables()
-		defer resetGlobalVariables()
+		ResetGlobalVariables()
+		defer ResetGlobalVariables()
 
 		logger := list.New()
 
@@ -686,7 +686,7 @@ func TestOfDatHubLocal(t *testing.T) {
 		Uses("bar", &SyncDataSrc2{id: 2, logger: logger, fail: fail__not})
 
 		err := Setup().IfOkThen(func() errs.Err {
-			defer Close()
+			defer Shutdown()
 
 			hub := NewDataHub()
 			hubImpl := hub.(*dataHubImpl)
@@ -761,8 +761,8 @@ func TestOfDatHubLocal(t *testing.T) {
 	})
 
 	t.Run("begin and end but fail sync", func(t *testing.T) {
-		resetGlobalVariables()
-		defer resetGlobalVariables()
+		ResetGlobalVariables()
+		defer ResetGlobalVariables()
 
 		logger := list.New()
 
@@ -770,7 +770,7 @@ func TestOfDatHubLocal(t *testing.T) {
 		Uses("bar", &SyncDataSrc2{id: 2, logger: logger, fail: fail__not})
 
 		err := Setup().IfOkThen(func() errs.Err {
-			defer Close()
+			defer Shutdown()
 
 			hub := NewDataHub()
 			hubImpl := hub.(*dataHubImpl)
@@ -822,8 +822,8 @@ func TestOfDatHubLocal(t *testing.T) {
 	})
 
 	t.Run("begin and end but fail async", func(t *testing.T) {
-		resetGlobalVariables()
-		defer resetGlobalVariables()
+		ResetGlobalVariables()
+		defer ResetGlobalVariables()
 
 		logger := list.New()
 
@@ -831,7 +831,7 @@ func TestOfDatHubLocal(t *testing.T) {
 		Uses("bar", &SyncDataSrc2{id: 2, logger: logger, fail: fail__not})
 
 		err := Setup().IfOkThen(func() errs.Err {
-			defer Close()
+			defer Shutdown()
 
 			hub := NewDataHub()
 			hubImpl := hub.(*dataHubImpl)
@@ -883,8 +883,8 @@ func TestOfDatHubLocal(t *testing.T) {
 	})
 
 	t.Run("commit", func(t *testing.T) {
-		resetGlobalVariables()
-		defer resetGlobalVariables()
+		ResetGlobalVariables()
+		defer ResetGlobalVariables()
 
 		logger := list.New()
 
@@ -892,7 +892,7 @@ func TestOfDatHubLocal(t *testing.T) {
 		Uses("bar", &SyncDataSrc2{id: 2, logger: logger, fail: fail__not})
 
 		err := Setup().IfOkThen(func() errs.Err {
-			defer Close()
+			defer Shutdown()
 
 			hub := NewDataHub()
 			defer hub.Close()
@@ -992,15 +992,15 @@ func TestOfDatHubLocal(t *testing.T) {
 	})
 
 	t.Run("fail to cast new data conn", func(t *testing.T) {
-		resetGlobalVariables()
-		defer resetGlobalVariables()
+		ResetGlobalVariables()
+		defer ResetGlobalVariables()
 
 		logger := list.New()
 
 		Uses("foo", &AsyncDataSrc2{id: 1, logger: logger, fail: fail__not})
 
 		Setup().IfOkThen(func() errs.Err {
-			defer Close()
+			defer Shutdown()
 
 			hub := NewDataHub()
 			defer hub.Close()
@@ -1051,15 +1051,15 @@ func TestOfDatHubLocal(t *testing.T) {
 	})
 
 	t.Run("fail to cast reused data conn", func(t *testing.T) {
-		resetGlobalVariables()
-		defer resetGlobalVariables()
+		ResetGlobalVariables()
+		defer ResetGlobalVariables()
 
 		logger := list.New()
 
 		Uses("foo", &AsyncDataSrc2{id: 1, logger: logger, fail: fail__not})
 
 		Setup().IfOkThen(func() errs.Err {
-			defer Close()
+			defer Shutdown()
 
 			hub := NewDataHub()
 			defer hub.Close()
@@ -1118,15 +1118,15 @@ func TestOfDatHubLocal(t *testing.T) {
 	})
 
 	t.Run("fail to create data conn", func(t *testing.T) {
-		resetGlobalVariables()
-		defer resetGlobalVariables()
+		ResetGlobalVariables()
+		defer ResetGlobalVariables()
 
 		logger := list.New()
 
 		Uses("foo", &AsyncDataSrc2{id: 1, logger: logger, fail: fail__not})
 
 		Setup().IfOkThen(func() errs.Err {
-			defer Close()
+			defer Shutdown()
 
 			hub := NewDataHub()
 			defer hub.Close()
@@ -1171,15 +1171,15 @@ func TestOfDatHubLocal(t *testing.T) {
 	})
 
 	t.Run("fail to create data conn because of no data src", func(t *testing.T) {
-		resetGlobalVariables()
-		defer resetGlobalVariables()
+		ResetGlobalVariables()
+		defer ResetGlobalVariables()
 
 		logger := list.New()
 
 		Uses("foo", &AsyncDataSrc2{id: 1, logger: logger, fail: fail__not})
 
 		Setup().IfOkThen(func() errs.Err {
-			defer Close()
+			defer Shutdown()
 
 			hub := NewDataHub()
 			defer hub.Close()
@@ -1224,8 +1224,8 @@ func TestOfDatHubLocal(t *testing.T) {
 	})
 
 	t.Run("commit when no data conn", func(t *testing.T) {
-		resetGlobalVariables()
-		defer resetGlobalVariables()
+		ResetGlobalVariables()
+		defer ResetGlobalVariables()
 
 		logger := list.New()
 
@@ -1233,7 +1233,7 @@ func TestOfDatHubLocal(t *testing.T) {
 		Uses("bar", &SyncDataSrc2{id: 2, logger: logger, fail: fail__not})
 
 		Setup().IfOkThen(func() errs.Err {
-			defer Close()
+			defer Shutdown()
 
 			hub := NewDataHub()
 			defer hub.Close()
@@ -1269,8 +1269,8 @@ func TestOfDatHubLocal(t *testing.T) {
 	})
 
 	t.Run("commit but fail global sync", func(t *testing.T) {
-		resetGlobalVariables()
-		defer resetGlobalVariables()
+		ResetGlobalVariables()
+		defer ResetGlobalVariables()
 
 		logger := list.New()
 
@@ -1278,7 +1278,7 @@ func TestOfDatHubLocal(t *testing.T) {
 		Uses("bar", &SyncDataSrc2{id: 2, logger: logger, fail: fail__commit})
 
 		Setup().IfOkThen(func() errs.Err {
-			defer Close()
+			defer Shutdown()
 
 			hub := NewDataHub()
 			defer hub.Close()
@@ -1367,8 +1367,8 @@ func TestOfDatHubLocal(t *testing.T) {
 	})
 
 	t.Run("commit but fail global async", func(t *testing.T) {
-		resetGlobalVariables()
-		defer resetGlobalVariables()
+		ResetGlobalVariables()
+		defer ResetGlobalVariables()
 
 		logger := list.New()
 
@@ -1376,7 +1376,7 @@ func TestOfDatHubLocal(t *testing.T) {
 		Uses("bar", &SyncDataSrc2{id: 2, logger: logger, fail: fail__not})
 
 		Setup().IfOkThen(func() errs.Err {
-			defer Close()
+			defer Shutdown()
 
 			hub := NewDataHub()
 			defer hub.Close()
@@ -1463,8 +1463,8 @@ func TestOfDatHubLocal(t *testing.T) {
 	})
 
 	t.Run("commit but fail local sync", func(t *testing.T) {
-		resetGlobalVariables()
-		defer resetGlobalVariables()
+		ResetGlobalVariables()
+		defer ResetGlobalVariables()
 
 		logger := list.New()
 
@@ -1472,7 +1472,7 @@ func TestOfDatHubLocal(t *testing.T) {
 		Uses("bar", &SyncDataSrc2{id: 2, logger: logger, fail: fail__not})
 
 		Setup().IfOkThen(func() errs.Err {
-			defer Close()
+			defer Shutdown()
 
 			hub := NewDataHub()
 			defer hub.Close()
@@ -1565,8 +1565,8 @@ func TestOfDatHubLocal(t *testing.T) {
 	})
 
 	t.Run("commit but fail local async", func(t *testing.T) {
-		resetGlobalVariables()
-		defer resetGlobalVariables()
+		ResetGlobalVariables()
+		defer ResetGlobalVariables()
 
 		logger := list.New()
 
@@ -1574,7 +1574,7 @@ func TestOfDatHubLocal(t *testing.T) {
 		Uses("bar", &SyncDataSrc2{id: 2, logger: logger, fail: fail__not})
 
 		Setup().IfOkThen(func() errs.Err {
-			defer Close()
+			defer Shutdown()
 
 			hub := NewDataHub()
 			defer hub.Close()
@@ -1665,8 +1665,8 @@ func TestOfDatHubLocal(t *testing.T) {
 	})
 
 	t.Run("pre commit but fail global sync", func(t *testing.T) {
-		resetGlobalVariables()
-		defer resetGlobalVariables()
+		ResetGlobalVariables()
+		defer ResetGlobalVariables()
 
 		logger := list.New()
 
@@ -1674,7 +1674,7 @@ func TestOfDatHubLocal(t *testing.T) {
 		Uses("bar", &SyncDataSrc2{id: 2, logger: logger, fail: fail__pre_commit})
 
 		Setup().IfOkThen(func() errs.Err {
-			defer Close()
+			defer Shutdown()
 
 			hub := NewDataHub()
 			defer hub.Close()
@@ -1755,8 +1755,8 @@ func TestOfDatHubLocal(t *testing.T) {
 	})
 
 	t.Run("pre commit but fail global async", func(t *testing.T) {
-		resetGlobalVariables()
-		defer resetGlobalVariables()
+		ResetGlobalVariables()
+		defer ResetGlobalVariables()
 
 		logger := list.New()
 
@@ -1764,7 +1764,7 @@ func TestOfDatHubLocal(t *testing.T) {
 		Uses("bar", &SyncDataSrc2{id: 2, logger: logger, fail: fail__not})
 
 		Setup().IfOkThen(func() errs.Err {
-			defer Close()
+			defer Shutdown()
 
 			hub := NewDataHub()
 			defer hub.Close()
@@ -1843,8 +1843,8 @@ func TestOfDatHubLocal(t *testing.T) {
 	})
 
 	t.Run("pre commit but fail local sync", func(t *testing.T) {
-		resetGlobalVariables()
-		defer resetGlobalVariables()
+		ResetGlobalVariables()
+		defer ResetGlobalVariables()
 
 		logger := list.New()
 
@@ -1852,7 +1852,7 @@ func TestOfDatHubLocal(t *testing.T) {
 		Uses("bar", &SyncDataSrc2{id: 2, logger: logger, fail: fail__not})
 
 		Setup().IfOkThen(func() errs.Err {
-			defer Close()
+			defer Shutdown()
 
 			hub := NewDataHub()
 			defer hub.Close()
@@ -1937,8 +1937,8 @@ func TestOfDatHubLocal(t *testing.T) {
 	})
 
 	t.Run("pre commit but fail local async", func(t *testing.T) {
-		resetGlobalVariables()
-		defer resetGlobalVariables()
+		ResetGlobalVariables()
+		defer ResetGlobalVariables()
 
 		logger := list.New()
 
@@ -1946,7 +1946,7 @@ func TestOfDatHubLocal(t *testing.T) {
 		Uses("bar", &SyncDataSrc2{id: 2, logger: logger, fail: fail__not})
 
 		Setup().IfOkThen(func() errs.Err {
-			defer Close()
+			defer Shutdown()
 
 			hub := NewDataHub()
 			defer hub.Close()
@@ -2029,8 +2029,8 @@ func TestOfDatHubLocal(t *testing.T) {
 	})
 
 	t.Run("rollback", func(t *testing.T) {
-		resetGlobalVariables()
-		defer resetGlobalVariables()
+		ResetGlobalVariables()
+		defer ResetGlobalVariables()
 
 		logger := list.New()
 
@@ -2038,7 +2038,7 @@ func TestOfDatHubLocal(t *testing.T) {
 		Uses("bar", &SyncDataSrc2{id: 2, logger: logger, fail: fail__not})
 
 		Setup().IfOkThen(func() errs.Err {
-			defer Close()
+			defer Shutdown()
 
 			hub := NewDataHub()
 			defer hub.Close()
@@ -2114,8 +2114,8 @@ func TestOfDatHubLocal(t *testing.T) {
 	})
 
 	t.Run("force back", func(t *testing.T) {
-		resetGlobalVariables()
-		defer resetGlobalVariables()
+		ResetGlobalVariables()
+		defer ResetGlobalVariables()
 
 		logger := list.New()
 
@@ -2123,7 +2123,7 @@ func TestOfDatHubLocal(t *testing.T) {
 		Uses("bar", &SyncDataSrc2{id: 2, logger: logger, fail: fail__not})
 
 		Setup().IfOkThen(func() errs.Err {
-			defer Close()
+			defer Shutdown()
 
 			hub := NewDataHub()
 			defer hub.Close()
@@ -2216,8 +2216,8 @@ func TestOfDatHubLocal(t *testing.T) {
 	})
 
 	t.Run("post commit", func(t *testing.T) {
-		resetGlobalVariables()
-		defer resetGlobalVariables()
+		ResetGlobalVariables()
+		defer ResetGlobalVariables()
 
 		logger := list.New()
 
@@ -2225,7 +2225,7 @@ func TestOfDatHubLocal(t *testing.T) {
 		Uses("bar", &SyncDataSrc2{id: 2, logger: logger, fail: fail__not})
 
 		Setup().IfOkThen(func() errs.Err {
-			defer Close()
+			defer Shutdown()
 
 			hub := NewDataHub()
 			defer hub.Close()

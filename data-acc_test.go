@@ -1,4 +1,4 @@
-package sabi
+package sabi_test
 
 import (
 	"container/list"
@@ -7,6 +7,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/sttk/errs"
+	"github.com/sttk/sabi"
 )
 
 type FooDataSrc struct {
@@ -16,7 +17,7 @@ type FooDataSrc struct {
 	will_fail bool
 }
 
-func (ds *FooDataSrc) Setup(ag *AsyncGroup) errs.Err {
+func (ds *FooDataSrc) Setup(ag *sabi.AsyncGroup) errs.Err {
 	if ds.will_fail {
 		ds.logger.PushBack(fmt.Sprintf("FooDataSrc %d failed to setup", ds.id))
 		return errs.New("XXX")
@@ -29,7 +30,7 @@ func (ds *FooDataSrc) Close() {
 	ds.logger.PushBack(fmt.Sprintf("FooDataSrc %d closed", ds.id))
 }
 
-func (ds *FooDataSrc) CreateDataConn() (DataConn, errs.Err) {
+func (ds *FooDataSrc) CreateDataConn() (sabi.DataConn, errs.Err) {
 	ds.logger.PushBack(fmt.Sprintf("FooDataSrc %d created FooDataConn", ds.id))
 	conn := &FooDataConn{id: ds.id, text: ds.text, logger: ds.logger}
 	return conn, errs.Ok()
@@ -46,18 +47,18 @@ func (conn *FooDataConn) GetText() string {
 	return conn.text
 }
 
-func (conn *FooDataConn) Commit(ag *AsyncGroup) errs.Err {
+func (conn *FooDataConn) Commit(ag *sabi.AsyncGroup) errs.Err {
 	conn.committed = true
 	conn.logger.PushBack(fmt.Sprintf("FooDataConn %d committed", conn.id))
 	return errs.Ok()
 }
 
-func (conn *FooDataConn) PreCommit(ag *AsyncGroup) errs.Err {
+func (conn *FooDataConn) PreCommit(ag *sabi.AsyncGroup) errs.Err {
 	conn.logger.PushBack(fmt.Sprintf("FooDataConn %d pre committed", conn.id))
 	return errs.Ok()
 }
 
-func (conn *FooDataConn) PostCommit(ag *AsyncGroup) {
+func (conn *FooDataConn) PostCommit(ag *sabi.AsyncGroup) {
 	conn.logger.PushBack(fmt.Sprintf("FooDataConn %d post committed", conn.id))
 }
 
@@ -65,11 +66,11 @@ func (conn *FooDataConn) ShouldForceBack() bool {
 	return conn.committed
 }
 
-func (conn *FooDataConn) Rollback(ag *AsyncGroup) {
+func (conn *FooDataConn) Rollback(ag *sabi.AsyncGroup) {
 	conn.logger.PushBack(fmt.Sprintf("FooDataConn %d rollbacked", conn.id))
 }
 
-func (conn *FooDataConn) ForceBack(ag *AsyncGroup) {
+func (conn *FooDataConn) ForceBack(ag *sabi.AsyncGroup) {
 	conn.logger.PushBack(fmt.Sprintf("FooDataConn %d forced back", conn.id))
 }
 
@@ -84,7 +85,7 @@ type BarDataSrc struct {
 	will_fail bool
 }
 
-func (ds *BarDataSrc) Setup(ag *AsyncGroup) errs.Err {
+func (ds *BarDataSrc) Setup(ag *sabi.AsyncGroup) errs.Err {
 	if ds.will_fail {
 		ds.logger.PushBack(fmt.Sprintf("BarDataSrc %d failed to setup", ds.id))
 		return errs.New("XXX")
@@ -98,7 +99,7 @@ func (ds *BarDataSrc) Close() {
 	ds.logger.PushBack(fmt.Sprintf("BarDataSrc %d closed", ds.id))
 }
 
-func (ds *BarDataSrc) CreateDataConn() (DataConn, errs.Err) {
+func (ds *BarDataSrc) CreateDataConn() (sabi.DataConn, errs.Err) {
 	ds.logger.PushBack(fmt.Sprintf("BarDataSrc %d created BarDataConn", ds.id))
 	conn := &BarDataConn{id: ds.id, text: ds.text, logger: ds.logger, ds: ds}
 	return conn, errs.Ok()
@@ -117,19 +118,19 @@ func (conn *BarDataConn) SetText(s string) errs.Err {
 	return errs.Ok()
 }
 
-func (conn *BarDataConn) Commit(ag *AsyncGroup) errs.Err {
+func (conn *BarDataConn) Commit(ag *sabi.AsyncGroup) errs.Err {
 	conn.committed = true
 	conn.ds.text = conn.text
 	conn.logger.PushBack(fmt.Sprintf("BarDataConn %d committed", conn.id))
 	return errs.Ok()
 }
 
-func (conn *BarDataConn) PreCommit(ag *AsyncGroup) errs.Err {
+func (conn *BarDataConn) PreCommit(ag *sabi.AsyncGroup) errs.Err {
 	conn.logger.PushBack(fmt.Sprintf("BarDataConn %d pre committed", conn.id))
 	return errs.Ok()
 }
 
-func (conn *BarDataConn) PostCommit(ag *AsyncGroup) {
+func (conn *BarDataConn) PostCommit(ag *sabi.AsyncGroup) {
 	conn.logger.PushBack(fmt.Sprintf("BarDataConn %d post committed", conn.id))
 }
 
@@ -137,11 +138,11 @@ func (conn *BarDataConn) ShouldForceBack() bool {
 	return conn.committed
 }
 
-func (conn *BarDataConn) Rollback(ag *AsyncGroup) {
+func (conn *BarDataConn) Rollback(ag *sabi.AsyncGroup) {
 	conn.logger.PushBack(fmt.Sprintf("BarDataConn %d rollbacked", conn.id))
 }
 
-func (conn *BarDataConn) ForceBack(ag *AsyncGroup) {
+func (conn *BarDataConn) ForceBack(ag *sabi.AsyncGroup) {
 	conn.logger.PushBack(fmt.Sprintf("BarDataConn %d forced back", conn.id))
 }
 
@@ -170,11 +171,11 @@ func failing_logic(_data SampleData) errs.Err {
 }
 
 type FooDataAcc struct {
-	DataAcc
+	sabi.DataAcc
 }
 
 func (data *FooDataAcc) GetValue() (string, errs.Err) {
-	conn, err := GetDataConn[*FooDataConn](data, "foo")
+	conn, err := sabi.GetDataConn[*FooDataConn](data, "foo")
 	if err.IsNotOk() {
 		return "", err
 	}
@@ -182,11 +183,11 @@ func (data *FooDataAcc) GetValue() (string, errs.Err) {
 }
 
 type BarDataAcc struct {
-	DataAcc
+	sabi.DataAcc
 }
 
 func (data *BarDataAcc) SetValue(text string) errs.Err {
-	conn, err := GetDataConn[*BarDataConn](data, "bar")
+	conn, err := sabi.GetDataConn[*BarDataConn](data, "bar")
 	if err.IsNotOk() {
 		return err
 	}
@@ -195,32 +196,37 @@ func (data *BarDataAcc) SetValue(text string) errs.Err {
 
 ///
 
+type SampleDataHub struct {
+	sabi.DataHub
+	*FooDataAcc
+	*BarDataAcc
+}
+
+func NewSampleDataHub() sabi.DataHub {
+	hub := sabi.NewDataHub()
+	return SampleDataHub{
+		DataHub:    hub,
+		FooDataAcc: &FooDataAcc{DataAcc: hub},
+		BarDataAcc: &BarDataAcc{DataAcc: hub},
+	}
+}
+
+///
+
 func TestLogicArgument(t *testing.T) {
 	t.Run("test", func(t *testing.T) {
-		resetGlobalVariables()
-		defer resetGlobalVariables()
+		sabi.ResetGlobalVariables()
+		defer sabi.ResetGlobalVariables()
 
 		logger := list.New()
 
-		Uses("foo", &FooDataSrc{id: 1, text: "hello", logger: logger, will_fail: false})
-		Uses("bar", &BarDataSrc{id: 2, logger: logger})
+		sabi.Uses("foo", &FooDataSrc{id: 1, text: "hello", logger: logger, will_fail: false})
+		sabi.Uses("bar", &BarDataSrc{id: 2, logger: logger})
 
-		err := Setup().IfOkThen(func() errs.Err {
-			defer Close()
+		err := sabi.Setup().IfOkThen(func() errs.Err {
+			defer sabi.Shutdown()
 
-			hub := func() DataHub {
-				hub := NewDataHub()
-				data := struct {
-					DataHub
-					*FooDataAcc
-					*BarDataAcc
-				}{
-					DataHub:    hub,
-					FooDataAcc: &FooDataAcc{DataAcc: hub},
-					BarDataAcc: &BarDataAcc{DataAcc: hub},
-				}
-				return data
-			}()
+			hub := NewSampleDataHub()
 			defer hub.Close()
 
 			return sample_logic(hub.(SampleData))
@@ -254,21 +260,21 @@ func TestLogicArgument(t *testing.T) {
 
 func TestDataHubRunUsingGlobal(t *testing.T) {
 	t.Run("test", func(t *testing.T) {
-		resetGlobalVariables()
-		defer resetGlobalVariables()
+		sabi.ResetGlobalVariables()
+		defer sabi.ResetGlobalVariables()
 
 		logger := list.New()
 
-		Uses("foo", &FooDataSrc{id: 1, text: "hello", logger: logger, will_fail: false})
-		Uses("bar", &BarDataSrc{id: 2, logger: logger})
+		sabi.Uses("foo", &FooDataSrc{id: 1, text: "hello", logger: logger, will_fail: false})
+		sabi.Uses("bar", &BarDataSrc{id: 2, logger: logger})
 
-		err := Setup().IfOkThen(func() errs.Err {
-			defer Close()
+		err := sabi.Setup().IfOkThen(func() errs.Err {
+			defer sabi.Shutdown()
 
-			hub := func() DataHub {
-				hub := NewDataHub()
+			hub := func() sabi.DataHub {
+				hub := sabi.NewDataHub()
 				data := struct {
-					DataHub
+					sabi.DataHub
 					*FooDataAcc
 					*BarDataAcc
 				}{
@@ -280,7 +286,7 @@ func TestDataHubRunUsingGlobal(t *testing.T) {
 			}()
 			defer hub.Close()
 
-			return Run(hub, sample_logic)
+			return sabi.Run(hub, sample_logic)
 		})
 		assert.True(t, err.IsOk())
 
@@ -311,18 +317,18 @@ func TestDataHubRunUsingGlobal(t *testing.T) {
 
 func TestDataHubRunUsingLocal(t *testing.T) {
 	t.Run("test", func(t *testing.T) {
-		resetGlobalVariables()
-		defer resetGlobalVariables()
+		sabi.ResetGlobalVariables()
+		defer sabi.ResetGlobalVariables()
 
 		logger := list.New()
 
-		err := Setup().IfOkThen(func() errs.Err {
-			defer Close()
+		err := sabi.Setup().IfOkThen(func() errs.Err {
+			defer sabi.Shutdown()
 
-			hub := func() DataHub {
-				hub := NewDataHub()
+			hub := func() sabi.DataHub {
+				hub := sabi.NewDataHub()
 				data := struct {
-					DataHub
+					sabi.DataHub
 					*FooDataAcc
 					*BarDataAcc
 				}{
@@ -337,7 +343,7 @@ func TestDataHubRunUsingLocal(t *testing.T) {
 			hub.Uses("foo", &FooDataSrc{id: 1, text: "hello", logger: logger, will_fail: false})
 			hub.Uses("bar", &BarDataSrc{id: 2, logger: logger})
 
-			return Run(hub, sample_logic)
+			return sabi.Run(hub, sample_logic)
 		})
 		assert.True(t, err.IsOk())
 
@@ -366,18 +372,18 @@ func TestDataHubRunUsingLocal(t *testing.T) {
 	})
 
 	t.Run("test not run logic if fail to setup local data src", func(t *testing.T) {
-		resetGlobalVariables()
-		defer resetGlobalVariables()
+		sabi.ResetGlobalVariables()
+		defer sabi.ResetGlobalVariables()
 
 		logger := list.New()
 
-		err := Setup().IfOkThen(func() errs.Err {
-			defer Close()
+		err := sabi.Setup().IfOkThen(func() errs.Err {
+			defer sabi.Shutdown()
 
-			hub := func() DataHub {
-				hub := NewDataHub()
+			hub := func() sabi.DataHub {
+				hub := sabi.NewDataHub()
 				data := struct {
-					DataHub
+					sabi.DataHub
 					*FooDataAcc
 					*BarDataAcc
 				}{
@@ -392,10 +398,10 @@ func TestDataHubRunUsingLocal(t *testing.T) {
 			hub.Uses("foo", &FooDataSrc{id: 1, text: "hello", logger: logger, will_fail: true})
 			hub.Uses("bar", &BarDataSrc{id: 2, logger: logger})
 
-			return Run(hub, sample_logic)
+			return sabi.Run(hub, sample_logic)
 		})
 		switch r := err.Reason().(type) {
-		case FailToSetupLocalDataSrcs:
+		case sabi.FailToSetupLocalDataSrcs:
 			e := r.Errors["foo"]
 			assert.Equal(t, e.Reason(), "XXX")
 		default:
@@ -411,20 +417,20 @@ func TestDataHubRunUsingLocal(t *testing.T) {
 
 func TestDataHubRunUsingGlobalAndLocal(t *testing.T) {
 	t.Run("test", func(t *testing.T) {
-		resetGlobalVariables()
-		defer resetGlobalVariables()
+		sabi.ResetGlobalVariables()
+		defer sabi.ResetGlobalVariables()
 
 		logger := list.New()
 
-		Uses("bar", &BarDataSrc{id: 1, logger: logger})
+		sabi.Uses("bar", &BarDataSrc{id: 1, logger: logger})
 
-		err := Setup().IfOkThen(func() errs.Err {
-			defer Close()
+		err := sabi.Setup().IfOkThen(func() errs.Err {
+			defer sabi.Shutdown()
 
-			hub := func() DataHub {
-				hub := NewDataHub()
+			hub := func() sabi.DataHub {
+				hub := sabi.NewDataHub()
 				data := struct {
-					DataHub
+					sabi.DataHub
 					*FooDataAcc
 					*BarDataAcc
 				}{
@@ -438,7 +444,7 @@ func TestDataHubRunUsingGlobalAndLocal(t *testing.T) {
 
 			hub.Uses("foo", &FooDataSrc{id: 2, text: "Hello", logger: logger, will_fail: false})
 
-			return Run(hub, sample_logic)
+			return sabi.Run(hub, sample_logic)
 		})
 		assert.True(t, err.IsOk())
 
@@ -469,21 +475,21 @@ func TestDataHubRunUsingGlobalAndLocal(t *testing.T) {
 
 func TestDataHubTxnUsingGlobal(t *testing.T) {
 	t.Run("test", func(t *testing.T) {
-		resetGlobalVariables()
-		defer resetGlobalVariables()
+		sabi.ResetGlobalVariables()
+		defer sabi.ResetGlobalVariables()
 
 		logger := list.New()
 
-		Uses("foo", &FooDataSrc{id: 1, text: "Hello", logger: logger, will_fail: false})
-		Uses("bar", &BarDataSrc{id: 2, logger: logger})
+		sabi.Uses("foo", &FooDataSrc{id: 1, text: "Hello", logger: logger, will_fail: false})
+		sabi.Uses("bar", &BarDataSrc{id: 2, logger: logger})
 
-		err := Setup().IfOkThen(func() errs.Err {
-			defer Close()
+		err := sabi.Setup().IfOkThen(func() errs.Err {
+			defer sabi.Shutdown()
 
-			hub := func() DataHub {
-				hub := NewDataHub()
+			hub := func() sabi.DataHub {
+				hub := sabi.NewDataHub()
 				data := struct {
-					DataHub
+					sabi.DataHub
 					*FooDataAcc
 					*BarDataAcc
 				}{
@@ -495,7 +501,7 @@ func TestDataHubTxnUsingGlobal(t *testing.T) {
 			}()
 			defer hub.Close()
 
-			return Txn(hub, sample_logic)
+			return sabi.Txn(hub, sample_logic)
 		})
 		assert.True(t, err.IsOk())
 
@@ -538,18 +544,18 @@ func TestDataHubTxnUsingGlobal(t *testing.T) {
 
 func TestDataHubTxnUsingLocal(t *testing.T) {
 	t.Run("test", func(t *testing.T) {
-		resetGlobalVariables()
-		defer resetGlobalVariables()
+		sabi.ResetGlobalVariables()
+		defer sabi.ResetGlobalVariables()
 
 		logger := list.New()
 
-		err := Setup().IfOkThen(func() errs.Err {
-			defer Close()
+		err := sabi.Setup().IfOkThen(func() errs.Err {
+			defer sabi.Shutdown()
 
-			hub := func() DataHub {
-				hub := NewDataHub()
+			hub := func() sabi.DataHub {
+				hub := sabi.NewDataHub()
 				data := struct {
-					DataHub
+					sabi.DataHub
 					*FooDataAcc
 					*BarDataAcc
 				}{
@@ -564,7 +570,7 @@ func TestDataHubTxnUsingLocal(t *testing.T) {
 			hub.Uses("foo", &FooDataSrc{id: 1, text: "Hello", logger: logger, will_fail: false})
 			hub.Uses("bar", &BarDataSrc{id: 2, logger: logger})
 
-			return Txn(hub, sample_logic)
+			return sabi.Txn(hub, sample_logic)
 		})
 		assert.True(t, err.IsOk())
 
@@ -605,18 +611,18 @@ func TestDataHubTxnUsingLocal(t *testing.T) {
 	})
 
 	t.Run("test not run logic if fail to setup local data src", func(t *testing.T) {
-		resetGlobalVariables()
-		defer resetGlobalVariables()
+		sabi.ResetGlobalVariables()
+		defer sabi.ResetGlobalVariables()
 
 		logger := list.New()
 
-		err := Setup().IfOkThen(func() errs.Err {
-			defer Close()
+		err := sabi.Setup().IfOkThen(func() errs.Err {
+			defer sabi.Shutdown()
 
-			hub := func() DataHub {
-				hub := NewDataHub()
+			hub := func() sabi.DataHub {
+				hub := sabi.NewDataHub()
 				data := struct {
-					DataHub
+					sabi.DataHub
 					*FooDataAcc
 					*BarDataAcc
 				}{
@@ -631,10 +637,10 @@ func TestDataHubTxnUsingLocal(t *testing.T) {
 			hub.Uses("foo", &FooDataSrc{id: 1, text: "Hello", logger: logger, will_fail: true})
 			hub.Uses("bar", &BarDataSrc{id: 2, logger: logger})
 
-			return Txn(hub, sample_logic)
+			return sabi.Txn(hub, sample_logic)
 		})
 		switch r := err.Reason().(type) {
-		case FailToSetupLocalDataSrcs:
+		case sabi.FailToSetupLocalDataSrcs:
 			e := r.Errors["foo"]
 			assert.Equal(t, e.Reason(), "XXX")
 		default:
@@ -648,18 +654,18 @@ func TestDataHubTxnUsingLocal(t *testing.T) {
 	})
 
 	t.Run("test fail to run logic in txn and rollback", func(t *testing.T) {
-		resetGlobalVariables()
-		defer resetGlobalVariables()
+		sabi.ResetGlobalVariables()
+		defer sabi.ResetGlobalVariables()
 
 		logger := list.New()
 
-		err := Setup().IfOkThen(func() errs.Err {
-			defer Close()
+		err := sabi.Setup().IfOkThen(func() errs.Err {
+			defer sabi.Shutdown()
 
-			hub := func() DataHub {
-				hub := NewDataHub()
+			hub := func() sabi.DataHub {
+				hub := sabi.NewDataHub()
 				data := struct {
-					DataHub
+					sabi.DataHub
 					*FooDataAcc
 					*BarDataAcc
 				}{
@@ -674,7 +680,7 @@ func TestDataHubTxnUsingLocal(t *testing.T) {
 			hub.Uses("foo", &FooDataSrc{id: 1, text: "Hello", logger: logger, will_fail: false})
 			hub.Uses("bar", &BarDataSrc{id: 2, logger: logger})
 
-			return Txn(hub, failing_logic)
+			return sabi.Txn(hub, failing_logic)
 		})
 		assert.Equal(t, err.Reason(), "ZZZ")
 
@@ -695,20 +701,20 @@ func TestDataHubTxnUsingLocal(t *testing.T) {
 
 func TestDataHubTxnUsingGlobalAndLocal(t *testing.T) {
 	t.Run("test", func(t *testing.T) {
-		resetGlobalVariables()
-		defer resetGlobalVariables()
+		sabi.ResetGlobalVariables()
+		defer sabi.ResetGlobalVariables()
 
 		logger := list.New()
 
-		Uses("bar", &BarDataSrc{id: 1, logger: logger})
+		sabi.Uses("bar", &BarDataSrc{id: 1, logger: logger})
 
-		err := Setup().IfOkThen(func() errs.Err {
-			defer Close()
+		err := sabi.Setup().IfOkThen(func() errs.Err {
+			defer sabi.Shutdown()
 
-			hub := func() DataHub {
-				hub := NewDataHub()
+			hub := func() sabi.DataHub {
+				hub := sabi.NewDataHub()
 				data := struct {
-					DataHub
+					sabi.DataHub
 					*FooDataAcc
 					*BarDataAcc
 				}{
@@ -722,7 +728,7 @@ func TestDataHubTxnUsingGlobalAndLocal(t *testing.T) {
 
 			hub.Uses("foo", &FooDataSrc{id: 2, text: "Hello", logger: logger, will_fail: false})
 
-			return Txn(hub, sample_logic)
+			return sabi.Txn(hub, sample_logic)
 		})
 		assert.True(t, err.IsOk())
 
