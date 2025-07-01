@@ -231,6 +231,6 @@ See the file LICENSE in this distribution for more details.
 [pkg-dev-img]: https://pkg.go.dev/badge/github.com/sttk/sabi.svg
 [pkg-dev-url]: https://pkg.go.dev/github.com/sttk/sabi
 [ci-img]: https://github.com/sttk/sabi/actions/workflows/go.yml/badge.svg?branch=main
-[ci-url]: https://github.com/sttk/sabi/actions
+[ci-url]: https://github.com/sttk/sabi/actions?query=branch%3Amain
 [mit-img]: https://img.shields.io/badge/license-MIT-green.svg
 [mit-url]: https://opensource.org/licenses/MIT
