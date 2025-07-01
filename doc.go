@@ -73,9 +73,8 @@ The following is a sample code using this framework
 
 	func MyLogic(data MyData) errs.Err {
 		text, err := data.GetText()
-		if err != nil {
-			return err
-		}
+		if err != nil { return err }
+    // ...
 		return data.SetText(text)
 	}
 
@@ -84,12 +83,16 @@ The following is a sample code using this framework
 	type GettingDataAcc struct { sabi.DataAcc }
 	func (data *GettingDataAcc) GetText() (string, errs.Err) {
 		conn, err := sabi.GetDataConn[*FooDataConn](data, "foo")
-		return "output text"
+		if err != nil { return "", err }
+    // ...
+		return "output text", errs.Ok()
 	}
 
 	type SettingDataAcc struct { sabi.DataAcc }
 	func (data *SettingDataAcc) SetText(text string) errs.Err {
 		conn, err := sabi.GetDataConn[*BarDataConn](data, "bar")
+		if err != nil { return err }
+    // ...
 		return errs.Ok()
 	}
 
@@ -97,15 +100,15 @@ The following is a sample code using this framework
 
 	type MyDataHub struct {
 		sabi.DataHub
-		*FooDataAcc
-		*BarDataAcc
+		*GettingDataAcc
+		*SettingDataAcc
 	}
 	func NewMyDataHub() sabi.DataHub {
 		hub := sabi.NewDataHub()
 		return MyDataHub {
 			DataHub: hub,
-			FooDataAcc: &FooDataAcc{DataAcc: hub},
-			BarDataAcc: &BarDataAcc{DataAcc: hub},
+			GettingDataAcc: &GettingDataAcc{DataAcc: hub},
+			SettingDataAcc: &SettingDataAcc{DataAcc: hub},
 		}
 	}
 
@@ -122,19 +125,19 @@ The following is a sample code using this framework
 		}
 	}
 
-	func run() {
+	func run() errs.Err {
 		// Set up the sabi framework.
 		if err := sabi.Setup(); err != nil { return err }
 		defer sabi.Shutdown()
 
 		// Creates a new instance of DataHub.
-		data := sabi.NewDataHub()
+		data := sabi.NewMyDataHub()
 		// Register session-local DataSrc with DataHub.
 		data.Uses("bar", &BarDataSrc{})
 
 		// Execute application logic within a transaction.
 		// my_logic performs data operations via DataHub.
-		return sabi.Txn(my_logic)
+		return sabi.Txn(data, MyLogic)
 	}
 */
 package sabi

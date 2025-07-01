@@ -1,539 +1,227 @@
 # [Sabi][repo-url] [![Go Reference][pkg-dev-img]][pkg-dev-url] [![CI Status][ci-img]][ci-url] [![MIT License][mit-img]][mit-url]
 
-A small framework to separate logics and data accesses for Golang application.
+A small framework for Go designed to separate logic from data access.
 
-## Concepts
+It achieves this by connecting the logic layer and the data access layer via interfaces, similar to traditional Dependency Injection (DI).
+This reduces the dependency between the two, allowing them to be implemented and tested independently.
 
-The overall concept of this framework is separation and reintegration of
-necessary and redundant parts based on the perspectives of the whole and the
-parts.
-The separation of logics and data accesses is the most prominent and
-fundamental part of this concept.
+However, traditional DI often presented inconvenience in how methods were grouped.
+Typically, methods were grouped by external data service like a database or by database table.
+This meant the logic layer had to depend on units defined by the data access layer's concerns.
+Furthermore, such interfaces often contained more methods than a specific piece of logic needed, making it
+difficult to tell which methods were actually used in the logic without tracing the code.
 
-### Separation of logics and data accesses
+This framework addresses that inconvenience.
+The data access interface used by a logic function is unique to that specific logic, passed as an argument
+to the logic function.
+This interface declares all the data access methods that specific logic will use.
 
-In general, a program consists of procedures and data. And procedures include
-data accesses for operating data, and the rest of procedures are logics.
-So we can say that a program consists of logics, data accesses and data.
+On the data access layer side, implementations can be provided by concrete types that fulfill multiple `DataAcc` derived structs.
+This allows for implementation in any arbitrary unit — whether by external data service, by table,
+or by functional concern.
 
-We often think to separate an application to multiple layers, for example,
-controller layer, business logic layer, and data access layer.
-The logics and data accesses mentioned in this framework may appear to follow
-such layering.
-However, the controller layer also has data accesses such as transforming user
-requests and responses for the business logic layer.
-Generally, such layers of an application is established as vertically
-positioned stages of data processing within a data flow.
+This is achieved through the following mechanism:
 
-In this framework, the relationship between logics and data accesses is not
-defined by layers but by lanes.
-Although their relationship is vertical in terms of invocation, it is
-conceptually horizontal.
-`DaxBase` serves as an intermediary that connects both of them.
+* A `DataHub` struct aggregates all data access methods.
+  `DataAcc` derived structs are attached to `DataHub`, giving `DataHub` the implementations of
+  the data access methods.
+* Logic functions accept specific, narrowly defined data access interfaces as arguments.
+  These interfaces declare only the methods relevant to that particular piece of logic.
+* The `DataHub` type implements all of these specific data access interfaces. When a `DataHub`
+  instance is passed to a logic function, the logic function interacts with it via the narrower
+  interface, ensuring it only sees and uses the methods it needs. 
+  Using Go's embedding mechanism, a type implements an interface by methods of other structs.
+  The `DataHub` simply needs to have methods that match the signatures of all the methods declared
+  across the various logic-facing data access interfaces.
 
-### Separation of data accesses for each logic
+This approach provides strong compile-time guarantees that logic only uses what it declares, while
+allowing flexible organization of data access implementations.
 
-A logic is a function that takes a dax interface as its only one argument.
-The type of this dax is declared by the type parameter of the logic function,
-and also the type parameter of the transaction function, `Txn`, that executes
-logics.
+## Installation
 
-Therefore, since the type of dax can be changed for each logic or transaction,
-it is possible to limit data accesses used by the logic, by declaring only
-necessary data access methods from among ones defined in `DaxBase` instance.
-
-At the same time, since all data accesses of a logic is done through this sole
-dax interface, this dax interface serves as a list of data access methods used
-by a logic.
-
-### Separation of data accesses by data sources and reintegration of them
-
-Data access methods are implemented as methods of some `Dax` structs that
-embedding a `DaxBase`.
-Furthermore these `Dax` structs are integrated into a single new `DaxBase`.
-
-A `Dax` struct can be created at any unit, but it is clearer to create it at
-the unit of the data source.
-By doing so, the definition of a new `DaxBase` also serves as a list of the
-data sources being used.
-
-
-## Import declaration
-
-To use this package in your code, the following import declaration is necessary.
-
-```
-import (
-    "github.com/sttk/sabi"
-    "github.com/sttk/sabi/errs"
-)
+```sh
+go get github.com/sttk/sabi
 ```
 
 ## Usage
 
-### Logic and an interface for its data access
+### 1. Implementing `DataSrc` and `DataConn`
 
-A logic is implemented as a function.
-This function takes only an argument, dax, which is an interface that gathers
-only the data access methods needed by this logic function.
+First, you'll define `DataSrc` which manages connections to external data services and creates
+`DataConn`.
+Then, you'll define `DataConn` which represents a session-specific connection and implements
+transactional operations.
 
-Since a dax for a logic conceals details of data access procedures, this
-function only includes logical procedures.
-In this logical part, there is no concern about where the data is input from or where it is output to.
-
-For example, in the following code, `GreetLogic` is a logic function and
-`GreetDax` is a dax interface for `GreetLogic`.
-
-```
-type ( // possible error reasons
-    NoName        struct{}
-    FailToGetHour struct{}
-    FailToOutput  struct{ Text string }
+```go
+import (
+    "github.com/sttk/errs"
+    "github.com/sttk/sabi"
 )
 
-type GreetDax interface {
-    UserName() (string, errs.Err)
-    Hour() (int, errs.Err)
-    Output(text string) errs.Err
-}
+type FooDataSrc struct {}
+func (ds *FooDataSrc) Setup(ag *sabi.AsyncGroup) errs.Err { return errs.Ok() }
+func (ds *FooDataSrc) Close() {}
+func (ds *FooDataSrc) CreateDataConn() (sabi.DataConn, errs.Err) { return &FooDataConn{}, errs.Ok() }
 
-func GreetLogic(dax GreetDax) errs.Err {
-    hour, err := dax.Hour()
-    if err.IsNotOk() {
-        return err
-    }
+type FooDataConn struct {}
+func (conn *FooDataConn) Commit(ag *sabi.AsyncGroup) errs.Err { return errs.Ok() }
+func (conn *FooDataConn) PreCommit(ag *sabi.AsyncGroup) errs.Err { return errs.Ok() }
+func (conn *FooDataConn) PostCommit(ag *sabi.AsyncGroup) {}
+func (conn *FooDataConn) ShouldForceBack() bool { return false }
+func (conn *FooDataConn) Rollback(ag *sabi.AsyncGroup) {}
+func (conn *FooDataConn) ForceBack(ag *sabi.AsyncGroup) {}
+func (conn *FooDataConn) Close() {}
 
-    var s string
-    switch {
-    case 5 <= hour && hour < 12:
-        s = "Good morning, "
-    case 12 <= hour && hour < 16:
-        s = "Good afternoon, "
-    case 16 <= hour && hour < 21:
-        s = "Good evening, "
-    default:
-        s = "Hi, "
-    }
+type BarDataSrc struct {}
+func (ds *BarDataSrc) Setup(ag *sabi.AsyncGroup) errs.Err { return errs.Ok() }
+func (ds *BarDataSrc) Close() {}
+func (ds *BarDataSrc) CreateDataConn() (sabi.DataConn, errs.Err) { return &BarDataConn{}, errs.Ok() }
 
-    err = dax.Output(s)
-    if err.IsNotOk() {
-        return err
-    }
-
-    name, err := dax.UserName()
-    if err.IsNotOk() {
-        return err
-    }
-
-    return dax.Output(name + ".\n")
-}
+type BarDataConn struct {}
+func (conn *BarDataConn) Commit(ag *sabi.AsyncGroup) errs.Err { return errs.Ok() }
+func (conn *BarDataConn) PreCommit(ag *sabi.AsyncGroup) errs.Err { return errs.Ok() }
+func (conn *BarDataConn) PostCommit(ag *sabi.AsyncGroup) {}
+func (conn *BarDataConn) ShouldForceBack() bool { return false }
+func (conn *BarDataConn) Rollback(ag *sabi.AsyncGroup) {}
+func (conn *BarDataConn) ForceBack(ag *sabi.AsyncGroup) {}
+func (conn *BarDataConn) Close() {}
 ```
 
-In `GreetLogic`, there are no codes for inputting the hour, inputting a user
-name, and outputing a greeting.
-This logic function has only concern to create a greeting text.
+### 2. Implementing logic functions and data traits
 
-### Data accesses for unit testing
+Define interfaces and functions that express your application logic.
+These interfaces are independent of specific data source implementations, improving testability.
 
-To test a logic function, the simplest dax struct is what using a map.
-The following code is an example of a dax struct using a map and having
-three methods that are same to `GreetDax` interface methods above.
-
-```
-type MapGreetDax struct {
-    sabi.Dax
-    m map[string]any
+```go
+type MyData interface {
+    GetText() (string, errs.Err)
+    SetText(text string) errs.Err
 }
 
-func (dax MapGreetDax) UserName() (string, errs.Err) {
-    name, exists := dax.m["username"]
-    if !exists {
-        return "", errs.New(NoName{})
-    }
-    return name.(string), errs.Ok()
-}
-
-func (dax MapGreetDax) Hour() (int, errs.Err) {
-    hour, exists := dax.m["hour"]
-    if !exists {
-        return 0, errs.New(FailToGetHour{})
-    }
-    return hour.(int), errs.Ok()
-}
-
-func (dax MapGreetDax) Output(text string) errs.Err {
-    var s string
-    v, exists := dax.m["greeting"]
-    if exists {
-        s = v.(string)
-    }
-    if s == "error" { // for testings the error case
-        return errs.New(FailToOutput{Text: text})
-    }
-    dax.m["greeting"] = s + text
-    return errs.Ok()
-}
-
-func NewMapGreetDaxBase(m map[string]any) sabi.DaxBase {
-    base := sabi.NewDaxBase()
-    return struct {
-        sabi.DaxBase
-        MapGreetDax
-    }{
-        DaxBase:     base,
-        MapGreetDax: MapGreetDax{m: m},
-    }
-}
-```
-
-And the following code is an example of a test case.
-
-```
-func TestGreetLogic_morning(t *testing.T) {
-    m := make(map[string]any)
-    base := NewMapGreetDaxBase(m)
-
-    m["username"] = "everyone"
-    m["hour"] = 10
-
-    err := sabi.Txn(base, GreetLogic)
-    if err.IsNotOk() {
-        t.Errorf(err.Error())
-    }
-
-    if m["greeting"] != "Good morning, everyone.\n" {
-        t.Errorf("Bad greeting: %v\n", m["greeting"])
-    }
-}
-```
-
-### Data accesses for actual use
-
-In actual use, multiple data sources are often used.
-In this example, an user name and the hour are input as command line argument,
-and greeting is output to console.
-Therefore, two dax struct are created and they are integrated into a new struct
-based on `DaxBase`.
-Since Golang is structural typing language, this new DaxBase can be casted to
-`GreetDax`.
-
-The following code is an example of a dax struct which inputs an user name and
-the hour from command line argument.
-
-```
-type CliArgsDax struct {
-    sabi.Dax
-}
-
-func (dax CliArgsDax) UserName() (string, errs.Err) {
-    if len(os.Args) <= 1 {
-        return "", errs.New(NoName{})
-    }
-    return os.Args[1], errs.Ok()
-}
-
-func (dax CliArgsDax) Hour() (int, errs.Err) {
-    if len(os.Args) <= 2 {
-        return 0, errs.New(FailToGetHour{})
-    }
-    n, err := strconv.Atoi(os.Args[2])
+func MyLogic(data MyData) errs.Err {
+    text, err := data.GetText()
     if err != nil {
-        return 0, errs.New(FailToGetHour{}, err)
+        return err
     }
-    return n, errs.Ok()
+    return data.SetText(text)
 }
 ```
 
-The following code is an example of a dax struct which output a text to
-console.
+### 3. Implementing `DataAcc` derived structs
 
-```
-type ConsoleDax struct {
-    sabi.Dax
+The `DataAcc` interface abstracts access to data connections.
+The methods defined here will be used to obtain data connections via `DataHub` and perform
+actual data operations.
+
+```go
+type GettingDataAcc struct { sabi.DataAcc }
+func (data *GettingDataAcc) GetText() (string, errs.Err) {
+    conn, err := sabi.GetDataConn[*FooDataConn](data, "foo")
+    if err != nil { return "", err }
+    return "output text", errs.Ok()
 }
 
-func (dax ConsoleDax) Output(text string) errs.Err {
-    fmt.Print(text)
+type SettingDataAcc struct { sabi.DataAcc }
+func (data *SettingDataAcc) SetText(text string) errs.Err {
+    conn, err := sabi.GetDataConn[*BarDataConn](data, "bar")
+    if err != nil { return err }
     return errs.Ok()
 }
 ```
 
-And the following code is an example of a constructor function of a struct
-based on `DaxBase` into which the above two dax are integrated.
-This implementation also serves as a list of the external data sources being
-used.
+### 4. Integrating data interfaces and `DataAcc` derived structs into `DataHub`
 
-```
-func NewGreetDaxBase() sabi.DaxBase {
-    base := sabi.NewDaxBase()
-    return struct {
-        sabi.DaxBase
-        CliArgsDax
-        ConsoleDax
-    }{
-        DaxBase:    base,
-        CliArgsDax: CliArgsDax{Dax: base},
-        ConsoleDax: ConsoleDax{Dax: base},
+The `DataHub` is the central component that manages all `DataSrc` and `DataConn`,
+providing access to them for your application logic.
+By implementing the data interface (`MyData`) from step 2 and the `DataAcc` structs
+from step 3 on `DataHub`, you integrate them.
+
+```go
+type MyDataHub struct {
+    sabi.DataHub
+    *GettingDataAcc
+    *SettingDataAcc
+}
+
+func NewMyDataHub() sabi.DataHub {
+    hub := sabi.NewDataHub()
+    return MyDataHub {
+        DataHub: hub,
+        GettingDataAcc: &GettingDataAcc{DataAcc: hub},
+        SettingDataAcc: &SettingDataAcc{DataAcc: hub},
     }
 }
 ```
 
-### Executing a logic
+### 5. Using logic functions and `DataHub`
 
-The following code executes the above `GreetLogic` in a transaction process.
+Inside your `init` function, register your global `DataSrc`.
+Next, `main` function calls `run` function, and inside `run` function, setup the `sabi` framework.
+Then, create an instance of `DataHub` and register the necessary local `DataSrc` using
+the `Uses` method.
+Finally, use the `txn` method of `DataHub` to execute your defined application logic
+function (`MyLogic`) within a transaction.
+This automatically handles transaction commits and rollbacks.
 
-```
-func app() errs.Err {
-    base := NewGreetDaxBase()
-    defer base.Close()
-
-    return sabi.Txn(base, GreetLogic)
+```go
+func init() {
+    // Register global DataSrc.
+    sabi.Uses("foo", &FooDataSrc{})
 }
 
 func main() {
-    if err := sabi.StartApp(app); err.IsNotOk() {
-        fmt.Println(err.Error())
+    if run().IsNotOk() {
         os.Exit(1)
     }
 }
-```
 
-### Changing to a dax of another data source
+func run() errs.Err {
+    // Set up the sabi framework.
+    if err := sabi.Setup(); err != nil { return err }
+    defer sabi.Shutdown()
 
-In the above codes, the hour is obtained from command line arguments.
-Here, assume that the specification has been changed to retrieve it
-from system clock instread.
+    // Creates a new instance of DataHub.
+    data := sabi.NewMyDataHub()
+    // Register session-local DataSrc with DataHub.
+    data.Uses("bar", &BarDataSrc{})
 
-In this case, we can solve this by removing the `Hour` method from `CliArgsDax`
-and creating a new dax, `SystemClockDax`, which has `Hour` method to retrieve
-a hour from system clock.
-
-```
-// func (dax CliArgsDax) Hour() (int, errs.Err) {  // Removed
-//     ...
-// }
-```
-```
-type SystemClockDax struct {
-    sabi.Dax
-}
-
-func (dax SystemClockDax) Hour() (int, errs.Err) {
-    return time.Now().Hour(), errs.Ok()
+    // Execute application logic within a transaction.
+    // MyLogic performs data operations via DataHub.
+    return sabi.Txn(data, MyLogic)
 }
 ```
-
-And the `DaxBase` struct, into which multiple dax structs have been integrated,
-is modified as follows.
-
-```
-func NewGreetDaxBase() sabi.DaxBase {
-    base := sabi.NewDaxBase()
-    return struct {
-        sabi.DaxBase
-        CliArgsDax
-        SystemClockDax  // Added
-        ConsoleDax
-    } {
-        DaxBase: base,
-        CliArgsDax: CliArgsDax{Dax: base},
-        SystemClockDax: SystemClockDax{Dax: base},  // Added
-        ConsoleDax: ConsoleDax{Dax: base},
-    }
-}
-```
-
-### Moving outputs to next transaction process
-
-The above codes works normally if no error occurs.
-But if an error occurs at getting user name, a incomplete string is being
-output to console.
-Such behavior is not appropriate for transaction processing.
-
-So we should change the above codes to store in memory temporarily in the
-existing transaction process, and then output to console in the next
-transaction.
-
-The following code is the logic to output text to console in next transaction
-process and the dax interface for this logic.
-
-```
-type PrintDax interface {
-    GetText() (string, errs.Err)
-    Print(text string) errs.Err
-}
-
-func PrintLogic(dax PrintDax) errs.Err {
-    text, err := dax.GetText()
-    if err.IsNotOk() {
-        return err
-    }
-    return dax.Print(text)
-}
-```
-
-Here, we try to create a `DaxSrc` and `DaxConn` for memory store, too.
-Though a dax for memroy store will be a struct and it can have its own state,
-it is better that the `DaxSrc` holds the memory store as its state because of
-the manner of this framework that a `Dax` struct for each data store, not yet
-reintegrated in a `DaxBase`, should not hold state, and enabling transaction
-control such as cleaning the memory store when an error occurs.
-
-The following codes are the implementations of `MemoryDaxSrc`, `MemoryDaxConn`,
-and `MemoryDax`.
-
-```
-type MemoryDaxSrc struct {
-    buf strings.Builder
-}
-
-func (ds *MemoryDaxSrc) Setup(ag sabi.AsyncGroup) errs.Err {
-    return errs.Ok()
-}
-
-func (ds *MemoryDaxSrc) Close() {
-    ds.buf.Reset()
-}
-
-func (ds *MemoryDaxSrc) CreateDaxConn() (sabi.DaxConn, errs.Err) {
-    return MemoryDaxConn{buf: &(ds.buf)}, errs.Ok()
-}
-```
-```
-type MemoryDaxConn struct {
-    buf *strings.Builder
-}
-
-func (conn MemoryDaxConn) Append(text string) {
-    conn.buf.WriteString(text)
-}
-
-func (conn MemoryDaxConn) Get() string {
-    return conn.buf.String()
-}
-
-func (conn MemoryDaxConn) Commit(ag sabi.AsyncGroup) errs.Err {
-    return errs.Ok()
-}
-
-func (conn MemoryDaxConn) IsCommitted() bool {
-    return true
-}
-
-func (conn MemoryDaxConn) Rollback(ag sabi.AsyncGroup) {
-}
-
-func (conn MemoryDaxConn) ForceBack(ag sabi.AsyncGroup) {
-    conn.buf.setLength(0);
-}
-
-func (conn MemoryDaxConn) Close() {
-}
-```
-```
-type MemoryDax struct {
-    sabi.Dax
-}
-
-func (dax MemoryDax) Output(text string) errs.Err {
-    conn, err := sabi.GetDaxConn[MemoryDaxConn](dax, "memory")
-    if err.IsNotOk() {
-        return err
-    }
-    conn.Append(text)
-    return err
-}
-
-func (dax MemoryDax) GetText() (string, errs.Err) {
-    conn, err := sabi.GetDaxConn[MemoryDaxConn](dax, "memory")
-    if err.IsNotOk() {
-        return "", err
-    }
-    return conn.Get(), err
-}
-```
-```
-func NewGreetDaxBase() sabi.DaxBase {
-    base := sabi.NewDaxBase()
-    return struct {
-        sabi.DaxBase
-        CliArgsDax
-        SystemClockDax
-        MemoryDax  // Added
-        ConsoleDax
-    }{
-        DaxBase:        base,
-        CliArgsDax:     CliArgsDax{Dax: base},
-        SystemClockDax: SystemClockDax{Dax: base},
-        MemoryDax:      MemoryDax{Dax: base},  // Added
-        ConsoleDax:     ConsoleDax{Dax: base},
-    }
-}
-```
-```
-func app() errs.Err {
-    base := NewGreetDaxBase()
-    defer base.Close()
-
-    return base.Uses("memory", MemoryDaxSrc{}).  // Added
-        IfOk(sabi.Txn_(base, GreenLogic)).  // Changed
-        IfOk(sabi.Txn_(base, PrintLogic))   // Added
-}
-```
-
-And we need to change the name of the method `ConsoleDax#Output` to avoid name
-collision with the method `MemoryDax#Output`.
-
-```
-func (dax ConsoleDax) Print(text string) errs.Err {  // Changed from Output
-    fmt.Print(text)
-    return errs.Ok()
-}
-```
-
-That completes it.
-
-The important point is that the `GreetLogic` function is not changed.
-Since these changes are not related to the existing application logic, it is
-limited to the data access part (and the part around the newly added logic)
-only.
-
 
 ## Supporting Go versions
 
-This framework supports Go 1.18 or later.
+This framework supports Go 1.21 or later.
 
 ### Actual test results for each Go version:
 
 ```
 % gvm-fav
-Now using version go1.18.10
-go version go1.18.10 darwin/amd64
-ok  	github.com/sttk/sabi	0.604s	coverage: 100.0% of statements
-ok  	github.com/sttk/sabi/errs	0.773s	coverage: 100.0% of statements
+Now using version go1.21.13
+go version go1.21.13 darwin/amd64
+ok  	github.com/sttk/sabi	8.749s	coverage: 96.8% of statements
 
-Now using version go1.19.13
-go version go1.19.13 darwin/amd64
-ok  	github.com/sttk/sabi	0.562s	coverage: 100.0% of statements
-ok  	github.com/sttk/sabi/errs	0.735s	coverage: 100.0% of statements
+Now using version go1.22.12
+go version go1.22.12 darwin/amd64
+ok  	github.com/sttk/sabi	8.747s	coverage: 96.8% of statements
 
-Now using version go1.20.8
-go version go1.20.8 darwin/amd64
-ok  	github.com/sttk/sabi	0.680s	coverage: 100.0% of statements
-ok  	github.com/sttk/sabi/errs	0.732s	coverage: 100.0% of statements
+Now using version go1.23.10
+go version go1.23.10 darwin/amd64
+ok  	github.com/sttk/sabi	8.737s	coverage: 96.8% of statements
 
-Now using version go1.21.1
-go version go1.21.1 darwin/amd64
-ok  	github.com/sttk/sabi	0.572s	coverage: 100.0% of statements
-ok  	github.com/sttk/sabi/errs	0.836s	coverage: 100.0% of statements
+Now using version go1.24.4
+go version go1.24.4 darwin/amd64
+ok  	github.com/sttk/sabi	8.753s	coverage: 96.8% of statements
 
-Back to go1.21.1
-Now using version go1.21.1
+Back to go1.24.4
+Now using version go1.24.4
 ```
 
 ## License
 
-Copyright (C) 2022-2023 Takayuki Sato
+Copyright (C) 2022-2025 Takayuki Sato
 
 This program is free software under MIT License.<br>
 See the file LICENSE in this distribution for more details.
