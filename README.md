@@ -61,7 +61,7 @@ import (
 type FooDataSrc struct {}
 func (ds *FooDataSrc) Setup(ag *sabi.AsyncGroup) errs.Err { return errs.Ok() }
 func (ds *FooDataSrc) Close() {}
-func (ds *FooDataSrc) CreateDataConn() (sabi.DataConn, errs.Err) { return FooDataConn{}, errs.Ok() }
+func (ds *FooDataSrc) CreateDataConn() (sabi.DataConn, errs.Err) { return &FooDataConn{}, errs.Ok() }
 
 type FooDataConn struct {}
 func (conn *FooDataConn) Commit(ag *sabi.AsyncGroup) errs.Err { return errs.Ok() }
