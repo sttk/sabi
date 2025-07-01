@@ -30,8 +30,7 @@ This is achieved through the following mechanism:
 * The `DataHub` type implements all of these specific data access interfaces. When a `DataHub`
   instance is passed to a logic function, the logic function interacts with it via the narrower
   interface, ensuring it only sees and uses the methods it needs. 
-  By embedding mechanism of Go, an interface is satisfied all its methods by other structs that
-  implements them.
+  Using Go's embedding mechanism, a type implements an interface by methods of other structs.
   The `DataHub` simply needs to have methods that match the signatures of all the methods declared
   across the various logic-facing data access interfaces.
 
@@ -138,16 +137,16 @@ from step 3 on `DataHub`, you integrate them.
 ```go
 type MyDataHub struct {
     sabi.DataHub
-    *FooDataAcc
-    *BarDataAcc
+    *GettingDataAcc
+    *SettingDataAcc
 }
 
 func NewMyDataHub() sabi.DataHub {
     hub := sabi.NewDataHub()
     return MyDataHub {
         DataHub: hub,
-        FooDataAcc: &FooDataAcc{DataAcc: hub},
-        BarDataAcc: &BarDataAcc{DataAcc: hub},
+        GettingDataAcc: &GettingDataAcc{DataAcc: hub},
+        SettingDataAcc: &SettingDataAcc{DataAcc: hub},
     }
 }
 ```
@@ -180,13 +179,13 @@ func run() errs.Err {
     defer sabi.Shutdown()
 
     // Creates a new instance of DataHub.
-    data := sabi.NewDataHub()
+    data := sabi.NewMyDataHub()
     // Register session-local DataSrc with DataHub.
     data.Uses("bar", &BarDataSrc{})
 
     // Execute application logic within a transaction.
-    // my_logic performs data operations via DataHub.
-    return sabi.Txn(data, my_logic)
+    // MyLogic performs data operations via DataHub.
+    return sabi.Txn(data, MyLogic)
 }
 ```
 
