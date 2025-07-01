@@ -39,11 +39,8 @@ allowing flexible organization of data access implementations.
 
 ## Installation
 
-```go
-import (
-    "github.com/sttk/sabi"
-    "github.com/sttk/errs"
-)
+```sh
+go get github.com/sttk/sabi
 ```
 
 ## Usage
@@ -56,6 +53,11 @@ Then, you'll define `DataConn` which represents a session-specific connection an
 transactional operations.
 
 ```go
+import (
+    "github.com/sttk/errs"
+    "github.com/sttk/sabi"
+)
+
 type FooDataSrc struct {}
 func (ds *FooDataSrc) Setup(ag *sabi.AsyncGroup) errs.Err { return errs.Ok() }
 func (ds *FooDataSrc) Close() {}
