@@ -158,9 +158,9 @@ func NewMyDataHub() sabi.DataHub {
 Inside your `init` function, register your global `DataSrc`.
 Next, `main` function calls `run` function, and inside `run` function, setup the `sabi` framework.
 Then, create an instance of `DataHub` and register the necessary local `DataSrc` using
-the `uses` method.
+the `Uses` method.
 Finally, use the `txn` method of `DataHub` to execute your defined application logic
-function (`my_logic`) within a transaction.
+function (`MyLogic`) within a transaction.
 This automatically handles transaction commits and rollbacks.
 
 ```go
