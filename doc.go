@@ -53,7 +53,7 @@ The following is a sample code using this framework
 	type BarDataSrc struct {}
 	func (ds *BarDataSrc) Setup(ag *sabi.AsyncGroup) errs.Err { return errs.Ok() }
 	func (ds *BarDataSrc) Close() {}
-	func (ds *BarDataSrc) CreateDataConn() (sabi.DataConn, errs.Err) { return &FooDataConn{}, errs.Ok() }
+	func (ds *BarDataSrc) CreateDataConn() (sabi.DataConn, errs.Err) { return &BarDataConn{}, errs.Ok() }
 
 	type BarDataConn struct {}
 	func (conn *BarDataConn) Commit(ag *sabi.AsyncGroup) errs.Err { return errs.Ok() }
@@ -83,13 +83,13 @@ The following is a sample code using this framework
 
 	type GettingDataAcc struct { sabi.DataAcc }
 	func (data *GettingDataAcc) GetText() (string, errs.Err) {
-		conn, err := GetDataConn[*FooDataConn](data, "foo")
+		conn, err := sabi.GetDataConn[*FooDataConn](data, "foo")
 		return "output text"
 	}
 
 	type SettingDataAcc struct { sabi.DataAcc }
 	func (data *SettingDataAcc) SetText(text string) errs.Err {
-		conn, err := GetDataConn[*BarDataConn](data, "bar")
+		conn, err := sabi.GetDataConn[*BarDataConn](data, "bar")
 		return errs.Ok()
 	}
 
@@ -116,6 +116,12 @@ The following is a sample code using this framework
 		sabi.Uses("foo", &FooDataSrc{})
 	}
 
+	func main() {
+		if run().IsNotOk() {
+			os.Exit(1)
+		}
+	}
+
 	func run() {
 		// Set up the sabi framework.
 		if err := sabi.Setup(); err != nil { return err }
@@ -129,12 +135,6 @@ The following is a sample code using this framework
 		// Execute application logic within a transaction.
 		// my_logic performs data operations via DataHub.
 		return sabi.Txn(my_logic)
-	}
-
-	func main() {
-		if run().IsNotOk() {
-			os.Exit(1)
-		}
 	}
 */
 package sabi
