@@ -58,7 +58,7 @@ transactional operations.
 
 ```go
 type FooDataSrc struct {}
-func (ds *FooDataSrc) Setup(ag *sabi.AsyncGroup) { return errs.Ok() }
+func (ds *FooDataSrc) Setup(ag *sabi.AsyncGroup) errs.Err { return errs.Ok() }
 func (ds *FooDataSrc) Close() {}
 func (ds *FooDataSrc) CreateDataConn() (sabi.DataConn, errs.Err) { return FooDataConn{}, errs.Ok() }
 
@@ -93,16 +93,16 @@ These interfaces are independent of specific data source implementations, improv
 
 ```go
 type MyData interface {
-	GetText() (string, errs.Err)
-	SetText(text string) errs.Err
+    GetText() (string, errs.Err)
+    SetText(text string) errs.Err
 }
 
 func MyLogic(data MyData) errs.Err {
-	text, err := data.GetText()
-	if err != nil {
-		return err
-	}
-	return data.SetText(text)
+    text, err := data.GetText()
+    if err != nil {
+        return err
+    }
+    return data.SetText(text)
 }
 ```
 
@@ -115,15 +115,16 @@ actual data operations.
 ```go
 type GettingDataAcc struct { sabi.DataAcc }
 func (data *GettingDataAcc) GetText() (string, errs.Err) {
-	conn, err := sabi.GetDataConn[*FooDataConn](data, "foo")
-	return "output text"
+    conn, err := sabi.GetDataConn[*FooDataConn](data, "foo")
+    if err != nil { return "", err }
+    return "output text", errs.Ok()
 }
 
 type SettingDataAcc struct { sabi.DataAcc }
 func (data *SettingDataAcc) SetText(text string) errs.Err {
-	conn, err := sabi.GetDataConn[*BarDataConn](data, "bar")
-  if err != nil { return err }
-	return errs.Ok()
+    conn, err := sabi.GetDataConn[*BarDataConn](data, "bar")
+    if err != nil { return err }
+    return errs.Ok()
 }
 ```
 
@@ -136,18 +137,18 @@ from step 3 on `DataHub`, you integrate them.
 
 ```go
 type MyDataHub struct {
-	sabi.DataHub
-	*FooDataAcc
-	*BarDataAcc
+    sabi.DataHub
+    *FooDataAcc
+    *BarDataAcc
 }
 
 func NewMyDataHub() sabi.DataHub {
-	hub := sabi.NewDataHub()
-	return MyDataHub {
-		DataHub: hub,
-		FooDataAcc: &FooDataAcc{DataAcc: hub},
-		BarDataAcc: &BarDataAcc{DataAcc: hub},
-	}
+    hub := sabi.NewDataHub()
+    return MyDataHub {
+        DataHub: hub,
+        FooDataAcc: &FooDataAcc{DataAcc: hub},
+        BarDataAcc: &BarDataAcc{DataAcc: hub},
+    }
 }
 ```
 
@@ -163,29 +164,29 @@ This automatically handles transaction commits and rollbacks.
 
 ```go
 func init() {
-	// Register global DataSrc.
-	sabi.Uses("foo", &FooDataSrc{})
+    // Register global DataSrc.
+    sabi.Uses("foo", &FooDataSrc{})
 }
 
 func main() {
-	if run().IsNotOk() {
-		os.Exit(1)
-	}
+    if run().IsNotOk() {
+        os.Exit(1)
+    }
 }
 
-func run() {
-	// Set up the sabi framework.
-	if err := sabi.Setup(); err != nil { return err }
-	defer sabi.Shutdown()
+func run() errs.Err {
+    // Set up the sabi framework.
+    if err := sabi.Setup(); err != nil { return err }
+    defer sabi.Shutdown()
 
-	// Creates a new instance of DataHub.
-	data := sabi.NewDataHub()
-	// Register session-local DataSrc with DataHub.
-	data.Uses("bar", &BarDataSrc{})
+    // Creates a new instance of DataHub.
+    data := sabi.NewDataHub()
+    // Register session-local DataSrc with DataHub.
+    data.Uses("bar", &BarDataSrc{})
 
-	// Execute application logic within a transaction.
-	// my_logic performs data operations via DataHub.
-	return sabi.Txn(my_logic)
+    // Execute application logic within a transaction.
+    // my_logic performs data operations via DataHub.
+    return sabi.Txn(data, my_logic)
 }
 ```
 

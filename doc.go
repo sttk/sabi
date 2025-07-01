@@ -84,12 +84,14 @@ The following is a sample code using this framework
 	type GettingDataAcc struct { sabi.DataAcc }
 	func (data *GettingDataAcc) GetText() (string, errs.Err) {
 		conn, err := sabi.GetDataConn[*FooDataConn](data, "foo")
-		return "output text"
+		if err != nil { return "", err }
+		return "output text", errs.Ok()
 	}
 
 	type SettingDataAcc struct { sabi.DataAcc }
 	func (data *SettingDataAcc) SetText(text string) errs.Err {
 		conn, err := sabi.GetDataConn[*BarDataConn](data, "bar")
+		if err != nil { return err }
 		return errs.Ok()
 	}
 
@@ -122,7 +124,7 @@ The following is a sample code using this framework
 		}
 	}
 
-	func run() {
+	func run() errs.Err {
 		// Set up the sabi framework.
 		if err := sabi.Setup(); err != nil { return err }
 		defer sabi.Shutdown()
@@ -134,7 +136,7 @@ The following is a sample code using this framework
 
 		// Execute application logic within a transaction.
 		// my_logic performs data operations via DataHub.
-		return sabi.Txn(my_logic)
+		return sabi.Txn(data, my_logic)
 	}
 */
 package sabi
