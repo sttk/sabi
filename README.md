@@ -122,6 +122,7 @@ func (data *GettingDataAcc) GetText() (string, errs.Err) {
 type SettingDataAcc struct { sabi.DataAcc }
 func (data *SettingDataAcc) SetText(text string) errs.Err {
 	conn, err := sabi.GetDataConn[*BarDataConn](data, "bar")
+  if err != nil { return err }
 	return errs.Ok()
 }
 ```
