@@ -369,6 +369,103 @@ func TestOfDataSrc(t *testing.T) {
 		dsList.closeDataSrcs()
 	})
 
+	t.Run("removeAndCloseContainerPtrNotSetupByName", func(t *testing.T) {
+		dsList := dataSrcList{local: false}
+
+		logger := list.New()
+
+		ds1 := NewSyncDataSrc(1, logger, false)
+		ptr1 := &dataSrcContainer{local: false, name: "foo", ds: ds1}
+		dsList.appendContainerPtrNotSetup(ptr1)
+
+		ds2 := NewSyncDataSrc(2, logger, false)
+		ptr2 := &dataSrcContainer{local: false, name: "bar", ds: ds2}
+		dsList.appendContainerPtrNotSetup(ptr2)
+
+		ds3 := NewSyncDataSrc(3, logger, false)
+		ptr3 := &dataSrcContainer{local: false, name: "baz", ds: ds3}
+		dsList.appendContainerPtrNotSetup(ptr3)
+
+		ds4 := NewSyncDataSrc(4, logger, false)
+		ptr4 := &dataSrcContainer{local: false, name: "qux", ds: ds4}
+		dsList.appendContainerPtrNotSetup(ptr4)
+
+		assert.Equal(t, dsList.local, false)
+		assert.Equal(t, dsList.notSetupHead, ptr1)
+		assert.Equal(t, dsList.notSetupLast, ptr4)
+		assert.Nil(t, dsList.didSetupHead)
+		assert.Nil(t, dsList.didSetupLast)
+
+		assert.Nil(t, ptr1.prev)
+		assert.Equal(t, ptr1.next, ptr2)
+		assert.Equal(t, ptr2.prev, ptr1)
+		assert.Equal(t, ptr2.next, ptr3)
+		assert.Equal(t, ptr3.prev, ptr2)
+		assert.Equal(t, ptr3.next, ptr4)
+		assert.Equal(t, ptr4.prev, ptr3)
+		assert.Nil(t, ptr4.next)
+
+		dsList.removeAndCloseContainerPtrNotSetupByName("bar")
+
+		assert.Equal(t, dsList.local, false)
+		assert.Equal(t, dsList.notSetupHead, ptr1)
+		assert.Equal(t, dsList.notSetupLast, ptr4)
+		assert.Nil(t, dsList.didSetupHead)
+		assert.Nil(t, dsList.didSetupLast)
+
+		assert.Nil(t, ptr1.prev)
+		assert.Equal(t, ptr1.next, ptr3)
+		assert.Equal(t, ptr3.prev, ptr1)
+		assert.Equal(t, ptr3.next, ptr4)
+		assert.Equal(t, ptr4.prev, ptr3)
+		assert.Nil(t, ptr4.next)
+
+		dsList.removeAndCloseContainerPtrNotSetupByName("foo")
+
+		assert.Equal(t, dsList.local, false)
+		assert.Equal(t, dsList.notSetupHead, ptr3)
+		assert.Equal(t, dsList.notSetupLast, ptr4)
+		assert.Nil(t, dsList.didSetupHead)
+		assert.Nil(t, dsList.didSetupLast)
+
+		assert.Nil(t, ptr3.prev)
+		assert.Equal(t, ptr3.next, ptr4)
+		assert.Equal(t, ptr4.prev, ptr3)
+		assert.Nil(t, ptr4.next)
+
+		dsList.removeAndCloseContainerPtrNotSetupByName("qux")
+
+		assert.Equal(t, dsList.local, false)
+		assert.Equal(t, dsList.notSetupHead, ptr3)
+		assert.Equal(t, dsList.notSetupLast, ptr3)
+		assert.Nil(t, dsList.didSetupHead)
+		assert.Nil(t, dsList.didSetupLast)
+
+		assert.Nil(t, ptr3.prev)
+		assert.Nil(t, ptr3.next)
+
+		dsList.removeAndCloseContainerPtrNotSetupByName("baz")
+
+		assert.Equal(t, dsList.local, false)
+		assert.Nil(t, dsList.notSetupHead)
+		assert.Nil(t, dsList.notSetupLast)
+		assert.Nil(t, dsList.didSetupHead)
+		assert.Nil(t, dsList.didSetupLast)
+
+		dsList.closeDataSrcs()
+
+		e := logger.Front()
+		assert.Equal(t, e.Value, "SyncDataSrc 2 closed")
+		e = e.Next()
+		assert.Equal(t, e.Value, "SyncDataSrc 1 closed")
+		e = e.Next()
+		assert.Equal(t, e.Value, "SyncDataSrc 4 closed")
+		e = e.Next()
+		assert.Equal(t, e.Value, "SyncDataSrc 3 closed")
+		e = e.Next()
+		assert.Nil(t, e)
+	})
+
 	t.Run("appendContainerPtrDidSetup", func(t *testing.T) {
 		dsList := dataSrcList{local: false}
 
@@ -635,6 +732,103 @@ func TestOfDataSrc(t *testing.T) {
 		assert.Nil(t, dsList.didSetupLast)
 
 		dsList.closeDataSrcs()
+	})
+
+	t.Run("removeAndCloseContainerPtrDidSetupByName", func(t *testing.T) {
+		dsList := dataSrcList{local: false}
+
+		logger := list.New()
+
+		ds1 := NewSyncDataSrc(1, logger, false)
+		ptr1 := &dataSrcContainer{local: false, name: "foo", ds: ds1}
+		dsList.appendContainerPtrDidSetup(ptr1)
+
+		ds2 := NewSyncDataSrc(2, logger, false)
+		ptr2 := &dataSrcContainer{local: false, name: "bar", ds: ds2}
+		dsList.appendContainerPtrDidSetup(ptr2)
+
+		ds3 := NewSyncDataSrc(3, logger, false)
+		ptr3 := &dataSrcContainer{local: false, name: "baz", ds: ds3}
+		dsList.appendContainerPtrDidSetup(ptr3)
+
+		ds4 := NewSyncDataSrc(4, logger, false)
+		ptr4 := &dataSrcContainer{local: false, name: "qux", ds: ds4}
+		dsList.appendContainerPtrDidSetup(ptr4)
+
+		assert.Equal(t, dsList.local, false)
+		assert.Nil(t, dsList.notSetupHead)
+		assert.Nil(t, dsList.notSetupLast)
+		assert.Equal(t, dsList.didSetupHead, ptr1)
+		assert.Equal(t, dsList.didSetupLast, ptr4)
+
+		assert.Nil(t, ptr1.prev)
+		assert.Equal(t, ptr1.next, ptr2)
+		assert.Equal(t, ptr2.prev, ptr1)
+		assert.Equal(t, ptr2.next, ptr3)
+		assert.Equal(t, ptr3.prev, ptr2)
+		assert.Equal(t, ptr3.next, ptr4)
+		assert.Equal(t, ptr4.prev, ptr3)
+		assert.Nil(t, ptr4.next)
+
+		dsList.removeAndCloseContainerPtrDidSetupByName("bar")
+
+		assert.Equal(t, dsList.local, false)
+		assert.Nil(t, dsList.notSetupHead)
+		assert.Nil(t, dsList.notSetupLast)
+		assert.Equal(t, dsList.didSetupHead, ptr1)
+		assert.Equal(t, dsList.didSetupLast, ptr4)
+
+		assert.Nil(t, ptr1.prev)
+		assert.Equal(t, ptr1.next, ptr3)
+		assert.Equal(t, ptr3.prev, ptr1)
+		assert.Equal(t, ptr3.next, ptr4)
+		assert.Equal(t, ptr4.prev, ptr3)
+		assert.Nil(t, ptr4.next)
+
+		dsList.removeAndCloseContainerPtrDidSetupByName("foo")
+
+		assert.Equal(t, dsList.local, false)
+		assert.Nil(t, dsList.notSetupHead)
+		assert.Nil(t, dsList.notSetupLast)
+		assert.Equal(t, dsList.didSetupHead, ptr3)
+		assert.Equal(t, dsList.didSetupLast, ptr4)
+
+		assert.Nil(t, ptr3.prev)
+		assert.Equal(t, ptr3.next, ptr4)
+		assert.Equal(t, ptr4.prev, ptr3)
+		assert.Nil(t, ptr4.next)
+
+		dsList.removeAndCloseContainerPtrDidSetupByName("qux")
+
+		assert.Equal(t, dsList.local, false)
+		assert.Nil(t, dsList.notSetupHead)
+		assert.Nil(t, dsList.notSetupLast)
+		assert.Equal(t, dsList.didSetupHead, ptr3)
+		assert.Equal(t, dsList.didSetupLast, ptr3)
+
+		assert.Nil(t, ptr3.prev)
+		assert.Nil(t, ptr3.next)
+
+		dsList.removeAndCloseContainerPtrDidSetupByName("baz")
+
+		assert.Equal(t, dsList.local, false)
+		assert.Nil(t, dsList.notSetupHead)
+		assert.Nil(t, dsList.notSetupLast)
+		assert.Nil(t, dsList.didSetupHead)
+		assert.Nil(t, dsList.didSetupLast)
+
+		dsList.closeDataSrcs()
+
+		e := logger.Front()
+		assert.Equal(t, e.Value, "SyncDataSrc 2 closed")
+		e = e.Next()
+		assert.Equal(t, e.Value, "SyncDataSrc 1 closed")
+		e = e.Next()
+		assert.Equal(t, e.Value, "SyncDataSrc 4 closed")
+		e = e.Next()
+		assert.Equal(t, e.Value, "SyncDataSrc 3 closed")
+		e = e.Next()
+		assert.Nil(t, e)
 	})
 
 	t.Run("copyContainerPtrsDidSetupInto", func(t *testing.T) {
