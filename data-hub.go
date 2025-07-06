@@ -220,8 +220,8 @@ func (hub *dataHubImpl) Disuses(name string) {
 	maps.DeleteFunc(hub.dataSrcMap, func(nm string, ptr *dataSrcContainer) bool {
 		return ptr.local && nm == name
 	})
-	hub.localDataSrcList.removeAndCloseLocalContainerPtrDidSetupByName(name)
-	hub.localDataSrcList.removeAndCloseLocalContainerPtrNotSetupByName(name)
+	hub.localDataSrcList.removeAndCloseContainerPtrDidSetupByName(name)
+	hub.localDataSrcList.removeAndCloseContainerPtrNotSetupByName(name)
 }
 
 func (hub *dataHubImpl) Close() {
