@@ -101,7 +101,7 @@ func TestOfDataSrc(t *testing.T) {
 		assert.Nil(t, dsList.didSetupLast)
 	})
 
-	t.Run("appendContainerPtrNotSet", func(t *testing.T) {
+	t.Run("appendContainerPtrNotSetup", func(t *testing.T) {
 		dsList := dataSrcList{local: false}
 
 		logger := list.New()
@@ -855,13 +855,13 @@ func TestOfDataSrc(t *testing.T) {
 
 		dsList.appendContainerPtrDidSetup(ptr3)
 
-		errMap := make(map[string]*dataSrcContainer)
-		dsList.copyContainerPtrsDidSetupInto(errMap)
+		m = make(map[string]*dataSrcContainer)
+		dsList.copyContainerPtrsDidSetupInto(m)
 
-		assert.Equal(t, len(errMap), 3)
-		assert.Equal(t, errMap["foo"], ptr1)
-		assert.Equal(t, errMap["bar"], ptr2)
-		assert.Equal(t, errMap["baz"], ptr3)
+		assert.Equal(t, len(m), 3)
+		assert.Equal(t, m["foo"], ptr1)
+		assert.Equal(t, m["bar"], ptr2)
+		assert.Equal(t, m["baz"], ptr3)
 
 		dsList.closeDataSrcs()
 	})
