@@ -74,7 +74,7 @@ The following is a sample code using this framework
 	func MyLogic(data MyData) errs.Err {
 		text, err := data.GetText()
 		if err != nil { return err }
-    // ...
+		// ...
 		return data.SetText(text)
 	}
 
@@ -84,7 +84,7 @@ The following is a sample code using this framework
 	func (data *GettingDataAcc) GetText() (string, errs.Err) {
 		conn, err := sabi.GetDataConn[*FooDataConn](data, "foo")
 		if err != nil { return "", err }
-    // ...
+		// ...
 		return "output text", errs.Ok()
 	}
 
@@ -92,7 +92,7 @@ The following is a sample code using this framework
 	func (data *SettingDataAcc) SetText(text string) errs.Err {
 		conn, err := sabi.GetDataConn[*BarDataConn](data, "bar")
 		if err != nil { return err }
-    // ...
+		// ...
 		return errs.Ok()
 	}
 
