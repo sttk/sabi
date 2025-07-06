@@ -86,7 +86,7 @@ func (list *dataSrcList) removeContainerPtrNotSetup(ptr *dataSrcContainer) {
 func (list *dataSrcList) removeAndCloseContainerPtrNotSetupByName(name string) {
 	ptr := list.notSetupHead
 	for ptr != nil {
-    next := ptr.next
+		next := ptr.next
 		if ptr.name == name {
 			list.removeContainerPtrNotSetup(ptr)
 			ptr.ds.Close()
@@ -131,7 +131,7 @@ func (list *dataSrcList) removeContainerPtrDidSetup(ptr *dataSrcContainer) {
 func (list *dataSrcList) removeAndCloseContainerPtrDidSetupByName(name string) {
 	ptr := list.didSetupHead
 	for ptr != nil {
-    next := ptr.next
+		next := ptr.next
 		if ptr.name == name {
 			list.removeContainerPtrDidSetup(ptr)
 			ptr.ds.Close()
