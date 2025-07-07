@@ -316,13 +316,6 @@ func (hub *dataHubImpl) end() {
 	hub.fixed = false
 }
 
-const (
-	no_error = iota
-	no_data_src_to_create_data_conn
-	fail_to_create_data_conn
-	created_data_conn_is_nil
-)
-
 func (hub *dataHubImpl) getDataConn(name string, dataConnType string) (DataConn, errs.Err) {
 	connPtr, ok := hub.dataConnMap[name]
 	if ok {
