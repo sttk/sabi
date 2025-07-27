@@ -61,7 +61,7 @@ type /* error reasons */ (
 
 	// Indicates a failure that the created DataConn instance is nil.
 	CreatedDataConnIsNil struct {
-		// The name of the data connection that failed to cast.
+		// The name of the data connection that is nil after creation.
 		Name string
 
 		// The type name of the data connection expected.
