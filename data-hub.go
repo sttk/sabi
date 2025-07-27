@@ -55,12 +55,16 @@ type /* error reasons */ (
 		// The name of the data source that failed to be created.
 		Name string
 
-		// The type name of the `DataConn` that failed to be created.
+		// The type name of the DataConn that failed to be created.
 		DataConnType string
 	}
 
+	// Indicates a failure that the created DataConn instance is nil.
 	CreatedDataConnIsNil struct {
-		Name         string
+		// The name of the data connection that is nil after creation.
+		Name string
+
+		// The type name of the data connection expected.
 		DataConnType string
 	}
 
