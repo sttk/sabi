@@ -182,6 +182,8 @@ func run() errs.Err {
 
     // Creates a new instance of DataHub.
     data := sabi.NewMyDataHub()
+    defer data.Close()
+
     // Register session-local DataSrc with DataHub.
     data.Uses("bar", &BarDataSrc{})
 
