@@ -199,26 +199,30 @@ This framework supports Go 1.21 or later.
 
 ### Actual test results for each Go version:
 
-```
+```sh
 % gvm-fav
 Now using version go1.21.13
 go version go1.21.13 darwin/amd64
-ok  	github.com/sttk/sabi	8.749s	coverage: 96.8% of statements
+ok  	github.com/sttk/sabi	8.916s	coverage: 96.9% of statements
 
 Now using version go1.22.12
 go version go1.22.12 darwin/amd64
-ok  	github.com/sttk/sabi	8.747s	coverage: 96.8% of statements
+ok  	github.com/sttk/sabi	8.912s	coverage: 96.9% of statements
 
 Now using version go1.23.10
 go version go1.23.10 darwin/amd64
-ok  	github.com/sttk/sabi	8.737s	coverage: 96.8% of statements
+ok  	github.com/sttk/sabi	8.919s	coverage: 96.9% of statements
 
-Now using version go1.24.4
-go version go1.24.4 darwin/amd64
-ok  	github.com/sttk/sabi	8.753s	coverage: 96.8% of statements
+Now using version go1.24.6
+go version go1.24.6 darwin/amd64
+ok  	github.com/sttk/sabi	8.930s	coverage: 96.9% of statements
 
-Back to go1.24.4
-Now using version go1.24.4
+Now using version go1.25.0
+go version go1.25.0 darwin/amd64
+ok  	github.com/sttk/sabi	8.923s	coverage: 96.9% of statements
+
+Back to go1.25.0
+Now using version go1.25.0
 ```
 
 ## License
