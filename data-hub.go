@@ -283,6 +283,15 @@ func (hub *dataHubImpl) commit() errs.Err {
 		return errs.New(FailToCommitDataConn{Errors: errMap})
 	}
 
+	ag = AsyncGroup{}
+	ptr = hub.dataConnList.head
+	for ptr != nil {
+		ag.name = ptr.name
+		ptr.conn.PostCommit(&ag)
+		ptr = ptr.next
+	}
+	ag.joinAndIgnoreErrors()
+
 	return errs.Ok()
 }
 
@@ -296,18 +305,6 @@ func (hub *dataHubImpl) rollback() {
 		} else {
 			ptr.conn.Rollback(&ag)
 		}
-		ptr = ptr.next
-	}
-
-	ag.joinAndIgnoreErrors()
-}
-
-func (hub *dataHubImpl) postCommit() {
-	ag := AsyncGroup{}
-	ptr := hub.dataConnList.head
-	for ptr != nil {
-		ag.name = ptr.name
-		ptr.conn.PostCommit(&ag)
 		ptr = ptr.next
 	}
 
@@ -428,6 +425,5 @@ func Txn[D any](hub DataHub, logic func(D) errs.Err) errs.Err {
 		return err
 	}
 
-	hub.postCommit()
 	return errs.Ok()
 }
