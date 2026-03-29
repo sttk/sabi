@@ -5,6 +5,7 @@
 package sabi
 
 import (
+	"context"
 	"maps"
 
 	"github.com/sttk/errs"
@@ -186,6 +187,9 @@ type dataHubImpl struct {
 	dataConnList     dataConnList
 	dataConnMap      map[string]*dataConnContainer
 	fixed            bool
+
+	ctx    context.Context
+	cancel context.CancelFunc
 }
 
 // Creates a new DataHub instance.
@@ -312,9 +316,26 @@ func (hub *dataHubImpl) rollback() {
 }
 
 func (hub *dataHubImpl) end() {
+	if hub.cancel != nil {
+		cancel := hub.cancel
+		hub.cancel = nil
+		cancel()
+	}
+	if hub.ctx != nil {
+		hub.ctx = nil
+	}
+
 	clear(hub.dataConnMap)
 	hub.dataConnList.closeDataConns()
 	hub.fixed = false
+}
+
+func (hub *dataHubImpl) Context() context.Context {
+	return hub.ctx
+}
+
+func (hub *dataHubImpl) setContext(ctx context.Context) {
+	hub.ctx, hub.cancel = context.WithCancel(ctx)
 }
 
 func (hub *dataHubImpl) getDataConn(name string, dataConnType string) (DataConn, errs.Err) {
@@ -368,16 +389,18 @@ func GetDataConn[C DataConn](data any, name string) (C, errs.Err) {
 
 // Executes a given logic function without transaction control.
 //
-// This method sets up local data sources, runs the provided closure,
-// and then cleans up the DataHub's session resources. It does not
-// perform commit or rollback operations.
-func Run[D any](hub DataHub, logic func(D) errs.Err) errs.Err {
+// This method sets a context, then sets up local data sources, runs the provided
+// closure, and then cleans up the DataHub's session resources. It does not perform
+// commit or rollback operations.
+func Run[D any](hub DataHub, ctx context.Context, logic func(D) errs.Err) errs.Err {
 	data, ok := hub.(D)
 	if !ok {
 		fromType := typeNameOf(&hub)[1:]
 		toType := typeNameOfTypeParam[D]()
 		return errs.New(FailToCastDataHub{CastFromType: fromType, CastToType: toType})
 	}
+
+	hub.setContext(ctx)
 
 	err := hub.begin()
 	if err.IsNotOk() {
@@ -395,19 +418,21 @@ func Run[D any](hub DataHub, logic func(D) errs.Err) errs.Err {
 
 // Executes a given logic function within a transaction.
 //
-// This method first sets up local data sources, then runs the provided closure.
-// If the closure returns errs.Ok, it attempts to commit all changes. If the commit fails,
-// or if the logic function itself returns an errs.Err, a rollback operation
-// is performed. After succeeding PreCommit and Commit methods of all DataConn(s),
-// PostCommit methods of all DataConn(s) are executed.
+// This method sets a context, then first sets up local data sources, then runs the
+// provided closure. If the closure returns errs.Ok, it attempts to commit all
+// changes. If the commit fails, or if the logic function itself returns an errs.Err,
+// a rollback operation is performed. After succeeding PreCommit and Commit methods
+// of all DataConn(s), PostCommit methods of all DataConn(s) are executed.
 // Finally, it cleans up the DataHub's session resources.
-func Txn[D any](hub DataHub, logic func(D) errs.Err) errs.Err {
+func Txn[D any](hub DataHub, ctx context.Context, logic func(D) errs.Err) errs.Err {
 	data, ok := hub.(D)
 	if !ok {
 		fromType := typeNameOf(&hub)[1:]
 		toType := typeNameOfTypeParam[D]()
 		return errs.New(FailToCastDataHub{CastFromType: fromType, CastToType: toType})
 	}
+
+	hub.setContext(ctx)
 
 	err := hub.begin()
 	if err.IsNotOk() {

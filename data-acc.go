@@ -4,7 +4,10 @@
 
 package sabi
 
-import "github.com/sttk/errs"
+import (
+	"context"
+	"github.com/sttk/errs"
+)
 
 // The interface that aggregates data access operations to external data services
 // into logical units, with methods providing default implementations.
@@ -23,4 +26,11 @@ import "github.com/sttk/errs"
 // enabling a clear separation and aggregation of data input/output methods.
 type DataAcc interface {
 	getDataConn(name, dataConnType string) (DataConn, errs.Err)
+
+	setContext(ctx context.Context)
+
+	// Returns the context associated with this DataAcc instance.
+	// This context is intended to be used by data access methods within DataAcc
+	// implementations to support cancellation and timeouts.
+	Context() context.Context
 }

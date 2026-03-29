@@ -54,6 +54,7 @@ transactional operations.
 
 ```go
 import (
+    "context"
     "github.com/sttk/errs"
     "github.com/sttk/sabi"
 )
@@ -189,7 +190,8 @@ func run() errs.Err {
 
     // Execute application logic within a transaction.
     // MyLogic performs data operations via DataHub.
-    return sabi.Txn(data, MyLogic)
+    ctx := context.Background()
+    return sabi.Txn(data, ctx, MyLogic)
 }
 ```
 
