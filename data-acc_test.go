@@ -2,6 +2,7 @@ package sabi_test
 
 import (
 	"container/list"
+	"context"
 	"fmt"
 	"testing"
 
@@ -175,6 +176,11 @@ type FooDataAcc struct {
 }
 
 func (data *FooDataAcc) GetValue() (string, errs.Err) {
+	ctx := data.Context()
+	if ctx == nil {
+		panic("The context is nil")
+	}
+
 	conn, err := sabi.GetDataConn[*FooDataConn](data, "foo")
 	if err.IsNotOk() {
 		return "", err
@@ -187,6 +193,11 @@ type BarDataAcc struct {
 }
 
 func (data *BarDataAcc) SetValue(text string) errs.Err {
+	ctx := data.Context()
+	if ctx == nil {
+		panic("The context is nil")
+	}
+
 	conn, err := sabi.GetDataConn[*BarDataConn](data, "bar")
 	if err.IsNotOk() {
 		return err
@@ -212,51 +223,6 @@ func NewSampleDataHub() sabi.DataHub {
 }
 
 ///
-
-func TestLogicArgument(t *testing.T) {
-	t.Run("test", func(t *testing.T) {
-		sabi.ResetGlobalVariables()
-		defer sabi.ResetGlobalVariables()
-
-		logger := list.New()
-
-		sabi.Uses("foo", &FooDataSrc{id: 1, text: "hello", logger: logger, will_fail: false})
-		sabi.Uses("bar", &BarDataSrc{id: 2, logger: logger})
-
-		err := sabi.Setup().IfOkThen(func() errs.Err {
-			defer sabi.Shutdown()
-
-			hub := NewSampleDataHub()
-			defer hub.Close()
-
-			return sample_logic(hub.(SampleData))
-		})
-		assert.True(t, err.IsOk())
-
-		elem := logger.Front()
-		assert.Equal(t, elem.Value, "FooDataSrc 1 setupped")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "BarDataSrc 2 setupped")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "FooDataSrc 1 created FooDataConn")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "BarDataSrc 2 created BarDataConn")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "BarDataConn.text = hello")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "BarDataConn 2 closed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "FooDataConn 1 closed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "BarDataSrc.text = ")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "BarDataSrc 2 closed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "FooDataSrc 1 closed")
-		elem = elem.Next()
-		assert.Nil(t, elem)
-	})
-}
 
 func TestDataHubRunUsingGlobal(t *testing.T) {
 	t.Run("test", func(t *testing.T) {
@@ -286,7 +252,8 @@ func TestDataHubRunUsingGlobal(t *testing.T) {
 			}()
 			defer hub.Close()
 
-			return sabi.Run(hub, sample_logic)
+			ctx := context.Background()
+			return sabi.Run(hub, ctx, sample_logic)
 		})
 		assert.True(t, err.IsOk())
 
@@ -343,7 +310,8 @@ func TestDataHubRunUsingLocal(t *testing.T) {
 			hub.Uses("foo", &FooDataSrc{id: 1, text: "hello", logger: logger, will_fail: false})
 			hub.Uses("bar", &BarDataSrc{id: 2, logger: logger})
 
-			return sabi.Run(hub, sample_logic)
+			ctx := context.Background()
+			return sabi.Run(hub, ctx, sample_logic)
 		})
 		assert.True(t, err.IsOk())
 
@@ -398,7 +366,8 @@ func TestDataHubRunUsingLocal(t *testing.T) {
 			hub.Uses("foo", &FooDataSrc{id: 1, text: "hello", logger: logger, will_fail: true})
 			hub.Uses("bar", &BarDataSrc{id: 2, logger: logger})
 
-			return sabi.Run(hub, sample_logic)
+			ctx := context.Background()
+			return sabi.Run(hub, ctx, sample_logic)
 		})
 		switch r := err.Reason().(type) {
 		case sabi.FailToSetupLocalDataSrcs:
@@ -444,7 +413,8 @@ func TestDataHubRunUsingGlobalAndLocal(t *testing.T) {
 
 			hub.Uses("foo", &FooDataSrc{id: 2, text: "Hello", logger: logger, will_fail: false})
 
-			return sabi.Run(hub, sample_logic)
+			ctx := context.Background()
+			return sabi.Run(hub, ctx, sample_logic)
 		})
 		assert.True(t, err.IsOk())
 
@@ -501,7 +471,8 @@ func TestDataHubTxnUsingGlobal(t *testing.T) {
 			}()
 			defer hub.Close()
 
-			return sabi.Txn(hub, sample_logic)
+			ctx := context.Background()
+			return sabi.Txn(hub, ctx, sample_logic)
 		})
 		assert.True(t, err.IsOk())
 
@@ -570,7 +541,8 @@ func TestDataHubTxnUsingLocal(t *testing.T) {
 			hub.Uses("foo", &FooDataSrc{id: 1, text: "Hello", logger: logger, will_fail: false})
 			hub.Uses("bar", &BarDataSrc{id: 2, logger: logger})
 
-			return sabi.Txn(hub, sample_logic)
+			ctx := context.Background()
+			return sabi.Txn(hub, ctx, sample_logic)
 		})
 		assert.True(t, err.IsOk())
 
@@ -637,7 +609,8 @@ func TestDataHubTxnUsingLocal(t *testing.T) {
 			hub.Uses("foo", &FooDataSrc{id: 1, text: "Hello", logger: logger, will_fail: true})
 			hub.Uses("bar", &BarDataSrc{id: 2, logger: logger})
 
-			return sabi.Txn(hub, sample_logic)
+			ctx := context.Background()
+			return sabi.Txn(hub, ctx, sample_logic)
 		})
 		switch r := err.Reason().(type) {
 		case sabi.FailToSetupLocalDataSrcs:
@@ -680,7 +653,8 @@ func TestDataHubTxnUsingLocal(t *testing.T) {
 			hub.Uses("foo", &FooDataSrc{id: 1, text: "Hello", logger: logger, will_fail: false})
 			hub.Uses("bar", &BarDataSrc{id: 2, logger: logger})
 
-			return sabi.Txn(hub, failing_logic)
+			ctx := context.Background()
+			return sabi.Txn(hub, ctx, failing_logic)
 		})
 		assert.Equal(t, err.Reason(), "ZZZ")
 
@@ -728,7 +702,8 @@ func TestDataHubTxnUsingGlobalAndLocal(t *testing.T) {
 
 			hub.Uses("foo", &FooDataSrc{id: 2, text: "Hello", logger: logger, will_fail: false})
 
-			return sabi.Txn(hub, sample_logic)
+			ctx := context.Background()
+			return sabi.Txn(hub, ctx, sample_logic)
 		})
 		assert.True(t, err.IsOk())
 

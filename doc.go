@@ -28,6 +28,7 @@ This framework brings clear separation and robustness to Go application design.
 The following is a sample code using this framework
 
 	import (
+		"context"
 		"os"
 
 		"github.com/sttk/sabi"
@@ -139,7 +140,8 @@ The following is a sample code using this framework
 
 		// Execute application logic within a transaction.
 		// my_logic performs data operations via DataHub.
-		return sabi.Txn(data, MyLogic)
+		ctx := context.Background()
+		return sabi.Txn(data, ctx, MyLogic)
 	}
 */
 package sabi
