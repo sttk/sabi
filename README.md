@@ -197,39 +197,35 @@ func run() errs.Err {
 
 ## Supporting Go versions
 
-This framework supports Go 1.21 or later.
+This framework supports Go 1.23 or later.
 
 ### Actual test results for each Go version:
 
 ```sh
 % gvm-fav
-Now using version go1.21.13
-go version go1.21.13 darwin/amd64
-ok  	github.com/sttk/sabi	8.916s	coverage: 96.9% of statements
+Now using version go1.23.12
+go version go1.23.12 darwin/amd64
+ok  	github.com/sttk/sabi	8.564s	coverage: 97.0% of statements
 
-Now using version go1.22.12
-go version go1.22.12 darwin/amd64
-ok  	github.com/sttk/sabi	8.912s	coverage: 96.9% of statements
+Now using version go1.24.13
+go version go1.24.13 darwin/amd64
+ok  	github.com/sttk/sabi	8.572s	coverage: 97.0% of statements
 
-Now using version go1.23.10
-go version go1.23.10 darwin/amd64
-ok  	github.com/sttk/sabi	8.919s	coverage: 96.9% of statements
+Now using version go1.25.8
+go version go1.25.8 darwin/amd64
+ok  	github.com/sttk/sabi	8.778s	coverage: 97.0% of statements
 
-Now using version go1.24.6
-go version go1.24.6 darwin/amd64
-ok  	github.com/sttk/sabi	8.930s	coverage: 96.9% of statements
+Now using version go1.26.1
+go version go1.26.1 darwin/amd64
+ok  	github.com/sttk/sabi	8.739s	coverage: 97.0% of statements
 
-Now using version go1.25.0
-go version go1.25.0 darwin/amd64
-ok  	github.com/sttk/sabi	8.923s	coverage: 96.9% of statements
-
-Back to go1.25.0
-Now using version go1.25.0
+Back to go1.26.1
+Now using version go1.26.1
 ```
 
 ## License
 
-Copyright (C) 2022-2025 Takayuki Sato
+Copyright (C) 2022-2026 Takayuki Sato
 
 This program is free software under MIT License.<br>
 See the file LICENSE in this distribution for more details.
