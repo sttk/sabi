@@ -152,6 +152,10 @@ func NewMyDataHub() sabi.DataHub {
         SettingDataAcc: &SettingDataAcc{DataAcc: hub},
     }
 }
+
+// Since this statement does not remain in the runtime binary, it is a good idea to include it
+// in actual code as a compile-time check to ensure that all methods have been fully implemented.
+var _ MyData = (*MyDataHub)(nil)
 ```
 
 ### 5. Using logic functions and `DataHub`

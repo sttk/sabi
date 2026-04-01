@@ -222,6 +222,10 @@ func NewSampleDataHub() sabi.DataHub {
 	}
 }
 
+// Since this statement does not remain in the runtime binary, it is a good idea to include it
+// in actual code as a compile-time check to ensure that all methods have been fully implemented.
+var _ SampleData = (*SampleDataHub)(nil)
+
 ///
 
 func TestDataHubRunUsingGlobal(t *testing.T) {
