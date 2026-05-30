@@ -3,8 +3,8 @@ module github.com/sttk/sabi
 go 1.23
 
 require (
-	github.com/stretchr/testify v1.10.0
-	github.com/sttk/errs v0.1.0
+	github.com/stretchr/testify v1.11.1
+	github.com/sttk/errs v0.2.0
 )
 
 require (

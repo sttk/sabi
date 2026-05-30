@@ -4,973 +4,681 @@ import (
 	"container/list"
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/sttk/errs"
 )
 
+type Fail2 int
+
+const (
+	Fail2_Not Fail2 = iota
+	Fail2_Setup
+	Fail2_CreateDataConn
+)
+
 type SyncDataSrc struct {
-	id       int8
-	willFail bool
-	logger   *list.List
+	id     int8
+	logger *list.List
+	fail   Fail2
 }
 
-func NewSyncDataSrc(id int8, logger *list.List, willFail bool) *SyncDataSrc {
-	return &SyncDataSrc{id: id, logger: logger, willFail: willFail}
+func NewSyncDataSrc(id int8, logger *list.List, fail Fail2) SyncDataSrc {
+	logger.PushBack(fmt.Sprintf("SyncDataSrc.New %d", id))
+	return SyncDataSrc{id: id, logger: logger, fail: fail}
 }
 func (ds *SyncDataSrc) Setup(ag *AsyncGroup) errs.Err {
-	logger := ds.logger
-	if ds.willFail {
-		logger.PushBack(fmt.Sprintf("SyncDataSrc %d failed to setup", ds.id))
+	if ds.fail == Fail2_Setup {
+		ds.logger.PushBack(fmt.Sprintf("SyncDataSrc.Setup %d failed", ds.id))
 		return errs.New("XXX")
 	}
-	logger.PushBack(fmt.Sprintf("SyncDataSrc %d setupped", ds.id))
+	ds.logger.PushBack(fmt.Sprintf("SyncDataSrc.Setup %d", ds.id))
 	return errs.Ok()
 }
 func (ds *SyncDataSrc) Close() {
-	logger := ds.logger
-	logger.PushBack(fmt.Sprintf("SyncDataSrc %d closed", ds.id))
+	ds.logger.PushBack(fmt.Sprintf("SyncDataSrc.Close %d", ds.id))
 }
 func (ds *SyncDataSrc) CreateDataConn() (DataConn, errs.Err) {
-	logger := ds.logger
-	logger.PushBack(fmt.Sprintf("SyncDataSrc %d created DataConn", ds.id))
-	conn := &SyncDataConn{}
-	return conn, errs.Ok()
+	if ds.fail == Fail2_CreateDataConn {
+		ds.logger.PushBack(fmt.Sprintf("SyncDataSrc.CreateDataConn %d failed", ds.id))
+		return nil, errs.New("eeee")
+	}
+	ds.logger.PushBack(fmt.Sprintf("SyncDataSrc.CreateDataConn %d", ds.id))
+	return &SyncDataConn{}, errs.Ok()
 }
 
 type AsyncDataSrc struct {
-	id       int8
-	willFail bool
-	logger   *list.List
+	id     int8
+	logger *list.List
+	fail   Fail2
+	wait   time.Duration
 }
 
-func NewAsyncDataSrc(id int8, logger *list.List, willFail bool) *AsyncDataSrc {
-	return &AsyncDataSrc{id: id, logger: logger, willFail: willFail}
+func NewAsyncDataSrc(id int8, logger *list.List, fail Fail2) AsyncDataSrc {
+	logger.PushBack(fmt.Sprintf("AsyncDataSrc.New %d", id))
+	return AsyncDataSrc{id: id, logger: logger, fail: fail}
 }
 func (ds *AsyncDataSrc) Setup(ag *AsyncGroup) errs.Err {
-	logger := ds.logger
 	ag.Add(func() errs.Err {
-		if ds.willFail {
-			logger.PushBack(fmt.Sprintf("AsyncDataSrc %d failed to setup", ds.id))
+		time.Sleep(ds.wait)
+		if ds.fail == Fail2_Setup {
+			ds.logger.PushBack(fmt.Sprintf("AsyncDataSrc.Setup %d failed", ds.id))
 			return errs.New("XXX")
 		}
-		logger.PushBack(fmt.Sprintf("AsyncDataSrc %d setupped", ds.id))
+		ds.logger.PushBack(fmt.Sprintf("AsyncDataSrc.Setup %d", ds.id))
 		return errs.Ok()
 	})
 	return errs.Ok()
 }
 func (ds *AsyncDataSrc) Close() {
-	logger := ds.logger
-	logger.PushBack(fmt.Sprintf("AsyncDataSrc %d closed", ds.id))
+	ds.logger.PushBack(fmt.Sprintf("AsyncDataSrc.Close %d", ds.id))
 }
 func (ds *AsyncDataSrc) CreateDataConn() (DataConn, errs.Err) {
-	logger := ds.logger
-	logger.PushBack(fmt.Sprintf("AsyncDataSrc %d created DataConn", ds.id))
-	conn := &AsyncDataConn{}
-	return conn, errs.Ok()
+	if ds.fail == Fail2_CreateDataConn {
+		ds.logger.PushBack(fmt.Sprintf("AsyncDataSrc.CreateDataConn %d failed", ds.id))
+		return nil, errs.New("eeee")
+	}
+	ds.logger.PushBack(fmt.Sprintf("AsyncDataSrc.CreateDataConn %d", ds.id))
+	return &AsyncDataConn{}, errs.Ok()
 }
 
-type SyncDataConn struct{}
-
-func (conn *SyncDataConn) Commit(ag *AsyncGroup) errs.Err    { return errs.Ok() }
-func (conn *SyncDataConn) PreCommit(ag *AsyncGroup) errs.Err { return errs.Ok() }
-func (conn *SyncDataConn) PostCommit(ag *AsyncGroup)         {}
-func (conn *SyncDataConn) ShouldForceBack() bool             { return false }
-func (conn *SyncDataConn) Rollback(ag *AsyncGroup)           {}
-func (conn *SyncDataConn) ForceBack(ag *AsyncGroup)          {}
-func (conn *SyncDataConn) Close()                            {}
-
-type AsyncDataConn struct{}
-
-func (conn *AsyncDataConn) Commit(ag *AsyncGroup) errs.Err    { return errs.Ok() }
-func (conn *AsyncDataConn) PreCommit(ag *AsyncGroup) errs.Err { return errs.Ok() }
-func (conn *AsyncDataConn) PostCommit(ag *AsyncGroup)         {}
-func (conn *AsyncDataConn) ShouldForceBack() bool             { return false }
-func (conn *AsyncDataConn) Rollback(ag *AsyncGroup)           {}
-func (conn *AsyncDataConn) ForceBack(ag *AsyncGroup)          {}
-func (conn *AsyncDataConn) Close()                            {}
-
-func TestOfDataSrc(t *testing.T) {
+func TestDataSrc(t *testing.T) {
 	t.Run("new", func(t *testing.T) {
-		dsList := dataSrcList{local: false}
+		manager := newDataSrcManager(true)
+		assert.True(t, manager.local)
+		assert.Len(t, manager.listUnready, 0)
+		assert.Len(t, manager.listReady, 0)
 
-		assert.Equal(t, dsList.local, false)
-		assert.Nil(t, dsList.notSetupHead)
-		assert.Nil(t, dsList.notSetupLast)
-		assert.Nil(t, dsList.didSetupHead)
-		assert.Nil(t, dsList.didSetupLast)
+		manager = newDataSrcManager(false)
+		assert.False(t, manager.local)
+		assert.Len(t, manager.listUnready, 0)
+		assert.Len(t, manager.listReady, 0)
 	})
 
-	t.Run("appendContainerPtrNotSetup", func(t *testing.T) {
-		dsList := dataSrcList{local: false}
-
+	t.Run("add", func(t *testing.T) {
 		logger := list.New()
 
-		ds1 := NewSyncDataSrc(1, logger, false)
-		ptr1 := &dataSrcContainer{local: false, name: "foo", ds: ds1}
+		func() {
+			manager := newDataSrcManager(true)
+			defer manager.close()
 
-		dsList.appendContainerPtrNotSetup(ptr1)
+			ds1 := NewSyncDataSrc(1, logger, Fail2_Not)
+			manager.add("foo", &ds1)
 
-		assert.Equal(t, dsList.local, false)
-		assert.Equal(t, dsList.notSetupHead, ptr1)
-		assert.Equal(t, dsList.notSetupLast, ptr1)
-		assert.Nil(t, dsList.didSetupHead)
-		assert.Nil(t, dsList.didSetupLast)
+			assert.True(t, manager.local)
+			assert.Len(t, manager.listUnready, 1)
+			assert.Len(t, manager.listReady, 0)
 
-		assert.Nil(t, ptr1.prev)
-		assert.Nil(t, ptr1.next)
+			assert.Equal(t, manager.listUnready[0].name, "foo")
 
-		ds2 := NewSyncDataSrc(2, logger, false)
-		ptr2 := &dataSrcContainer{local: false, name: "bar", ds: ds2}
+			ds2 := NewAsyncDataSrc(2, logger, Fail2_Not)
+			manager.add("bar", &ds2)
 
-		dsList.appendContainerPtrNotSetup(ptr2)
+			assert.True(t, manager.local)
+			assert.Len(t, manager.listUnready, 2)
+			assert.Len(t, manager.listReady, 0)
 
-		assert.Equal(t, dsList.local, false)
-		assert.Equal(t, dsList.notSetupHead, ptr1)
-		assert.Equal(t, dsList.notSetupLast, ptr2)
-		assert.Nil(t, dsList.didSetupHead)
-		assert.Nil(t, dsList.didSetupLast)
+			assert.Equal(t, manager.listUnready[0].name, "foo")
+			assert.Equal(t, manager.listUnready[1].name, "bar")
+		}()
 
-		assert.Nil(t, ptr1.prev)
-		assert.Equal(t, ptr1.next, ptr2)
-		assert.Equal(t, ptr2.prev, ptr1)
-		assert.Nil(t, ptr2.next)
-
-		ds3 := NewSyncDataSrc(3, logger, false)
-		ptr3 := &dataSrcContainer{local: false, name: "baz", ds: ds3}
-
-		dsList.appendContainerPtrNotSetup(ptr3)
-
-		assert.Equal(t, dsList.local, false)
-		assert.Equal(t, dsList.notSetupHead, ptr1)
-		assert.Equal(t, dsList.notSetupLast, ptr3)
-		assert.Nil(t, dsList.didSetupHead)
-		assert.Nil(t, dsList.didSetupLast)
-
-		assert.Nil(t, ptr1.prev)
-		assert.Equal(t, ptr1.next, ptr2)
-		assert.Equal(t, ptr2.prev, ptr1)
-		assert.Equal(t, ptr2.next, ptr3)
-		assert.Equal(t, ptr3.prev, ptr2)
-		assert.Nil(t, ptr3.next)
-
-		dsList.closeDataSrcs()
+		assert.Equal(t, logger.Len(), 2)
+		log := logger.Front()
+		assert.Equal(t, log.Value, "SyncDataSrc.New 1")
+		log = log.Next()
+		assert.Equal(t, log.Value, "AsyncDataSrc.New 2")
+		log = log.Next()
+		assert.Nil(t, log)
 	})
 
-	t.Run("removeHeadContainerPtrNotSetup", func(t *testing.T) {
-		dsList := dataSrcList{local: false}
-
+	t.Run("remove", func(t *testing.T) {
 		logger := list.New()
 
-		ds1 := NewSyncDataSrc(1, logger, false)
-		ptr1 := &dataSrcContainer{local: false, name: "foo", ds: ds1}
-		dsList.appendContainerPtrNotSetup(ptr1)
+		func() {
+			manager := newDataSrcManager(true)
+			//defer manager.close()  // to see Close logs by remove
 
-		ds2 := NewSyncDataSrc(2, logger, false)
-		ptr2 := &dataSrcContainer{local: false, name: "bar", ds: ds2}
-		dsList.appendContainerPtrNotSetup(ptr2)
+			ds1 := NewSyncDataSrc(1, logger, Fail2_Not)
+			manager.add("foo", &ds1)
 
-		ds3 := NewSyncDataSrc(3, logger, false)
-		ptr3 := &dataSrcContainer{local: false, name: "baz", ds: ds3}
-		dsList.appendContainerPtrNotSetup(ptr3)
+			ds2 := NewAsyncDataSrc(2, logger, Fail2_Not)
+			manager.add("bar", &ds2)
 
-		assert.Equal(t, dsList.local, false)
-		assert.Equal(t, dsList.notSetupHead, ptr1)
-		assert.Equal(t, dsList.notSetupLast, ptr3)
-		assert.Nil(t, dsList.didSetupHead)
-		assert.Nil(t, dsList.didSetupLast)
+			errors := manager.setup()
+			assert.Len(t, errors, 0)
 
-		assert.Nil(t, ptr1.prev)
-		assert.Equal(t, ptr1.next, ptr2)
-		assert.Equal(t, ptr2.prev, ptr1)
-		assert.Equal(t, ptr2.next, ptr3)
-		assert.Equal(t, ptr3.prev, ptr2)
-		assert.Nil(t, ptr3.next)
+			ds3 := NewSyncDataSrc(3, logger, Fail2_Not)
+			manager.add("baz", &ds3)
 
-		dsList.removeContainerPtrNotSetup(ptr1)
+			ds4 := NewAsyncDataSrc(4, logger, Fail2_Not)
+			manager.add("qux", &ds4)
 
-		assert.Equal(t, dsList.local, false)
-		assert.Equal(t, dsList.notSetupHead, ptr2)
-		assert.Equal(t, dsList.notSetupLast, ptr3)
-		assert.Nil(t, dsList.didSetupHead)
-		assert.Nil(t, dsList.didSetupLast)
+			assert.True(t, manager.local)
+			assert.Len(t, manager.listUnready, 2)
+			assert.Len(t, manager.listReady, 2)
 
-		assert.Nil(t, ptr2.prev)
-		assert.Equal(t, ptr2.next, ptr3)
-		assert.Equal(t, ptr3.prev, ptr2)
-		assert.Nil(t, ptr3.next)
+			manager.remove("baz")
+			manager.remove("foo")
+			manager.remove("qux")
+			manager.remove("bar")
+		}()
 
-		dsList.closeDataSrcs()
+		assert.Equal(t, logger.Len(), 8)
+		log := logger.Front()
+		assert.Equal(t, log.Value, "SyncDataSrc.New 1")
+		log = log.Next()
+		assert.Equal(t, log.Value, "AsyncDataSrc.New 2")
+		log = log.Next()
+		assert.Equal(t, log.Value, "SyncDataSrc.Setup 1")
+		log = log.Next()
+		assert.Equal(t, log.Value, "AsyncDataSrc.Setup 2")
+		log = log.Next()
+		assert.Equal(t, log.Value, "SyncDataSrc.New 3")
+		log = log.Next()
+		assert.Equal(t, log.Value, "AsyncDataSrc.New 4")
+		log = log.Next()
+		assert.Equal(t, log.Value, "SyncDataSrc.Close 1")
+		log = log.Next()
+		assert.Equal(t, log.Value, "AsyncDataSrc.Close 2")
+		log = log.Next()
+		assert.Nil(t, log)
 	})
 
-	t.Run("removeMiddleContainerPtrNotSetup", func(t *testing.T) {
-		dsList := dataSrcList{local: false}
-
+	t.Run("close", func(t *testing.T) {
 		logger := list.New()
 
-		ds1 := NewSyncDataSrc(1, logger, false)
-		ptr1 := &dataSrcContainer{local: false, name: "foo", ds: ds1}
+		func() {
+			manager := newDataSrcManager(true)
+			defer manager.close()
 
-		dsList.appendContainerPtrNotSetup(ptr1)
+			ds1 := NewSyncDataSrc(1, logger, Fail2_Not)
+			manager.add("foo", &ds1)
 
-		ds2 := NewSyncDataSrc(2, logger, false)
-		ptr2 := &dataSrcContainer{local: false, name: "bar", ds: ds2}
+			ds2 := NewAsyncDataSrc(2, logger, Fail2_Not)
+			manager.add("bar", &ds2)
 
-		dsList.appendContainerPtrNotSetup(ptr2)
+			errors := manager.setup()
+			assert.Len(t, errors, 0)
 
-		ds3 := NewSyncDataSrc(3, logger, false)
-		ptr3 := &dataSrcContainer{local: false, name: "baz", ds: ds3}
+			ds3 := NewSyncDataSrc(3, logger, Fail2_Not)
+			manager.add("baz", &ds3)
 
-		dsList.appendContainerPtrNotSetup(ptr3)
+			ds4 := NewAsyncDataSrc(4, logger, Fail2_Not)
+			manager.add("qux", &ds4)
 
-		assert.Equal(t, dsList.local, false)
-		assert.Equal(t, dsList.notSetupHead, ptr1)
-		assert.Equal(t, dsList.notSetupLast, ptr3)
-		assert.Nil(t, dsList.didSetupHead)
-		assert.Nil(t, dsList.didSetupLast)
+			assert.True(t, manager.local)
+			assert.Len(t, manager.listUnready, 2)
+			assert.Len(t, manager.listReady, 2)
+		}()
 
-		assert.Nil(t, ptr1.prev)
-		assert.Equal(t, ptr1.next, ptr2)
-		assert.Equal(t, ptr2.prev, ptr1)
-		assert.Equal(t, ptr2.next, ptr3)
-		assert.Equal(t, ptr3.prev, ptr2)
-		assert.Nil(t, ptr3.next)
-
-		dsList.removeContainerPtrNotSetup(ptr2)
-
-		assert.Equal(t, dsList.local, false)
-		assert.Equal(t, dsList.notSetupHead, ptr1)
-		assert.Equal(t, dsList.notSetupLast, ptr3)
-		assert.Nil(t, dsList.didSetupHead)
-		assert.Nil(t, dsList.didSetupLast)
-
-		assert.Nil(t, ptr1.prev)
-		assert.Equal(t, ptr1.next, ptr3)
-		assert.Equal(t, ptr3.prev, ptr1)
-		assert.Nil(t, ptr3.next)
-
-		dsList.closeDataSrcs()
+		assert.Equal(t, logger.Len(), 8)
+		log := logger.Front()
+		assert.Equal(t, log.Value, "SyncDataSrc.New 1")
+		log = log.Next()
+		assert.Equal(t, log.Value, "AsyncDataSrc.New 2")
+		log = log.Next()
+		assert.Equal(t, log.Value, "SyncDataSrc.Setup 1")
+		log = log.Next()
+		assert.Equal(t, log.Value, "AsyncDataSrc.Setup 2")
+		log = log.Next()
+		assert.Equal(t, log.Value, "SyncDataSrc.New 3")
+		log = log.Next()
+		assert.Equal(t, log.Value, "AsyncDataSrc.New 4")
+		log = log.Next()
+		assert.Equal(t, log.Value, "AsyncDataSrc.Close 2")
+		log = log.Next()
+		assert.Equal(t, log.Value, "SyncDataSrc.Close 1")
+		log = log.Next()
+		assert.Nil(t, log)
 	})
 
-	t.Run("removeLastContainerPtrNotSetup", func(t *testing.T) {
-		dsList := dataSrcList{local: false}
-
+	t.Run("setup no data src", func(t *testing.T) {
 		logger := list.New()
 
-		ds1 := NewSyncDataSrc(1, logger, false)
-		ptr1 := &dataSrcContainer{local: false, name: "foo", ds: ds1}
+		func() {
+			manager := newDataSrcManager(true)
+			defer manager.close()
 
-		dsList.appendContainerPtrNotSetup(ptr1)
+			assert.True(t, manager.local)
+			assert.Len(t, manager.listUnready, 0)
+			assert.Len(t, manager.listReady, 0)
 
-		ds2 := NewSyncDataSrc(2, logger, false)
-		ptr2 := &dataSrcContainer{local: false, name: "bar", ds: ds2}
+			errors := manager.setup()
+			assert.Len(t, errors, 0)
 
-		dsList.appendContainerPtrNotSetup(ptr2)
+			assert.True(t, manager.local)
+			assert.Len(t, manager.listUnready, 0)
+			assert.Len(t, manager.listReady, 0)
+		}()
 
-		ds3 := NewSyncDataSrc(3, logger, false)
-		ptr3 := &dataSrcContainer{local: false, name: "baz", ds: ds3}
-
-		dsList.appendContainerPtrNotSetup(ptr3)
-
-		assert.Equal(t, dsList.local, false)
-		assert.Equal(t, dsList.notSetupHead, ptr1)
-		assert.Equal(t, dsList.notSetupLast, ptr3)
-		assert.Nil(t, dsList.didSetupHead)
-		assert.Nil(t, dsList.didSetupLast)
-
-		assert.Nil(t, ptr1.prev)
-		assert.Equal(t, ptr1.next, ptr2)
-		assert.Equal(t, ptr2.prev, ptr1)
-		assert.Equal(t, ptr2.next, ptr3)
-		assert.Equal(t, ptr3.prev, ptr2)
-		assert.Nil(t, ptr3.next)
-
-		dsList.removeContainerPtrNotSetup(ptr3)
-
-		assert.Equal(t, dsList.local, false)
-		assert.Equal(t, dsList.notSetupHead, ptr1)
-		assert.Equal(t, dsList.notSetupLast, ptr2)
-		assert.Nil(t, dsList.didSetupHead)
-		assert.Nil(t, dsList.didSetupLast)
-
-		assert.Nil(t, ptr1.prev)
-		assert.Equal(t, ptr1.next, ptr2)
-		assert.Equal(t, ptr2.prev, ptr1)
-		assert.Nil(t, ptr2.next)
-
-		dsList.closeDataSrcs()
+		assert.Equal(t, logger.Len(), 0)
+		log := logger.Front()
+		assert.Nil(t, log)
 	})
 
-	t.Run("removeAllContainerPtrNotSetup", func(t *testing.T) {
-		dsList := dataSrcList{local: false}
-
+	t.Run("setup and ok", func(t *testing.T) {
 		logger := list.New()
 
-		ds1 := NewSyncDataSrc(1, logger, false)
-		ptr1 := &dataSrcContainer{local: false, name: "foo", ds: ds1}
+		func() {
+			manager := newDataSrcManager(true)
+			defer manager.close()
 
-		dsList.appendContainerPtrNotSetup(ptr1)
+			ds1 := NewSyncDataSrc(1, logger, Fail2_Not)
+			manager.add("foo", &ds1)
 
-		ds2 := NewSyncDataSrc(2, logger, false)
-		ptr2 := &dataSrcContainer{local: false, name: "bar", ds: ds2}
+			ds2 := NewAsyncDataSrc(2, logger, Fail2_Not)
+			manager.add("bar", &ds2)
 
-		dsList.appendContainerPtrNotSetup(ptr2)
+			assert.True(t, manager.local)
+			assert.Len(t, manager.listUnready, 2)
+			assert.Len(t, manager.listReady, 0)
 
-		ds3 := NewSyncDataSrc(3, logger, false)
-		ptr3 := &dataSrcContainer{local: false, name: "baz", ds: ds3}
+			errors := manager.setup()
+			assert.Len(t, errors, 0)
 
-		dsList.appendContainerPtrNotSetup(ptr3)
+			assert.True(t, manager.local)
+			assert.Len(t, manager.listUnready, 0)
+			assert.Len(t, manager.listReady, 2)
+		}()
 
-		assert.Equal(t, dsList.local, false)
-		assert.Equal(t, dsList.notSetupHead, ptr1)
-		assert.Equal(t, dsList.notSetupLast, ptr3)
-		assert.Nil(t, dsList.didSetupHead)
-		assert.Nil(t, dsList.didSetupLast)
-
-		assert.Nil(t, ptr1.prev)
-		assert.Equal(t, ptr1.next, ptr2)
-		assert.Equal(t, ptr2.prev, ptr1)
-		assert.Equal(t, ptr2.next, ptr3)
-		assert.Equal(t, ptr3.prev, ptr2)
-		assert.Nil(t, ptr3.next)
-
-		dsList.removeContainerPtrNotSetup(ptr1)
-
-		assert.Equal(t, dsList.local, false)
-		assert.Equal(t, dsList.notSetupHead, ptr2)
-		assert.Equal(t, dsList.notSetupLast, ptr3)
-		assert.Nil(t, dsList.didSetupHead)
-		assert.Nil(t, dsList.didSetupLast)
-
-		assert.Nil(t, ptr2.prev)
-		assert.Equal(t, ptr2.next, ptr3)
-		assert.Equal(t, ptr3.prev, ptr2)
-		assert.Nil(t, ptr3.next)
-
-		dsList.removeContainerPtrNotSetup(ptr2)
-
-		assert.Equal(t, dsList.local, false)
-		assert.Equal(t, dsList.notSetupHead, ptr3)
-		assert.Equal(t, dsList.notSetupLast, ptr3)
-		assert.Nil(t, dsList.didSetupHead)
-		assert.Nil(t, dsList.didSetupLast)
-
-		assert.Nil(t, ptr3.prev)
-		assert.Nil(t, ptr3.next)
-
-		dsList.removeContainerPtrNotSetup(ptr3)
-
-		assert.Equal(t, dsList.local, false)
-		assert.Nil(t, dsList.notSetupHead)
-		assert.Nil(t, dsList.notSetupLast)
-		assert.Nil(t, dsList.didSetupHead)
-		assert.Nil(t, dsList.didSetupLast)
-
-		dsList.closeDataSrcs()
+		assert.Equal(t, logger.Len(), 6)
+		log := logger.Front()
+		assert.Equal(t, log.Value, "SyncDataSrc.New 1")
+		log = log.Next()
+		assert.Equal(t, log.Value, "AsyncDataSrc.New 2")
+		log = log.Next()
+		assert.Equal(t, log.Value, "SyncDataSrc.Setup 1")
+		log = log.Next()
+		assert.Equal(t, log.Value, "AsyncDataSrc.Setup 2")
+		log = log.Next()
+		assert.Equal(t, log.Value, "AsyncDataSrc.Close 2")
+		log = log.Next()
+		assert.Equal(t, log.Value, "SyncDataSrc.Close 1")
+		log = log.Next()
+		assert.Nil(t, log)
 	})
 
-	t.Run("removeAndCloseContainerPtrNotSetupByName", func(t *testing.T) {
-		dsList := dataSrcList{local: false}
-
+	t.Run("setup but error", func(t *testing.T) {
 		logger := list.New()
 
-		ds1 := NewSyncDataSrc(1, logger, false)
-		ptr1 := &dataSrcContainer{local: false, name: "foo", ds: ds1}
-		dsList.appendContainerPtrNotSetup(ptr1)
+		func() {
+			manager := newDataSrcManager(true)
+			defer manager.close()
 
-		ds2 := NewSyncDataSrc(2, logger, false)
-		ptr2 := &dataSrcContainer{local: false, name: "bar", ds: ds2}
-		dsList.appendContainerPtrNotSetup(ptr2)
+			ds1 := NewSyncDataSrc(1, logger, Fail2_Not)
+			manager.add("foo", &ds1)
 
-		ds3 := NewSyncDataSrc(3, logger, false)
-		ptr3 := &dataSrcContainer{local: false, name: "baz", ds: ds3}
-		dsList.appendContainerPtrNotSetup(ptr3)
+			ds2 := NewSyncDataSrc(2, logger, Fail2_Setup)
+			manager.add("bar", &ds2)
 
-		ds4 := NewSyncDataSrc(4, logger, false)
-		ptr4 := &dataSrcContainer{local: false, name: "qux", ds: ds4}
-		dsList.appendContainerPtrNotSetup(ptr4)
+			ds3 := NewSyncDataSrc(3, logger, Fail2_Setup)
+			manager.add("bar", &ds3)
 
-		assert.Equal(t, dsList.local, false)
-		assert.Equal(t, dsList.notSetupHead, ptr1)
-		assert.Equal(t, dsList.notSetupLast, ptr4)
-		assert.Nil(t, dsList.didSetupHead)
-		assert.Nil(t, dsList.didSetupLast)
+			assert.True(t, manager.local)
+			assert.Len(t, manager.listUnready, 3)
+			assert.Len(t, manager.listReady, 0)
 
-		assert.Nil(t, ptr1.prev)
-		assert.Equal(t, ptr1.next, ptr2)
-		assert.Equal(t, ptr2.prev, ptr1)
-		assert.Equal(t, ptr2.next, ptr3)
-		assert.Equal(t, ptr3.prev, ptr2)
-		assert.Equal(t, ptr3.next, ptr4)
-		assert.Equal(t, ptr4.prev, ptr3)
-		assert.Nil(t, ptr4.next)
+			errors := manager.setup()
 
-		dsList.removeAndCloseContainerPtrNotSetupByName("bar")
+			assert.True(t, manager.local)
+			assert.Len(t, manager.listUnready, 3)
+			assert.Len(t, manager.listReady, 0)
 
-		assert.Equal(t, dsList.local, false)
-		assert.Equal(t, dsList.notSetupHead, ptr1)
-		assert.Equal(t, dsList.notSetupLast, ptr4)
-		assert.Nil(t, dsList.didSetupHead)
-		assert.Nil(t, dsList.didSetupLast)
+			assert.Len(t, errors, 1)
+			assert.Equal(t, errors[0].Name, "bar")
+			assert.Equal(t, errors[0].Err.Error(), "github.com/sttk/errs.Err {reason:XXX file:data-src_test.go line:34}")
+		}()
 
-		assert.Nil(t, ptr1.prev)
-		assert.Equal(t, ptr1.next, ptr3)
-		assert.Equal(t, ptr3.prev, ptr1)
-		assert.Equal(t, ptr3.next, ptr4)
-		assert.Equal(t, ptr4.prev, ptr3)
-		assert.Nil(t, ptr4.next)
-
-		dsList.removeAndCloseContainerPtrNotSetupByName("foo")
-
-		assert.Equal(t, dsList.local, false)
-		assert.Equal(t, dsList.notSetupHead, ptr3)
-		assert.Equal(t, dsList.notSetupLast, ptr4)
-		assert.Nil(t, dsList.didSetupHead)
-		assert.Nil(t, dsList.didSetupLast)
-
-		assert.Nil(t, ptr3.prev)
-		assert.Equal(t, ptr3.next, ptr4)
-		assert.Equal(t, ptr4.prev, ptr3)
-		assert.Nil(t, ptr4.next)
-
-		dsList.removeAndCloseContainerPtrNotSetupByName("qux")
-
-		assert.Equal(t, dsList.local, false)
-		assert.Equal(t, dsList.notSetupHead, ptr3)
-		assert.Equal(t, dsList.notSetupLast, ptr3)
-		assert.Nil(t, dsList.didSetupHead)
-		assert.Nil(t, dsList.didSetupLast)
-
-		assert.Nil(t, ptr3.prev)
-		assert.Nil(t, ptr3.next)
-
-		dsList.removeAndCloseContainerPtrNotSetupByName("baz")
-
-		assert.Equal(t, dsList.local, false)
-		assert.Nil(t, dsList.notSetupHead)
-		assert.Nil(t, dsList.notSetupLast)
-		assert.Nil(t, dsList.didSetupHead)
-		assert.Nil(t, dsList.didSetupLast)
-
-		dsList.closeDataSrcs()
-
-		e := logger.Front()
-		assert.Equal(t, e.Value, "SyncDataSrc 2 closed")
-		e = e.Next()
-		assert.Equal(t, e.Value, "SyncDataSrc 1 closed")
-		e = e.Next()
-		assert.Equal(t, e.Value, "SyncDataSrc 4 closed")
-		e = e.Next()
-		assert.Equal(t, e.Value, "SyncDataSrc 3 closed")
-		e = e.Next()
-		assert.Nil(t, e)
+		assert.Equal(t, logger.Len(), 6)
+		log := logger.Front()
+		assert.Equal(t, log.Value, "SyncDataSrc.New 1")
+		log = log.Next()
+		assert.Equal(t, log.Value, "SyncDataSrc.New 2")
+		log = log.Next()
+		assert.Equal(t, log.Value, "SyncDataSrc.New 3")
+		log = log.Next()
+		assert.Equal(t, log.Value, "SyncDataSrc.Setup 1")
+		log = log.Next()
+		assert.Equal(t, log.Value, "SyncDataSrc.Setup 2 failed")
+		log = log.Next()
+		assert.Equal(t, log.Value, "SyncDataSrc.Close 1")
+		log = log.Next()
+		assert.Nil(t, log)
 	})
 
-	t.Run("appendContainerPtrDidSetup", func(t *testing.T) {
-		dsList := dataSrcList{local: false}
-
+	t.Run("setupWithOrder no data src", func(t *testing.T) {
 		logger := list.New()
 
-		ds1 := NewSyncDataSrc(1, logger, false)
-		ptr1 := &dataSrcContainer{local: false, name: "foo", ds: ds1}
+		func() {
+			manager := newDataSrcManager(true)
+			defer manager.close()
 
-		dsList.appendContainerPtrDidSetup(ptr1)
+			assert.True(t, manager.local)
+			assert.Len(t, manager.listUnready, 0)
+			assert.Len(t, manager.listReady, 0)
 
-		assert.Equal(t, dsList.local, false)
-		assert.Nil(t, dsList.notSetupHead)
-		assert.Nil(t, dsList.notSetupLast)
-		assert.Equal(t, dsList.didSetupHead, ptr1)
-		assert.Equal(t, dsList.didSetupLast, ptr1)
+			errors := manager.setupWithOrder([]string{"bar", "foo"})
+			assert.Len(t, errors, 0)
 
-		assert.Nil(t, ptr1.prev)
-		assert.Nil(t, ptr1.next)
+			assert.True(t, manager.local)
+			assert.Len(t, manager.listUnready, 0)
+			assert.Len(t, manager.listReady, 0)
+		}()
 
-		ds2 := NewSyncDataSrc(2, logger, false)
-		ptr2 := &dataSrcContainer{local: false, name: "bar", ds: ds2}
-
-		dsList.appendContainerPtrDidSetup(ptr2)
-
-		assert.Equal(t, dsList.local, false)
-		assert.Nil(t, dsList.notSetupHead)
-		assert.Nil(t, dsList.notSetupLast)
-		assert.Equal(t, dsList.didSetupHead, ptr1)
-		assert.Equal(t, dsList.didSetupLast, ptr2)
-
-		assert.Nil(t, ptr1.prev)
-		assert.Equal(t, ptr1.next, ptr2)
-		assert.Equal(t, ptr2.prev, ptr1)
-		assert.Nil(t, ptr2.next)
-
-		ds3 := NewSyncDataSrc(3, logger, false)
-		ptr3 := &dataSrcContainer{local: false, name: "baz", ds: ds3}
-
-		dsList.appendContainerPtrDidSetup(ptr3)
-
-		assert.Equal(t, dsList.local, false)
-		assert.Nil(t, dsList.notSetupHead)
-		assert.Nil(t, dsList.notSetupLast)
-		assert.Equal(t, dsList.didSetupHead, ptr1)
-		assert.Equal(t, dsList.didSetupLast, ptr3)
-
-		assert.Nil(t, ptr1.prev)
-		assert.Equal(t, ptr1.next, ptr2)
-		assert.Equal(t, ptr2.prev, ptr1)
-		assert.Equal(t, ptr2.next, ptr3)
-		assert.Equal(t, ptr3.prev, ptr2)
-		assert.Nil(t, ptr3.next)
-
-		dsList.closeDataSrcs()
+		assert.Equal(t, logger.Len(), 0)
+		log := logger.Front()
+		assert.Nil(t, log)
 	})
 
-	t.Run("removeHeadContainerPtrDidSetup", func(t *testing.T) {
-		dsList := dataSrcList{local: false}
-
+	t.Run("setupWithOrder and ok", func(t *testing.T) {
 		logger := list.New()
 
-		ds1 := NewSyncDataSrc(1, logger, false)
-		ptr1 := &dataSrcContainer{local: false, name: "foo", ds: ds1}
-		dsList.appendContainerPtrDidSetup(ptr1)
+		func() {
+			manager := newDataSrcManager(true)
+			defer manager.close()
 
-		ds2 := NewSyncDataSrc(2, logger, false)
-		ptr2 := &dataSrcContainer{local: false, name: "bar", ds: ds2}
-		dsList.appendContainerPtrDidSetup(ptr2)
+			ds1 := NewSyncDataSrc(1, logger, Fail2_Not)
+			manager.add("foo", &ds1)
 
-		ds3 := NewSyncDataSrc(3, logger, false)
-		ptr3 := &dataSrcContainer{local: false, name: "baz", ds: ds3}
-		dsList.appendContainerPtrDidSetup(ptr3)
+			ds2 := NewSyncDataSrc(2, logger, Fail2_Not)
+			manager.add("bar", &ds2)
 
-		assert.Equal(t, dsList.local, false)
-		assert.Nil(t, dsList.notSetupHead)
-		assert.Nil(t, dsList.notSetupLast)
-		assert.Equal(t, dsList.didSetupHead, ptr1)
-		assert.Equal(t, dsList.didSetupLast, ptr3)
+			ds3 := NewSyncDataSrc(3, logger, Fail2_Not)
+			manager.add("baz", &ds3)
 
-		assert.Nil(t, ptr1.prev)
-		assert.Equal(t, ptr1.next, ptr2)
-		assert.Equal(t, ptr2.prev, ptr1)
-		assert.Equal(t, ptr2.next, ptr3)
-		assert.Equal(t, ptr3.prev, ptr2)
-		assert.Nil(t, ptr3.next)
+			assert.True(t, manager.local)
+			assert.Len(t, manager.listUnready, 3)
+			assert.Len(t, manager.listReady, 0)
 
-		dsList.removeContainerPtrDidSetup(ptr1)
+			errors := manager.setupWithOrder([]string{"bar", "foo", "xxx"})
+			assert.Empty(t, errors)
 
-		assert.Equal(t, dsList.local, false)
-		assert.Nil(t, dsList.notSetupHead)
-		assert.Nil(t, dsList.notSetupLast)
-		assert.Equal(t, dsList.didSetupHead, ptr2)
-		assert.Equal(t, dsList.didSetupLast, ptr3)
+			assert.True(t, manager.local)
+			assert.Len(t, manager.listUnready, 0)
+			assert.Len(t, manager.listReady, 3)
 
-		assert.Nil(t, ptr2.prev)
-		assert.Equal(t, ptr2.next, ptr3)
-		assert.Equal(t, ptr3.prev, ptr2)
-		assert.Nil(t, ptr3.next)
+			assert.Len(t, errors, 0)
+		}()
 
-		dsList.closeDataSrcs()
+		assert.Equal(t, logger.Len(), 9)
+		log := logger.Front()
+		assert.Equal(t, log.Value, "SyncDataSrc.New 1")
+		log = log.Next()
+		assert.Equal(t, log.Value, "SyncDataSrc.New 2")
+		log = log.Next()
+		assert.Equal(t, log.Value, "SyncDataSrc.New 3")
+		log = log.Next()
+		assert.Equal(t, log.Value, "SyncDataSrc.Setup 2")
+		log = log.Next()
+		assert.Equal(t, log.Value, "SyncDataSrc.Setup 1")
+		log = log.Next()
+		assert.Equal(t, log.Value, "SyncDataSrc.Setup 3")
+		log = log.Next()
+		assert.Equal(t, log.Value, "SyncDataSrc.Close 3")
+		log = log.Next()
+		assert.Equal(t, log.Value, "SyncDataSrc.Close 1")
+		log = log.Next()
+		assert.Equal(t, log.Value, "SyncDataSrc.Close 2")
+		log = log.Next()
+		assert.Nil(t, log)
 	})
 
-	t.Run("removeMiddleContainerPtrDidSetup", func(t *testing.T) {
-		dsList := dataSrcList{local: false}
-
+	t.Run("setupWithOrder and fail", func(t *testing.T) {
 		logger := list.New()
 
-		ds1 := NewSyncDataSrc(1, logger, false)
-		ptr1 := &dataSrcContainer{local: false, name: "foo", ds: ds1}
+		func() {
+			manager := newDataSrcManager(true)
+			defer manager.close()
 
-		dsList.appendContainerPtrDidSetup(ptr1)
+			ds1 := NewSyncDataSrc(1, logger, Fail2_Setup)
+			manager.add("foo", &ds1)
 
-		ds2 := NewSyncDataSrc(2, logger, false)
-		ptr2 := &dataSrcContainer{local: false, name: "bar", ds: ds2}
+			ds2 := NewSyncDataSrc(2, logger, Fail2_Setup)
+			manager.add("bar", &ds2)
 
-		dsList.appendContainerPtrDidSetup(ptr2)
+			ds3 := NewSyncDataSrc(3, logger, Fail2_Not)
+			manager.add("baz", &ds3)
 
-		ds3 := NewSyncDataSrc(3, logger, false)
-		ptr3 := &dataSrcContainer{local: false, name: "baz", ds: ds3}
+			ds4 := NewSyncDataSrc(4, logger, Fail2_Not)
+			manager.add("qux", &ds4)
 
-		dsList.appendContainerPtrDidSetup(ptr3)
+			assert.True(t, manager.local)
+			assert.Len(t, manager.listUnready, 4)
+			assert.Len(t, manager.listReady, 0)
 
-		assert.Equal(t, dsList.local, false)
-		assert.Nil(t, dsList.notSetupHead)
-		assert.Nil(t, dsList.notSetupLast)
-		assert.Equal(t, dsList.didSetupHead, ptr1)
-		assert.Equal(t, dsList.didSetupLast, ptr3)
+			errors := manager.setupWithOrder([]string{"qux", "baz", "foo"})
 
-		assert.Nil(t, ptr1.prev)
-		assert.Equal(t, ptr1.next, ptr2)
-		assert.Equal(t, ptr2.prev, ptr1)
-		assert.Equal(t, ptr2.next, ptr3)
-		assert.Equal(t, ptr3.prev, ptr2)
-		assert.Nil(t, ptr3.next)
+			assert.True(t, manager.local)
+			assert.Len(t, manager.listUnready, 4)
+			assert.Len(t, manager.listReady, 0)
 
-		dsList.removeContainerPtrDidSetup(ptr2)
+			assert.Len(t, errors, 1)
+			assert.Equal(t, errors[0].Name, "foo")
+			assert.Equal(t, errors[0].Err.Error(), "github.com/sttk/errs.Err {reason:XXX file:data-src_test.go line:34}")
+		}()
 
-		assert.Equal(t, dsList.local, false)
-		assert.Nil(t, dsList.notSetupHead)
-		assert.Nil(t, dsList.notSetupLast)
-		assert.Equal(t, dsList.didSetupHead, ptr1)
-		assert.Equal(t, dsList.didSetupLast, ptr3)
-
-		assert.Nil(t, ptr1.prev)
-		assert.Equal(t, ptr1.next, ptr3)
-		assert.Equal(t, ptr3.prev, ptr1)
-		assert.Nil(t, ptr3.next)
-
-		dsList.closeDataSrcs()
+		assert.Equal(t, logger.Len(), 9)
+		log := logger.Front()
+		assert.Equal(t, log.Value, "SyncDataSrc.New 1")
+		log = log.Next()
+		assert.Equal(t, log.Value, "SyncDataSrc.New 2")
+		log = log.Next()
+		assert.Equal(t, log.Value, "SyncDataSrc.New 3")
+		log = log.Next()
+		assert.Equal(t, log.Value, "SyncDataSrc.New 4")
+		log = log.Next()
+		assert.Equal(t, log.Value, "SyncDataSrc.Setup 4")
+		log = log.Next()
+		assert.Equal(t, log.Value, "SyncDataSrc.Setup 3")
+		log = log.Next()
+		assert.Equal(t, log.Value, "SyncDataSrc.Setup 1 failed")
+		log = log.Next()
+		assert.Equal(t, log.Value, "SyncDataSrc.Close 3")
+		log = log.Next()
+		assert.Equal(t, log.Value, "SyncDataSrc.Close 4")
+		log = log.Next()
+		assert.Nil(t, log)
 	})
 
-	t.Run("removeLastContainerPtrDidSetup", func(t *testing.T) {
-		dsList := dataSrcList{local: false}
-
+	t.Run("setupWithOrder containing duplicated name and ok", func(t *testing.T) {
 		logger := list.New()
 
-		ds1 := NewSyncDataSrc(1, logger, false)
-		ptr1 := &dataSrcContainer{local: false, name: "foo", ds: ds1}
+		func() {
+			manager := newDataSrcManager(true)
+			defer manager.close()
 
-		dsList.appendContainerPtrDidSetup(ptr1)
+			ds1 := NewSyncDataSrc(1, logger, Fail2_Not)
+			manager.add("foo", &ds1)
 
-		ds2 := NewSyncDataSrc(2, logger, false)
-		ptr2 := &dataSrcContainer{local: false, name: "bar", ds: ds2}
+			ds2 := NewSyncDataSrc(2, logger, Fail2_Not)
+			manager.add("bar", &ds2)
 
-		dsList.appendContainerPtrDidSetup(ptr2)
+			ds3 := NewSyncDataSrc(3, logger, Fail2_Not)
+			manager.add("baz", &ds3)
 
-		ds3 := NewSyncDataSrc(3, logger, false)
-		ptr3 := &dataSrcContainer{local: false, name: "baz", ds: ds3}
+			assert.True(t, manager.local)
+			assert.Len(t, manager.listUnready, 3)
+			assert.Len(t, manager.listReady, 0)
 
-		dsList.appendContainerPtrDidSetup(ptr3)
+			errors := manager.setupWithOrder([]string{"baz", "baz", "foo"})
 
-		assert.Equal(t, dsList.local, false)
-		assert.Nil(t, dsList.notSetupHead)
-		assert.Nil(t, dsList.notSetupLast)
-		assert.Equal(t, dsList.didSetupHead, ptr1)
-		assert.Equal(t, dsList.didSetupLast, ptr3)
+			assert.True(t, manager.local)
+			assert.Len(t, manager.listUnready, 0)
+			assert.Len(t, manager.listReady, 3)
 
-		assert.Nil(t, ptr1.prev)
-		assert.Equal(t, ptr1.next, ptr2)
-		assert.Equal(t, ptr2.prev, ptr1)
-		assert.Equal(t, ptr2.next, ptr3)
-		assert.Equal(t, ptr3.prev, ptr2)
-		assert.Nil(t, ptr3.next)
+			assert.Len(t, errors, 0)
+		}()
 
-		dsList.removeContainerPtrDidSetup(ptr3)
-
-		assert.Equal(t, dsList.local, false)
-		assert.Nil(t, dsList.notSetupHead)
-		assert.Nil(t, dsList.notSetupLast)
-		assert.Equal(t, dsList.didSetupHead, ptr1)
-		assert.Equal(t, dsList.didSetupLast, ptr2)
-
-		assert.Nil(t, ptr1.prev)
-		assert.Equal(t, ptr1.next, ptr2)
-		assert.Equal(t, ptr2.prev, ptr1)
-		assert.Nil(t, ptr2.next)
-
-		dsList.closeDataSrcs()
+		assert.Equal(t, logger.Len(), 9)
+		log := logger.Front()
+		assert.Equal(t, log.Value, "SyncDataSrc.New 1")
+		log = log.Next()
+		assert.Equal(t, log.Value, "SyncDataSrc.New 2")
+		log = log.Next()
+		assert.Equal(t, log.Value, "SyncDataSrc.New 3")
+		log = log.Next()
+		assert.Equal(t, log.Value, "SyncDataSrc.Setup 3")
+		log = log.Next()
+		assert.Equal(t, log.Value, "SyncDataSrc.Setup 1")
+		log = log.Next()
+		assert.Equal(t, log.Value, "SyncDataSrc.Setup 2")
+		log = log.Next()
+		assert.Equal(t, log.Value, "SyncDataSrc.Close 2")
+		log = log.Next()
+		assert.Equal(t, log.Value, "SyncDataSrc.Close 1")
+		log = log.Next()
+		assert.Equal(t, log.Value, "SyncDataSrc.Close 3")
+		log = log.Next()
+		assert.Nil(t, log)
 	})
 
-	t.Run("removeAllContainerPtrDidSetup", func(t *testing.T) {
-		dsList := dataSrcList{local: false}
-
+	t.Run("setupWithOrder containing duplicated name and ok 2", func(t *testing.T) {
 		logger := list.New()
 
-		ds1 := NewSyncDataSrc(1, logger, false)
-		ptr1 := &dataSrcContainer{local: false, name: "foo", ds: ds1}
+		func() {
+			manager := newDataSrcManager(true)
+			defer manager.close()
 
-		dsList.appendContainerPtrDidSetup(ptr1)
+			ds1 := NewSyncDataSrc(1, logger, Fail2_Not)
+			manager.add("foo", &ds1)
 
-		ds2 := NewSyncDataSrc(2, logger, false)
-		ptr2 := &dataSrcContainer{local: false, name: "bar", ds: ds2}
+			ds2 := NewSyncDataSrc(2, logger, Fail2_Not)
+			manager.add("bar", &ds2)
 
-		dsList.appendContainerPtrDidSetup(ptr2)
+			ds3 := NewSyncDataSrc(3, logger, Fail2_Not)
+			manager.add("baz", &ds3)
 
-		ds3 := NewSyncDataSrc(3, logger, false)
-		ptr3 := &dataSrcContainer{local: false, name: "baz", ds: ds3}
+			ds4 := NewSyncDataSrc(4, logger, Fail2_Not)
+			manager.add("qux", &ds4)
 
-		dsList.appendContainerPtrDidSetup(ptr3)
+			assert.True(t, manager.local)
+			assert.Len(t, manager.listUnready, 4)
+			assert.Len(t, manager.listReady, 0)
 
-		assert.Equal(t, dsList.local, false)
-		assert.Nil(t, dsList.notSetupHead)
-		assert.Nil(t, dsList.notSetupLast)
-		assert.Equal(t, dsList.didSetupHead, ptr1)
-		assert.Equal(t, dsList.didSetupLast, ptr3)
+			errors := manager.setupWithOrder([]string{"baz", "foo", "baz", "qux"})
 
-		assert.Nil(t, ptr1.prev)
-		assert.Equal(t, ptr1.next, ptr2)
-		assert.Equal(t, ptr2.prev, ptr1)
-		assert.Equal(t, ptr2.next, ptr3)
-		assert.Equal(t, ptr3.prev, ptr2)
-		assert.Nil(t, ptr3.next)
+			assert.True(t, manager.local)
+			assert.Len(t, manager.listUnready, 0)
+			assert.Len(t, manager.listReady, 4)
 
-		dsList.removeContainerPtrDidSetup(ptr1)
+			assert.Len(t, errors, 0)
+		}()
 
-		assert.Equal(t, dsList.local, false)
-		assert.Nil(t, dsList.notSetupHead)
-		assert.Nil(t, dsList.notSetupLast)
-		assert.Equal(t, dsList.didSetupHead, ptr2)
-		assert.Equal(t, dsList.didSetupLast, ptr3)
-
-		assert.Nil(t, ptr2.prev)
-		assert.Equal(t, ptr2.next, ptr3)
-		assert.Equal(t, ptr3.prev, ptr2)
-		assert.Nil(t, ptr3.next)
-
-		dsList.removeContainerPtrDidSetup(ptr2)
-
-		assert.Equal(t, dsList.local, false)
-		assert.Nil(t, dsList.notSetupHead)
-		assert.Nil(t, dsList.notSetupLast)
-		assert.Equal(t, dsList.didSetupHead, ptr3)
-		assert.Equal(t, dsList.didSetupLast, ptr3)
-
-		assert.Nil(t, ptr3.prev)
-		assert.Nil(t, ptr3.next)
-
-		dsList.removeContainerPtrDidSetup(ptr3)
-
-		assert.Equal(t, dsList.local, false)
-		assert.Nil(t, dsList.notSetupHead)
-		assert.Nil(t, dsList.notSetupLast)
-		assert.Nil(t, dsList.didSetupHead)
-		assert.Nil(t, dsList.didSetupLast)
-
-		dsList.closeDataSrcs()
+		assert.Equal(t, logger.Len(), 12)
+		log := logger.Front()
+		assert.Equal(t, log.Value, "SyncDataSrc.New 1")
+		log = log.Next()
+		assert.Equal(t, log.Value, "SyncDataSrc.New 2")
+		log = log.Next()
+		assert.Equal(t, log.Value, "SyncDataSrc.New 3")
+		log = log.Next()
+		assert.Equal(t, log.Value, "SyncDataSrc.New 4")
+		log = log.Next()
+		assert.Equal(t, log.Value, "SyncDataSrc.Setup 3")
+		log = log.Next()
+		assert.Equal(t, log.Value, "SyncDataSrc.Setup 1")
+		log = log.Next()
+		assert.Equal(t, log.Value, "SyncDataSrc.Setup 4")
+		log = log.Next()
+		assert.Equal(t, log.Value, "SyncDataSrc.Setup 2")
+		log = log.Next()
+		assert.Equal(t, log.Value, "SyncDataSrc.Close 2")
+		log = log.Next()
+		assert.Equal(t, log.Value, "SyncDataSrc.Close 4")
+		log = log.Next()
+		assert.Equal(t, log.Value, "SyncDataSrc.Close 1")
+		log = log.Next()
+		assert.Equal(t, log.Value, "SyncDataSrc.Close 3")
+		log = log.Next()
+		assert.Nil(t, log)
 	})
 
-	t.Run("removeAndCloseContainerPtrDidSetupByName", func(t *testing.T) {
-		dsList := dataSrcList{local: false}
-
+	t.Run("setupWithOrder but one of names is not used", func(t *testing.T) {
 		logger := list.New()
 
-		ds1 := NewSyncDataSrc(1, logger, false)
-		ptr1 := &dataSrcContainer{local: false, name: "foo", ds: ds1}
-		dsList.appendContainerPtrDidSetup(ptr1)
+		func() {
+			manager := newDataSrcManager(true)
+			defer manager.close()
 
-		ds2 := NewSyncDataSrc(2, logger, false)
-		ptr2 := &dataSrcContainer{local: false, name: "bar", ds: ds2}
-		dsList.appendContainerPtrDidSetup(ptr2)
+			ds1 := NewSyncDataSrc(1, logger, Fail2_Not)
+			manager.add("foo", &ds1)
 
-		ds3 := NewSyncDataSrc(3, logger, false)
-		ptr3 := &dataSrcContainer{local: false, name: "baz", ds: ds3}
-		dsList.appendContainerPtrDidSetup(ptr3)
+			ds2 := NewSyncDataSrc(2, logger, Fail2_Not)
+			manager.add("bar", &ds2)
 
-		ds4 := NewSyncDataSrc(4, logger, false)
-		ptr4 := &dataSrcContainer{local: false, name: "qux", ds: ds4}
-		dsList.appendContainerPtrDidSetup(ptr4)
+			ds3 := NewSyncDataSrc(3, logger, Fail2_Not)
+			manager.add("baz", &ds3)
 
-		assert.Equal(t, dsList.local, false)
-		assert.Nil(t, dsList.notSetupHead)
-		assert.Nil(t, dsList.notSetupLast)
-		assert.Equal(t, dsList.didSetupHead, ptr1)
-		assert.Equal(t, dsList.didSetupLast, ptr4)
+			assert.True(t, manager.local)
+			assert.Len(t, manager.listUnready, 3)
+			assert.Len(t, manager.listReady, 0)
 
-		assert.Nil(t, ptr1.prev)
-		assert.Equal(t, ptr1.next, ptr2)
-		assert.Equal(t, ptr2.prev, ptr1)
-		assert.Equal(t, ptr2.next, ptr3)
-		assert.Equal(t, ptr3.prev, ptr2)
-		assert.Equal(t, ptr3.next, ptr4)
-		assert.Equal(t, ptr4.prev, ptr3)
-		assert.Nil(t, ptr4.next)
+			errors := manager.setupWithOrder([]string{"baz", "foo", "xxx"})
 
-		dsList.removeAndCloseContainerPtrDidSetupByName("bar")
+			assert.True(t, manager.local)
+			assert.Len(t, manager.listUnready, 0)
+			assert.Len(t, manager.listReady, 3)
 
-		assert.Equal(t, dsList.local, false)
-		assert.Nil(t, dsList.notSetupHead)
-		assert.Nil(t, dsList.notSetupLast)
-		assert.Equal(t, dsList.didSetupHead, ptr1)
-		assert.Equal(t, dsList.didSetupLast, ptr4)
+			assert.Len(t, errors, 0)
+		}()
 
-		assert.Nil(t, ptr1.prev)
-		assert.Equal(t, ptr1.next, ptr3)
-		assert.Equal(t, ptr3.prev, ptr1)
-		assert.Equal(t, ptr3.next, ptr4)
-		assert.Equal(t, ptr4.prev, ptr3)
-		assert.Nil(t, ptr4.next)
-
-		dsList.removeAndCloseContainerPtrDidSetupByName("foo")
-
-		assert.Equal(t, dsList.local, false)
-		assert.Nil(t, dsList.notSetupHead)
-		assert.Nil(t, dsList.notSetupLast)
-		assert.Equal(t, dsList.didSetupHead, ptr3)
-		assert.Equal(t, dsList.didSetupLast, ptr4)
-
-		assert.Nil(t, ptr3.prev)
-		assert.Equal(t, ptr3.next, ptr4)
-		assert.Equal(t, ptr4.prev, ptr3)
-		assert.Nil(t, ptr4.next)
-
-		dsList.removeAndCloseContainerPtrDidSetupByName("qux")
-
-		assert.Equal(t, dsList.local, false)
-		assert.Nil(t, dsList.notSetupHead)
-		assert.Nil(t, dsList.notSetupLast)
-		assert.Equal(t, dsList.didSetupHead, ptr3)
-		assert.Equal(t, dsList.didSetupLast, ptr3)
-
-		assert.Nil(t, ptr3.prev)
-		assert.Nil(t, ptr3.next)
-
-		dsList.removeAndCloseContainerPtrDidSetupByName("baz")
-
-		assert.Equal(t, dsList.local, false)
-		assert.Nil(t, dsList.notSetupHead)
-		assert.Nil(t, dsList.notSetupLast)
-		assert.Nil(t, dsList.didSetupHead)
-		assert.Nil(t, dsList.didSetupLast)
-
-		dsList.closeDataSrcs()
-
-		e := logger.Front()
-		assert.Equal(t, e.Value, "SyncDataSrc 2 closed")
-		e = e.Next()
-		assert.Equal(t, e.Value, "SyncDataSrc 1 closed")
-		e = e.Next()
-		assert.Equal(t, e.Value, "SyncDataSrc 4 closed")
-		e = e.Next()
-		assert.Equal(t, e.Value, "SyncDataSrc 3 closed")
-		e = e.Next()
-		assert.Nil(t, e)
+		assert.Equal(t, logger.Len(), 9)
+		log := logger.Front()
+		assert.Equal(t, log.Value, "SyncDataSrc.New 1")
+		log = log.Next()
+		assert.Equal(t, log.Value, "SyncDataSrc.New 2")
+		log = log.Next()
+		assert.Equal(t, log.Value, "SyncDataSrc.New 3")
+		log = log.Next()
+		assert.Equal(t, log.Value, "SyncDataSrc.Setup 3")
+		log = log.Next()
+		assert.Equal(t, log.Value, "SyncDataSrc.Setup 1")
+		log = log.Next()
+		assert.Equal(t, log.Value, "SyncDataSrc.Setup 2")
+		log = log.Next()
+		assert.Equal(t, log.Value, "SyncDataSrc.Close 2")
+		log = log.Next()
+		assert.Equal(t, log.Value, "SyncDataSrc.Close 1")
+		log = log.Next()
+		assert.Equal(t, log.Value, "SyncDataSrc.Close 3")
+		log = log.Next()
+		assert.Nil(t, log)
 	})
 
-	t.Run("copyContainerPtrsDidSetupInto", func(t *testing.T) {
-		dsList := dataSrcList{local: false}
-
-		m := make(map[string]*dataSrcContainer)
-		dsList.copyContainerPtrsDidSetupInto(m)
-		assert.Equal(t, len(m), 0)
-
+	t.Run("copyDsReadyToMap", func(t *testing.T) {
 		logger := list.New()
 
-		ds1 := NewSyncDataSrc(1, logger, false)
-		ptr1 := &dataSrcContainer{local: false, name: "foo", ds: ds1}
+		contMap := make(map[string]dataSrcContainer)
 
-		dsList.appendContainerPtrDidSetup(ptr1)
+		manager := newDataSrcManager(true)
+		manager.copyDsReadyToMap(contMap)
+		assert.Equal(t, len(contMap), 0)
 
-		ds2 := NewAsyncDataSrc(2, logger, false)
-		ptr2 := &dataSrcContainer{local: false, name: "bar", ds: ds2}
+		manager = newDataSrcManager(true)
+		ds1 := NewSyncDataSrc(1, logger, Fail2_Not)
+		manager.add("foo", &ds1)
+		errors := manager.setup()
+		assert.Len(t, errors, 0)
+		manager.copyDsReadyToMap(contMap)
+		assert.Equal(t, len(contMap), 1)
+		assert.True(t, contMap["foo"].local)
+		assert.Equal(t, contMap["foo"].name, "foo")
 
-		dsList.appendContainerPtrDidSetup(ptr2)
-
-		ds3 := NewAsyncDataSrc(2, logger, false)
-		ptr3 := &dataSrcContainer{local: false, name: "baz", ds: ds3}
-
-		dsList.appendContainerPtrDidSetup(ptr3)
-
-		m = make(map[string]*dataSrcContainer)
-		dsList.copyContainerPtrsDidSetupInto(m)
-
-		assert.Equal(t, len(m), 3)
-		assert.Equal(t, m["foo"], ptr1)
-		assert.Equal(t, m["bar"], ptr2)
-		assert.Equal(t, m["baz"], ptr3)
-
-		dsList.closeDataSrcs()
-	})
-
-	t.Run("setupAndCreateDataConnAndClose", func(t *testing.T) {
-		logger := list.New()
-
-		dsList := dataSrcList{local: false}
-
-		dsAsync := NewAsyncDataSrc(1, logger, false)
-		dsList.addDataSrc("foo", dsAsync)
-
-		dsSync := NewSyncDataSrc(2, logger, false)
-		dsList.addDataSrc("bar", dsSync)
-
-		errMap := dsList.setupDataSrcs()
-		assert.Equal(t, len(errMap), 0)
-
-		ptr := dsList.didSetupHead
-		_, err := ptr.ds.CreateDataConn()
-		assert.True(t, err.IsOk())
-
-		ptr = ptr.next
-		_, err = ptr.ds.CreateDataConn()
-		assert.True(t, err.IsOk())
-
-		dsList.closeDataSrcs()
-
-		e := logger.Front()
-		assert.Equal(t, e.Value, "SyncDataSrc 2 setupped")
-		e = e.Next()
-		assert.Equal(t, e.Value, "AsyncDataSrc 1 setupped")
-		e = e.Next()
-		assert.Equal(t, e.Value, "AsyncDataSrc 1 created DataConn")
-		e = e.Next()
-		assert.Equal(t, e.Value, "SyncDataSrc 2 created DataConn")
-		e = e.Next()
-		assert.Equal(t, e.Value, "SyncDataSrc 2 closed")
-		e = e.Next()
-		assert.Equal(t, e.Value, "AsyncDataSrc 1 closed")
-	})
-
-	t.Run("failToSetupSyncAndClose", func(t *testing.T) {
-		logger := list.New()
-
-		dsList := dataSrcList{local: true}
-
-		dsAsync := NewAsyncDataSrc(1, logger, false)
-		dsList.addDataSrc("foo", dsAsync)
-
-		dsSync := NewSyncDataSrc(2, logger, true)
-		dsList.addDataSrc("bar", dsSync)
-
-		errMap := dsList.setupDataSrcs()
-		assert.Equal(t, len(errMap), 1)
-
-		err := errMap["bar"]
-		assert.Equal(t, err.Reason(), "XXX")
-
-		dsList.closeDataSrcs()
-
-		e := logger.Front()
-		assert.Equal(t, e.Value, "SyncDataSrc 2 failed to setup")
-		e = e.Next()
-		assert.Equal(t, e.Value, "AsyncDataSrc 1 setupped")
-		e = e.Next()
-		assert.Equal(t, e.Value, "AsyncDataSrc 1 closed")
-		e = e.Next()
-		assert.Nil(t, e)
-	})
-
-	t.Run("failToSetupAsyncAndClose", func(t *testing.T) {
-		logger := list.New()
-
-		dsList := dataSrcList{local: true}
-
-		dsAsync := NewAsyncDataSrc(1, logger, true)
-		dsList.addDataSrc("foo", dsAsync)
-
-		dsSync := NewSyncDataSrc(2, logger, false)
-		dsList.addDataSrc("bar", dsSync)
-
-		errMap := dsList.setupDataSrcs()
-		assert.Equal(t, len(errMap), 1)
-
-		err := errMap["foo"]
-		assert.Equal(t, err.Reason(), "XXX")
-
-		dsList.closeDataSrcs()
-
-		e := logger.Front()
-		assert.Equal(t, e.Value, "SyncDataSrc 2 setupped")
-		e = e.Next()
-		assert.Equal(t, e.Value, "AsyncDataSrc 1 failed to setup")
-		e = e.Next()
-		assert.Equal(t, e.Value, "SyncDataSrc 2 closed")
-		e = e.Next()
-		assert.Nil(t, e)
-	})
-
-	t.Run("noDataSrc", func(t *testing.T) {
-		dsList := dataSrcList{local: false}
-
-		errMap := dsList.setupDataSrcs()
-		assert.Equal(t, len(errMap), 0)
-
-		dsList.closeDataSrcs()
-
-		assert.Nil(t, dsList.notSetupHead)
-		assert.Nil(t, dsList.didSetupHead)
+		manager = newDataSrcManager(false)
+		ds2 := NewAsyncDataSrc(2, logger, Fail2_Not)
+		ds3 := NewSyncDataSrc(3, logger, Fail2_Not)
+		manager.add("bar", &ds2)
+		manager.add("baz", &ds3)
+		errors = manager.setup()
+		assert.Len(t, errors, 0)
+		manager.copyDsReadyToMap(contMap)
+		assert.Equal(t, len(contMap), 3)
+		assert.True(t, contMap["foo"].local)
+		assert.Equal(t, contMap["foo"].name, "foo")
+		assert.False(t, contMap["bar"].local)
+		assert.Equal(t, contMap["bar"].name, "bar")
+		assert.False(t, contMap["baz"].local)
+		assert.Equal(t, contMap["baz"].name, "baz")
 	})
 }

@@ -12,9 +12,8 @@ func TestAsyncGroup(t *testing.T) {
 	t.Run("zero", func(t *testing.T) {
 		var ag AsyncGroup
 
-		m := make(map[string]errs.Err, 0)
-		ag.joinAndPutErrorsInto(m)
-		assert.Equal(t, len(m), 0)
+		ierrs := ag.join()
+		assert.Empty(t, len(ierrs))
 	})
 
 	t.Run("ok", func(t *testing.T) {
@@ -27,13 +26,12 @@ func TestAsyncGroup(t *testing.T) {
 			return errs.Ok()
 		}
 
-		ag.name = "foo"
+		ag._index = 123
 		ag.Add(fn)
 		assert.False(t, executed)
 
-		m := make(map[string]errs.Err, 0)
-		ag.joinAndPutErrorsInto(m)
-		assert.Equal(t, len(m), 0)
+		ierrs := ag.join()
+		assert.Len(t, ierrs, 0)
 		assert.True(t, executed)
 	})
 
@@ -49,19 +47,19 @@ func TestAsyncGroup(t *testing.T) {
 			return errs.New(FailToDoSomething{})
 		}
 
-		ag.name = "foo"
+		ag._index = 123
 		ag.Add(fn)
 		assert.False(t, executed)
 
-		m := make(map[string]errs.Err, 0)
-		ag.joinAndPutErrorsInto(m)
-		assert.Equal(t, len(m), 1)
+		ierrs := ag.join()
+		assert.Len(t, ierrs, 1)
 		assert.True(t, executed)
 
-		switch m["foo"].Reason().(type) {
+		assert.Equal(t, ierrs[0].Index, 123)
+		switch ierrs[0].Err.Reason().(type) {
 		case FailToDoSomething:
 		default:
-			assert.Fail(t, m["foo"].Error())
+			assert.Fail(t, ierrs[0].Err.Error())
 		}
 	})
 
@@ -92,63 +90,15 @@ func TestAsyncGroup(t *testing.T) {
 			return errs.New(Reason2{})
 		}
 
-		ag.name = "foo0"
+		ag._index = 12
 		ag.Add(fn0)
-		ag.name = "foo1"
+		ag._index = 34
 		ag.Add(fn1)
-		ag.name = "foo2"
+		ag._index = 56
 		ag.Add(fn2)
 
-		m := make(map[string]errs.Err, 0)
-		ag.joinAndPutErrorsInto(m)
-		assert.Equal(t, len(m), 3)
-		assert.True(t, executed0)
-		assert.True(t, executed1)
-		assert.True(t, executed2)
-
-		assert.Equal(t, m["foo0"].Error(),
-			"github.com/sttk/errs.Err { reason = github.com/sttk/sabi.Reason0, file = async-group_test.go, line = 82 }")
-		assert.Equal(t, m["foo1"].Error(),
-			"github.com/sttk/errs.Err { reason = github.com/sttk/sabi.Reason1, file = async-group_test.go, line = 87 }")
-		assert.Equal(t, m["foo2"].Error(),
-			"github.com/sttk/errs.Err { reason = github.com/sttk/sabi.Reason2, file = async-group_test.go, line = 92 }")
-	})
-
-	t.Run("multiple errors without an error map", func(t *testing.T) {
-		var ag AsyncGroup
-
-		type Reason0 struct{}
-		type Reason1 struct{}
-		type Reason2 struct{}
-
-		executed0 := false
-		executed1 := false
-		executed2 := false
-
-		fn0 := func() errs.Err {
-			time.Sleep(200)
-			executed0 = true
-			return errs.New(Reason0{})
-		}
-		fn1 := func() errs.Err {
-			time.Sleep(400)
-			executed1 = true
-			return errs.New(Reason1{})
-		}
-		fn2 := func() errs.Err {
-			time.Sleep(800)
-			executed2 = true
-			return errs.New(Reason2{})
-		}
-
-		ag.name = "foo0"
-		ag.Add(fn0)
-		ag.name = "foo1"
-		ag.Add(fn1)
-		ag.name = "foo2"
-		ag.Add(fn2)
-
-		ag.joinAndIgnoreErrors()
+		ierrs := ag.join()
+		assert.Len(t, ierrs, 3)
 		assert.True(t, executed0)
 		assert.True(t, executed1)
 		assert.True(t, executed2)
