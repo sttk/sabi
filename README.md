@@ -62,7 +62,7 @@ func MyLogic(data MyData) errs.Err {
 ### 2. Implementing DataAcc derived structs
 
 The `DataAcc` interface provides a simple mechanism to retrieve `DataConn` objects.
-However, it's the derived structs (like `GettingDataAcc`, `SettingDataAcc`, and `StdioPrintingDataAcc` in this example) that define the application-specific methods for accessing data.
+However, it's the derived structs (like `GettingDataAcc` and `SettingDataAcc` in this example) that define the application-specific methods for accessing data.
 These methods then use `GetDataConn` to obtain the appropriate `DataConn` and perform the actual data operations.
 
 ```go
@@ -107,7 +107,7 @@ func (da *SettingDataAcc) SetText(text string) errs.Err {
   if err.IsNotOk() {
     return err
   }
-  stdioConn.AddPostCommit(func(_ os.Stdin, stdout os.Stdout, _ os.Stderr) errs.Err {
+  stdioConn.AddPostCommit(func(_ *os.File, stdout *os.File, _ *os.File) errs.Err {
     fmt.Fprintf(stdout, "%s", text)
     return errs.Ok()
   })
@@ -157,6 +157,8 @@ function (`MyLogic`) without or within a transaction.
 
 ```go
 import (
+  "context"
+
   "github.com/sttk/errs"
   "github.com/sttk/sabi"
 )
