@@ -40,7 +40,7 @@ go get github.com/sttk/sabi
 ### 1. Implementing a logic function and a data access interface
 
 First, define a function that represents your application logic, along with its dedicated data access interface.
-This interfae is independent of specific data source implementations, improving testability.
+This interface is independent of specific data source implementations, improving testability.
 
 ```go
 import "github.com/sttk/errs"
@@ -73,7 +73,7 @@ import (
   "github.com/sttk/errs"
   "github.com/sttk/sabi"
   "github.com/sttk/sabi_redis"
-  "github.com/sttk/sabi_stdio"  // THis is a conceptual, non-existent DataConn.
+  "github.com/sttk/sabi_stdio"  // This is a conceptual, non-existent DataConn.
 )
 
 type GettingDataAcc struct {
@@ -107,8 +107,8 @@ func (da *SettingDataAcc) SetText(text string) errs.Err {
   if err.IsNotOk() {
     return err
   }
-  stdioConn.AddPostCommit(func(_ os.Stdio, stdout os.Stdout, _ os.Stderr) errs.Err {
-    fmt.Fprintf(stdout, text)
+  stdioConn.AddPostCommit(func(_ os.Stdin, stdout os.Stdout, _ os.Stderr) errs.Err {
+    fmt.Fprintf(stdout, "%s", text)
     return errs.Ok()
   })
 
@@ -149,7 +149,7 @@ var _ MyData = (*MyDataHub)(nil)
 ### 4. Using logic functions and DataHub
 
 Inside your `init` function, register your global `DataSrc`.
-Next, `main` function calls `run` function, and inside `run` function, setup the `sabi` framework.
+Next, `main` function calls `run` function, and inside `run` function, set up the `sabi` framework.
 Then, create an instance of `DataHub` and register the necessary local `DataSrc` using
 the `Uses` method.
 Finally, use the `Run` function or `Txn` function to execute your defined application logic
