@@ -1,41 +1,33 @@
-# [Sabi][repo-url] [![Go Reference][pkg-dev-img]][pkg-dev-url] [![CI Status][ci-img]][ci-url] [![MIT License][mit-img]][mit-url]
+<div align="center">
+  <a href="https://github.com/sttk/sabi">
+    <img src="./images/sabi-go.png" width="250" height="auto" alt="Sabi"/>
+  </a>
 
-A small framework for Go designed to separate logic from data access.
+  <h2>
+  "sabi" - A small framework to separate logics and data accesses
+  </h2>
+  <br>
 
-It achieves this by connecting the logic layer and the data access layer via interfaces, similar to traditional Dependency Injection (DI).
-This reduces the dependency between the two, allowing them to be implemented and tested independently.
+  [![Go Reference][pkg-dev-img]][pkg-dev-url] [![CI Status][ci-img]][ci-url] [![MIT License][mit-img]][mit-url]
+</div>
 
-However, traditional DI often presented inconvenience in how methods were grouped.
-Typically, methods were grouped by external data service like a database or by database table.
-This meant the logic layer had to depend on units defined by the data access layer's concerns.
-Furthermore, such interfaces often contained more methods than a specific piece of logic needed, making it
-difficult to tell which methods were actually used in the logic without tracing the code.
+## Overview
 
-This framework addresses that inconvenience.
-The data access interface used by a logic function is unique to that specific logic, passed as an argument
-to the logic function.
-This interface declares all the data access methods that specific logic will use.
+**sabi** was developed with the goal of achieving a thorough separation between business logic and data access. However, it sets itself apart from conventional Dependency Injection (DI) frameworks that merely invert dependencies by sandwiching an interface between the two layers.
 
-On the data access layer side, implementations can be provided by concrete types that fulfill multiple `DataAcc` derived structs.
-This allows for implementation in any arbitrary unit — whether by external data service, by table,
-or by functional concern.
+In particular, two key techniques elevate **sabi** into a highly advanced framework: the introduction of data access interfaces optimized for each specific piece of logic, and an approach that routes inputs and outputs from the controller layer directly into the data access layer via `DataSrc`, bypassing the logic layer entirely.
 
-This is achieved through the following mechanism:
+The former approach fully materializes the **Interface Segregation Principle (ISP)**, which has frequently become a mere formality within the SOLID principles. Furthermore, because adding methods to `DataAcc` or incorporating additional services via `DataSrc` does not affect existing logic that does not utilize them, capabilities can be extended without modifying existing code—thereby conceptually satisfying the **Open-Closed Principle (OCP)**.
 
-* A `DataHub` struct aggregates all data access methods.
-  `DataAcc` derived structs are attached to `DataHub`, giving `DataHub` the implementations of
-  the data access methods.
-* Logic functions accept specific, narrowly defined data access interfaces as arguments.
-  These interfaces declare only the methods relevant to that particular piece of logic.
-* The `DataHub` type implements all of these specific data access interfaces. When a `DataHub`
-  instance is passed to a logic function, the logic function interacts with it via the narrower
-  interface, ensuring it only sees and uses the methods it needs. 
-  Using Go's embedding mechanism, a type implements an interface by methods of other structs.
-  The `DataHub` simply needs to have methods that match the signatures of all the methods declared
-  across the various logic-facing data access interfaces.
+Additionally, even if a `DataAcc` implementation providing a specific capability is replaced with an alternative implementation, or if responsibilities are rearranged among different `DataAcc` interfaces within the data access layer, the behavior of the logic layer remains unchanged as long as the underlying contract is maintained. Thus, the **Liskov Substitution Principle (LSP)** is realized at the contractual level.
 
-This approach provides strong compile-time guarantees that logic only uses what it declares, while
-allowing flexible organization of data access implementations.
+Moreover, because both high-level logic and low-level data access depend on the `DataAcc` contract defined as an individual capability, the **Dependency Inversion Principle (DIP)** is also achieved at the architectural level. In this manner, rather than adhering strictly to the classical OOP context that presupposes inheritance, **sabi** realizes the core intent of each principle—"separation of concerns," "localization of change impact," "substitutability based on contracts," and "dependence on abstractions"—at the architectural level. It possesses a structure that conceptually aligns with all SOLID principles, an achievement that is exceptionally rare in the history of software design.
+
+The latter approach—which routes inputs and outputs from the controller layer directly into the data access layer, bypassing the logic layer entirely—was conceived by breaking down the role of the controller layer into two distinct elements: "logic invocation" and "input/output data." In conventional architectures, because these two elements remained unseparated, a hierarchical structure dedicated solely to data flow (the so-called "data bucket brigade") was inevitable, requiring data to be transformed as it was passed from one layer to the next. However, by routing input/output data directly to the infrastructure layer (the data access department), this redundant data flow and the very hierarchical structure that supported it become entirely unnecessary.
+
+As a result, the residual hierarchical dependency that typically persists between logic and data access is completely eliminated, elevating them into an equal relationship based on the contract defined by the interface's method signatures. This can be viewed as an evolutionary extension of the Dependency Inversion Principle (DIP)—pushing beyond conventional DIP, which merely inverts the direction of dependency, to minimize and localize the dependency itself within contractual boundaries.
+
+This structure delivers the "restricted dependencies" and "localization of explicitly bounded contexts" required for AI-driven automated programming, making **sabi** a cutting-edge, AI-friendly, Capability-oriented framework for today's AI era.
 
 ## Installation
 
@@ -45,55 +37,14 @@ go get github.com/sttk/sabi
 
 ## Usage
 
-### 1. Implementing `DataSrc` and `DataConn`
+### 1. Implementing a logic function and a data access interface
 
-First, you'll define `DataSrc` which manages connections to external data services and creates
-`DataConn`.
-Then, you'll define `DataConn` which represents a session-specific connection and implements
-transactional operations.
+First, define a function that represents your application logic, along with its dedicated data access interface.
+This interfae is independent of specific data source implementations, improving testability.
 
 ```go
-import (
-    "context"
-    "github.com/sttk/errs"
-    "github.com/sttk/sabi"
-)
+import "github.com/sttk/errs"
 
-type FooDataSrc struct {}
-func (ds *FooDataSrc) Setup(ag *sabi.AsyncGroup) errs.Err { return errs.Ok() }
-func (ds *FooDataSrc) Close() {}
-func (ds *FooDataSrc) CreateDataConn() (sabi.DataConn, errs.Err) { return &FooDataConn{}, errs.Ok() }
-
-type FooDataConn struct {}
-func (conn *FooDataConn) Commit(ag *sabi.AsyncGroup) errs.Err { return errs.Ok() }
-func (conn *FooDataConn) PreCommit(ag *sabi.AsyncGroup) errs.Err { return errs.Ok() }
-func (conn *FooDataConn) PostCommit(ag *sabi.AsyncGroup) {}
-func (conn *FooDataConn) ShouldForceBack() bool { return false }
-func (conn *FooDataConn) Rollback(ag *sabi.AsyncGroup) {}
-func (conn *FooDataConn) ForceBack(ag *sabi.AsyncGroup) {}
-func (conn *FooDataConn) Close() {}
-
-type BarDataSrc struct {}
-func (ds *BarDataSrc) Setup(ag *sabi.AsyncGroup) errs.Err { return errs.Ok() }
-func (ds *BarDataSrc) Close() {}
-func (ds *BarDataSrc) CreateDataConn() (sabi.DataConn, errs.Err) { return &BarDataConn{}, errs.Ok() }
-
-type BarDataConn struct {}
-func (conn *BarDataConn) Commit(ag *sabi.AsyncGroup) errs.Err { return errs.Ok() }
-func (conn *BarDataConn) PreCommit(ag *sabi.AsyncGroup) errs.Err { return errs.Ok() }
-func (conn *BarDataConn) PostCommit(ag *sabi.AsyncGroup) {}
-func (conn *BarDataConn) ShouldForceBack() bool { return false }
-func (conn *BarDataConn) Rollback(ag *sabi.AsyncGroup) {}
-func (conn *BarDataConn) ForceBack(ag *sabi.AsyncGroup) {}
-func (conn *BarDataConn) Close() {}
-```
-
-### 2. Implementing logic functions and data traits
-
-Define interfaces and functions that express your application logic.
-These interfaces are independent of specific data source implementations, improving testability.
-
-```go
 type MyData interface {
     GetText() (string, errs.Err)
     SetText(text string) errs.Err
@@ -101,43 +52,80 @@ type MyData interface {
 
 func MyLogic(data MyData) errs.Err {
     text, err := data.GetText()
-    if err != nil {
+    if err.IsNotOk() {
         return err
     }
     return data.SetText(text)
 }
 ```
 
-### 3. Implementing `DataAcc` derived structs
+### 2. Implementing DataAcc derived structs
 
-The `DataAcc` interface abstracts access to data connections.
-The methods defined here will be used to obtain data connections via `DataHub` and perform
-actual data operations.
+The `DataAcc` interface provides a simple mechanism to retrieve `DataConn` objects.
+However, it's the derived structs (like `GettingDataAcc`, `SettingDataAcc`, and `StdioPrintingDataAcc` in this example) that define the application-specific methods for accessing data.
+These methods then use `GetDataConn` to obtain the appropriate `DataConn` and perform the actual data operations.
 
 ```go
-type GettingDataAcc struct { sabi.DataAcc }
-func (data *GettingDataAcc) GetText() (string, errs.Err) {
-    conn, err := sabi.GetDataConn[*FooDataConn](data, "foo")
-    if err != nil { return "", err }
+import (
+  "fmt"
+  "os"
+
+  "github.com/sttk/errs"
+  "github.com/sttk/sabi"
+  "github.com/sttk/sabi_redis"
+  "github.com/sttk/sabi_stdio"  // THis is a conceptual, non-existent DataConn.
+)
+
+type GettingDataAcc struct {
+  sabi.DataAcc
+}
+func (da *GettingDataAcc) GetText() (string, errs.Err) {
     return "output text", errs.Ok()
 }
 
-type SettingDataAcc struct { sabi.DataAcc }
-func (data *SettingDataAcc) SetText(text string) errs.Err {
-    conn, err := sabi.GetDataConn[*BarDataConn](data, "bar")
-    if err != nil { return err }
+type SettingDataAcc struct {
+  sabi.DataAcc
+}
+func (da *SettingDataAcc) SetText(text string) errs.Err {
+  ctx := da.Context()
+  dc, err := sabi.GetDataConn[*sabi_redis.RedisDataConn](da, "redis")
+  if err.IsNotOk() {
+    return err
+  }
+
+  redisConn := dc.GetConnection()
+  e := redisConn.Set(ctx, "key", text, 0).Err()
+  if e != nil {
+    return errs.New("fail to set text to key", e)
+  }
+  dc.AddRollback(func(rConn *redis.Conn) errs.Err {
+    e := rConn.Del(ctx, "key").Err()
+    return errs.New("fail to delete key for rollback", e)
+  })
+
+  stdioConn, err := sabi.GetDataConn[*sabi_stdio.StdioDataConn](da, "stdio")
+  if err.IsNotOk() {
+    return err
+  }
+  stdioConn.AddPostCommit(func(_ os.Stdio, stdout os.Stdout, _ os.Stderr) errs.Err {
+    fmt.Fprintf(stdout, text)
     return errs.Ok()
+  })
+
+  return errs.Ok()
 }
 ```
 
-### 4. Integrating data interfaces and `DataAcc` derived structs into `DataHub`
+### 3. Integrating data interfaces and DataAcc derived structs into DataHub
 
 The `DataHub` is the central component that manages all `DataSrc` and `DataConn`,
 providing access to them for your application logic.
-By implementing the data interface (`MyData`) from step 2 and the `DataAcc` structs
-from step 3 on `DataHub`, you integrate them.
+By implementing the data interface (`MyData`) from step 1. and the `DataAcc` structs
+from step 2. on `DataHub`, you integrate them.
 
 ```go
+import "github.com/sttk/sabi"
+
 type MyDataHub struct {
     sabi.DataHub
     *GettingDataAcc
@@ -158,17 +146,21 @@ func NewMyDataHub() sabi.DataHub {
 var _ MyData = (*MyDataHub)(nil)
 ```
 
-### 5. Using logic functions and `DataHub`
+### 4. Using logic functions and DataHub
 
 Inside your `init` function, register your global `DataSrc`.
 Next, `main` function calls `run` function, and inside `run` function, setup the `sabi` framework.
 Then, create an instance of `DataHub` and register the necessary local `DataSrc` using
 the `Uses` method.
-Finally, use the `txn` method of `DataHub` to execute your defined application logic
-function (`MyLogic`) within a transaction.
-This automatically handles transaction commits and rollbacks.
+Finally, use the `Run` function or `Txn` function to execute your defined application logic
+function (`MyLogic`) without or within a transaction.
 
 ```go
+import (
+  "github.com/sttk/errs"
+  "github.com/sttk/sabi"
+)
+
 func init() {
     // Register global DataSrc.
     sabi.Uses("foo", &FooDataSrc{})
@@ -182,7 +174,9 @@ func main() {
 
 func run() errs.Err {
     // Set up the sabi framework.
-    if err := sabi.Setup(); err != nil { return err }
+    if err := sabi.Setup(); err != nil {
+      return err
+    }
     defer sabi.Shutdown()
 
     // Creates a new instance of DataHub.
@@ -192,12 +186,25 @@ func run() errs.Err {
     // Register session-local DataSrc with DataHub.
     data.Uses("bar", &BarDataSrc{})
 
-    // Execute application logic within a transaction.
-    // MyLogic performs data operations via DataHub.
-    ctx := context.Background()
-    return sabi.Txn(data, ctx, MyLogic)
+    data.SetContext(context.Background())
+
+    // Execute application logic without a transaction control.
+    return sabi.Run(data, MyLogic)
+
+    // If you need to execute logic within a transaction, use the `Txn` function instead of `Run`
+    // return sabi.Txn(data, MyLogic)
 }
 ```
+
+## Related Links
+
+### Data Sources
+- [sabi_redis (Go)](https://github.com/sttk/sabi_redis) ... The DataSrc implementation for Redis
+
+### Implementations in other languages
+- [sabi (Rust)](https://github.com/sttk/sabi-rust) ... The sabi implementation in Rust
+- [sabi (Java)](https://github.com/sttk/sabi-java) ... The sabi implementation in Java
+
 
 ## Supporting Go versions
 
