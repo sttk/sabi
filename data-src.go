@@ -8,14 +8,35 @@ import (
 	"github.com/sttk/errs"
 )
 
+// DataSrcErr represents an error that occurred in a data source, associating
+// the name of the data source with the specific error returned during its
+// lifecycle (such as setup or initialization). This allows callers to identify
+// which data source encountered an issue and handle the failure accordingly.
 type DataSrcErr struct {
+	// Name is the identifier of the data source that experienced the error.
 	Name string
-	Err  errs.Err
+	// Err is the error details returned by the data source.
+	Err errs.Err
 }
 
+// DataSrc is an interface representing a factory or connection pool for data sources
+// (such as databases, external APIs, or files) that need initialization and cleanup.
+// It manages the lifecycle of the data source before connections are created, and
+// provides a way to instantiate connections for transactions.
 type DataSrc interface {
+	// Setup initializes the data source, such as establishing connection pools or
+	// loading configurations. It accepts a pointer to an AsyncGroup to facilitate
+	// asynchronous setup tasks in concurrent scenarios. It returns an error if
+	// the initialization fails.
 	Setup(ag *AsyncGroup) errs.Err
+
+	// Close releases any resources, connections, or files held by the data source
+	// during its shutdown phase, preventing resource leaks.
 	Close()
+
+	// CreateDataConn instantiates and returns a new DataConn, which represents a
+	// database connection or session that can participate in transactions.
+	// It returns the connection and an error if the connection cannot be created.
 	CreateDataConn() (DataConn, errs.Err)
 }
 

@@ -9,31 +9,81 @@ import (
 )
 
 type /* error reasons */ (
+	// FailToPreCommitDataConn represents an error reason indicating that one or more
+	// data connections failed during their pre-commit phase. It wraps a list of
+	// individual connection errors that occurred, allowing the caller to inspect
+	// which connections encountered issues and what the underlying errors were before
+	// the actual commit was attempted.
 	FailToPreCommitDataConn struct {
 		Errors []DataConnErr
 	}
 
+	// FailToCommitDataConn represents an error reason indicating that one or more
+	// data connections failed during their commit phase. It contains a list of
+	// errors from the failed connections, which is useful for diagnosing failures that
+	// happened while finalizing the transactions on those connections.
 	FailToCommitDataConn struct {
 		Errors []DataConnErr
 	}
 
+	// FailToPostCommitDataConn represents an error reason indicating that one or more
+	// data connections failed during their post-commit phase. This phase runs after
+	// a successful commit, so this error implies that while the transaction was committed
+	// successfully, subsequent cleanup or follow-up operations on the connections failed.
+	// It contains a list of individual connection errors for diagnosis.
 	FailToPostCommitDataConn struct {
 		Errors []DataConnErr
 	}
 )
 
+// DataConnErr represents a pair of a data connection's name and the error it encountered.
+// It is used to report failures associated with specific connections during transaction
+// phases such as pre-commit, commit, post-commit, or rollback.
 type DataConnErr struct {
+	// Name is the identifier of the data connection that failed.
 	Name string
-	Err  errs.Err
+	// Err is the error returned by the data connection.
+	Err errs.Err
 }
 
+// DataConn is an interface representing a database or external resource connection
+// that participates in transaction management. It defines methods for managing the
+// lifecycle of a transaction (pre-commit, commit, post-commit, rollback) as well as
+// handling transaction failures and resource cleanup.
 type DataConn interface {
+	// Commit finalizes the changes made during the transaction. It receives an
+	// AsyncGroup pointer to allow asynchronous execution of the commit operation.
+	// It returns an error if the commit fails.
 	Commit(ag *AsyncGroup) errs.Err
+
+	// PreCommit performs preparation tasks before the actual commit is executed.
+	// It receives an AsyncGroup pointer for asynchronous execution and returns
+	// an error if the preparation fails.
 	PreCommit(ag *AsyncGroup) errs.Err
+
+	// PostCommit executes operations after the commit has completed successfully.
+	// It receives an AsyncGroup pointer for asynchronous execution and returns
+	// an error if post-commit operations fail.
 	PostCommit(ag *AsyncGroup) errs.Err
+
+	// IsCommitted returns a boolean indicating whether the transaction on this
+	// connection has been successfully committed.
 	IsCommitted() bool
+
+	// Rollback aborts the changes made during the transaction, restoring the database
+	// or resource to its state before the transaction began. It receives an
+	// AsyncGroup pointer to allow asynchronous execution and returns an error
+	// if the rollback operation fails.
 	Rollback(ag *AsyncGroup) errs.Err
+
+	// OnTxnFailure is called when the transaction fails. It allows the connection
+	// to perform custom error handling, notifications, or diagnostics. It receives
+	// an AsyncGroup pointer for asynchronous execution and a slice of reports
+	// detailing the failures of all participating connections.
 	OnTxnFailure(ag *AsyncGroup, reports []TxnFailureReport)
+
+	// Close releases any resources associated with the connection. It is called
+	// during cleanup after the transaction has concluded.
 	Close()
 }
 
