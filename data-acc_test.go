@@ -2,7 +2,6 @@ package sabi_test
 
 import (
 	"container/list"
-	"context"
 	"fmt"
 	"testing"
 
@@ -11,32 +10,6 @@ import (
 	"github.com/sttk/sabi"
 )
 
-type FooDataSrc struct {
-	id        int8
-	text      string
-	logger    *list.List
-	will_fail bool
-}
-
-func (ds *FooDataSrc) Setup(ag *sabi.AsyncGroup) errs.Err {
-	if ds.will_fail {
-		ds.logger.PushBack(fmt.Sprintf("FooDataSrc %d failed to setup", ds.id))
-		return errs.New("XXX")
-	}
-	ds.logger.PushBack(fmt.Sprintf("FooDataSrc %d setupped", ds.id))
-	return errs.Ok()
-}
-
-func (ds *FooDataSrc) Close() {
-	ds.logger.PushBack(fmt.Sprintf("FooDataSrc %d closed", ds.id))
-}
-
-func (ds *FooDataSrc) CreateDataConn() (sabi.DataConn, errs.Err) {
-	ds.logger.PushBack(fmt.Sprintf("FooDataSrc %d created FooDataConn", ds.id))
-	conn := &FooDataConn{id: ds.id, text: ds.text, logger: ds.logger}
-	return conn, errs.Ok()
-}
-
 type FooDataConn struct {
 	id        int8
 	text      string
@@ -44,168 +17,206 @@ type FooDataConn struct {
 	logger    *list.List
 }
 
+func NewFooDataConn(id int8, s string, logger *list.List) *FooDataConn {
+	logger.PushBack(fmt.Sprintf("NewFooDataConn %d", id))
+	return &FooDataConn{id: id, text: s, logger: logger}
+}
+
 func (conn *FooDataConn) GetText() string {
+	conn.logger.PushBack(fmt.Sprintf("FooDataConn#GetText %d", conn.id))
 	return conn.text
 }
 
 func (conn *FooDataConn) Commit(ag *sabi.AsyncGroup) errs.Err {
 	conn.committed = true
-	conn.logger.PushBack(fmt.Sprintf("FooDataConn %d committed", conn.id))
+	conn.logger.PushBack(fmt.Sprintf("FooDataConn#Commit %d", conn.id))
 	return errs.Ok()
 }
 
 func (conn *FooDataConn) PreCommit(ag *sabi.AsyncGroup) errs.Err {
-	conn.logger.PushBack(fmt.Sprintf("FooDataConn %d pre committed", conn.id))
+	conn.logger.PushBack(fmt.Sprintf("FooDataConn#PreCommit %d", conn.id))
 	return errs.Ok()
 }
 
-func (conn *FooDataConn) PostCommit(ag *sabi.AsyncGroup) {
-	conn.logger.PushBack(fmt.Sprintf("FooDataConn %d post committed", conn.id))
+func (conn *FooDataConn) PostCommit(ag *sabi.AsyncGroup) errs.Err {
+	conn.logger.PushBack(fmt.Sprintf("FooDataConn#PostCommit %d", conn.id))
+	return errs.Ok()
 }
 
-func (conn *FooDataConn) ShouldForceBack() bool {
+func (conn *FooDataConn) IsCommitted() bool {
 	return conn.committed
 }
 
-func (conn *FooDataConn) Rollback(ag *sabi.AsyncGroup) {
-	conn.logger.PushBack(fmt.Sprintf("FooDataConn %d rollbacked", conn.id))
-}
-
-func (conn *FooDataConn) ForceBack(ag *sabi.AsyncGroup) {
-	conn.logger.PushBack(fmt.Sprintf("FooDataConn %d forced back", conn.id))
-}
-
-func (conn *FooDataConn) Close() {
-	conn.logger.PushBack(fmt.Sprintf("FooDataConn %d closed", conn.id))
-}
-
-type BarDataSrc struct {
-	id        int8
-	text      string
-	logger    *list.List
-	will_fail bool
-}
-
-func (ds *BarDataSrc) Setup(ag *sabi.AsyncGroup) errs.Err {
-	if ds.will_fail {
-		ds.logger.PushBack(fmt.Sprintf("BarDataSrc %d failed to setup", ds.id))
-		return errs.New("XXX")
-	}
-	ds.logger.PushBack(fmt.Sprintf("BarDataSrc %d setupped", ds.id))
+func (conn *FooDataConn) Rollback(ag *sabi.AsyncGroup) errs.Err {
+	conn.logger.PushBack(fmt.Sprintf("FooDataConn#Rollback %d", conn.id))
 	return errs.Ok()
 }
 
-func (ds *BarDataSrc) Close() {
-	ds.logger.PushBack(fmt.Sprintf("BarDataSrc.text = %s", ds.text))
-	ds.logger.PushBack(fmt.Sprintf("BarDataSrc %d closed", ds.id))
+func (conn *FooDataConn) OnTxnFailure(ag *sabi.AsyncGroup, reports []sabi.TxnFailureReport) {
+	conn.logger.PushBack(fmt.Sprintf("FooDataConn#OnTxn %d", conn.id))
 }
 
-func (ds *BarDataSrc) CreateDataConn() (sabi.DataConn, errs.Err) {
-	ds.logger.PushBack(fmt.Sprintf("BarDataSrc %d created BarDataConn", ds.id))
-	conn := &BarDataConn{id: ds.id, text: ds.text, logger: ds.logger, ds: ds}
-	return conn, errs.Ok()
+func (conn *FooDataConn) Close() {
+	conn.logger.PushBack(fmt.Sprintf("FooDataConn#Close %d", conn.id))
+}
+
+type FooDataSrc struct {
+	id            int8
+	text          string
+	fail_to_setup bool
+	logger        *list.List
+}
+
+func NewFooDataSrc(id int8, s string, logger *list.List, fail bool) *FooDataSrc {
+	logger.PushBack(fmt.Sprintf("NewFooDataSrc %d", id))
+	return &FooDataSrc{id: id, text: s, logger: logger, fail_to_setup: fail}
+}
+
+func (ds *FooDataSrc) Setup(ag *sabi.AsyncGroup) errs.Err {
+	if ds.fail_to_setup {
+		ds.logger.PushBack(fmt.Sprintf("FooDataSrc#Setup %d failed", ds.id))
+		return errs.New("XXX")
+	}
+	ds.logger.PushBack(fmt.Sprintf("FooDataSrc#Setup %d", ds.id))
+	return errs.Ok()
+}
+
+func (ds *FooDataSrc) Close() {
+	ds.logger.PushBack(fmt.Sprintf("FooDataSrc#Close %d", ds.id))
+}
+
+func (ds *FooDataSrc) CreateDataConn() (sabi.DataConn, errs.Err) {
+	ds.logger.PushBack(fmt.Sprintf("FooDataSrc#CreateDataConn %d", ds.id))
+	return NewFooDataConn(ds.id, ds.text, ds.logger), errs.Ok()
 }
 
 type BarDataConn struct {
 	id        int8
 	text      string
-	ds        *BarDataSrc
 	committed bool
 	logger    *list.List
 }
 
-func (conn *BarDataConn) SetText(s string) errs.Err {
-	conn.text = s
-	return errs.Ok()
+func NewBarDataConn(id int8, s string, logger *list.List) *BarDataConn {
+	logger.PushBack(fmt.Sprintf("NewBarDataConn %d", id))
+	return &BarDataConn{id: id, text: s, logger: logger}
+}
+
+func (conn *BarDataConn) SetText(text string) {
+	conn.logger.PushBack(fmt.Sprintf("BarDataConn#SetText %d", conn.id))
+	conn.text = text
 }
 
 func (conn *BarDataConn) Commit(ag *sabi.AsyncGroup) errs.Err {
 	conn.committed = true
-	conn.ds.text = conn.text
-	conn.logger.PushBack(fmt.Sprintf("BarDataConn %d committed", conn.id))
+	conn.logger.PushBack(fmt.Sprintf("BarDataConn#Commit %d", conn.id))
 	return errs.Ok()
 }
 
 func (conn *BarDataConn) PreCommit(ag *sabi.AsyncGroup) errs.Err {
-	conn.logger.PushBack(fmt.Sprintf("BarDataConn %d pre committed", conn.id))
+	conn.logger.PushBack(fmt.Sprintf("BarDataConn#PreCommit %d", conn.id))
 	return errs.Ok()
 }
 
-func (conn *BarDataConn) PostCommit(ag *sabi.AsyncGroup) {
-	conn.logger.PushBack(fmt.Sprintf("BarDataConn %d post committed", conn.id))
+func (conn *BarDataConn) PostCommit(ag *sabi.AsyncGroup) errs.Err {
+	conn.logger.PushBack(fmt.Sprintf("BarDataConn#PostCommit %d", conn.id))
+	return errs.Ok()
 }
 
-func (conn *BarDataConn) ShouldForceBack() bool {
+func (conn *BarDataConn) IsCommitted() bool {
 	return conn.committed
 }
 
-func (conn *BarDataConn) Rollback(ag *sabi.AsyncGroup) {
-	conn.logger.PushBack(fmt.Sprintf("BarDataConn %d rollbacked", conn.id))
+func (conn *BarDataConn) Rollback(ag *sabi.AsyncGroup) errs.Err {
+	conn.logger.PushBack(fmt.Sprintf("BarDataConn#Rollback %d", conn.id))
+	return errs.Ok()
 }
 
-func (conn *BarDataConn) ForceBack(ag *sabi.AsyncGroup) {
-	conn.logger.PushBack(fmt.Sprintf("BarDataConn %d forced back", conn.id))
+func (conn *BarDataConn) OnTxnFailure(ag *sabi.AsyncGroup, reports []sabi.TxnFailureReport) {
+	conn.logger.PushBack(fmt.Sprintf("BarDataConn#OnTxn %d", conn.id))
 }
 
 func (conn *BarDataConn) Close() {
-	conn.logger.PushBack(fmt.Sprintf("BarDataConn.text = %s", conn.text))
-	conn.logger.PushBack(fmt.Sprintf("BarDataConn %d closed", conn.id))
+	conn.logger.PushBack(fmt.Sprintf("BarDataConn#Close %d", conn.id))
 }
 
-///
+type BarDataSrc struct {
+	id            int8
+	text          string
+	fail_to_setup bool
+	logger        *list.List
+}
+
+func NewBarDataSrc(id int8, logger *list.List, fail bool) *BarDataSrc {
+	logger.PushBack(fmt.Sprintf("NewBarDataSrc %d", id))
+	return &BarDataSrc{id: id, logger: logger, fail_to_setup: fail}
+}
+
+func (ds *BarDataSrc) Setup(ag *sabi.AsyncGroup) errs.Err {
+	if ds.fail_to_setup {
+		ds.logger.PushBack(fmt.Sprintf("BarDataSrc#Setup %d failed", ds.id))
+		return errs.New("XXX")
+	}
+	ds.logger.PushBack(fmt.Sprintf("BarDataSrc#Setup %d", ds.id))
+	return errs.Ok()
+}
+
+func (ds *BarDataSrc) Close() {
+	ds.logger.PushBack(fmt.Sprintf("BarDataSrc#Close %d", ds.id))
+}
+
+func (ds *BarDataSrc) CreateDataConn() (sabi.DataConn, errs.Err) {
+	ds.logger.PushBack(fmt.Sprintf("BarDataSrc#CreateDataConn %d", ds.id))
+	return NewBarDataConn(ds.id, ds.text, ds.logger), errs.Ok()
+}
 
 type SampleData interface {
 	GetValue() (string, errs.Err)
 	SetValue(v string) errs.Err
 }
 
-func sample_logic(data SampleData) errs.Err {
+func sampleLogic(data SampleData) errs.Err {
 	v, err := data.GetValue()
 	if err.IsNotOk() {
 		return err
 	}
-	return data.SetValue(v)
-}
-
-func failing_logic(_data SampleData) errs.Err {
-	return errs.New("ZZZ")
+	if err = data.SetValue(v); err.IsNotOk() {
+		return err
+	}
+	v, err = data.GetValue()
+	if err.IsNotOk() {
+		return err
+	}
+	if err = data.SetValue(v); err.IsNotOk() {
+		return err
+	}
+	return errs.Ok()
 }
 
 type FooDataAcc struct {
 	sabi.DataAcc
 }
 
-func (data *FooDataAcc) GetValue() (string, errs.Err) {
-	ctx := data.Context()
-	if ctx == nil {
-		panic("The context is nil")
-	}
-
-	conn, err := sabi.GetDataConn[*FooDataConn](data, "foo")
+func (da *FooDataAcc) GetValue() (string, errs.Err) {
+	dc, err := sabi.GetDataConn[*FooDataConn](da, "foo")
 	if err.IsNotOk() {
 		return "", err
 	}
-	return conn.GetText(), errs.Ok()
+	return dc.GetText(), errs.Ok()
 }
 
 type BarDataAcc struct {
 	sabi.DataAcc
 }
 
-func (data *BarDataAcc) SetValue(text string) errs.Err {
-	ctx := data.Context()
-	if ctx == nil {
-		panic("The context is nil")
-	}
-
-	conn, err := sabi.GetDataConn[*BarDataConn](data, "bar")
+func (da *BarDataAcc) SetValue(text string) errs.Err {
+	dc, err := sabi.GetDataConn[*BarDataConn](da, "bar")
 	if err.IsNotOk() {
 		return err
 	}
-	return conn.SetText(text)
+	dc.SetText(text)
+	return errs.Ok()
 }
-
-///
 
 type SampleDataHub struct {
 	sabi.DataHub
@@ -222,528 +233,65 @@ func NewSampleDataHub() sabi.DataHub {
 	}
 }
 
-// Since this statement does not remain in the runtime binary, it is a good idea to include it
-// in actual code as a compile-time check to ensure that all methods have been fully implemented.
-var _ SampleData = (*SampleDataHub)(nil)
+func TestRun(t *testing.T) {
+	sabi.ResetGlobals()
+	defer sabi.ResetGlobals()
 
-///
+	logger := list.New()
 
-func TestDataHubRunUsingGlobal(t *testing.T) {
-	t.Run("test", func(t *testing.T) {
-		sabi.ResetGlobalVariables()
-		defer sabi.ResetGlobalVariables()
+	func() {
+		sabi.Uses("foo", NewFooDataSrc(1, "hello", logger, false))
 
-		logger := list.New()
-
-		sabi.Uses("foo", &FooDataSrc{id: 1, text: "hello", logger: logger, will_fail: false})
-		sabi.Uses("bar", &BarDataSrc{id: 2, logger: logger})
-
-		err := sabi.Setup().IfOkThen(func() errs.Err {
-			defer sabi.Shutdown()
-
-			hub := func() sabi.DataHub {
-				hub := sabi.NewDataHub()
-				data := struct {
-					sabi.DataHub
-					*FooDataAcc
-					*BarDataAcc
-				}{
-					DataHub:    hub,
-					FooDataAcc: &FooDataAcc{DataAcc: hub},
-					BarDataAcc: &BarDataAcc{DataAcc: hub},
-				}
-				return data
-			}()
-			defer hub.Close()
-
-			ctx := context.Background()
-			return sabi.Run(hub, ctx, sample_logic)
-		})
+		err := sabi.Setup()
+		defer sabi.Shutdown()
 		assert.True(t, err.IsOk())
 
-		elem := logger.Front()
-		assert.Equal(t, elem.Value, "FooDataSrc 1 setupped")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "BarDataSrc 2 setupped")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "FooDataSrc 1 created FooDataConn")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "BarDataSrc 2 created BarDataConn")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "BarDataConn.text = hello")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "BarDataConn 2 closed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "FooDataConn 1 closed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "BarDataSrc.text = ")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "BarDataSrc 2 closed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "FooDataSrc 1 closed")
-		elem = elem.Next()
-		assert.Nil(t, elem)
-	})
+		func() {
+			data := NewSampleDataHub()
+			defer data.Close()
+
+			data.Uses("bar", NewBarDataSrc(2, logger, false))
+
+			err = sabi.Run(data, sampleLogic)
+			assert.True(t, err.IsOk())
+		}()
+	}()
+
+	log := logger.Front()
+	assert.Equal(t, log.Value, "NewFooDataSrc 1")
+	log = log.Next()
+	assert.Equal(t, log.Value, "FooDataSrc#Setup 1")
+	log = log.Next()
+	assert.Equal(t, log.Value, "NewBarDataSrc 2")
+	log = log.Next()
+	assert.Equal(t, log.Value, "BarDataSrc#Setup 2")
+	log = log.Next()
+	assert.Equal(t, log.Value, "FooDataSrc#CreateDataConn 1")
+	log = log.Next()
+	assert.Equal(t, log.Value, "NewFooDataConn 1")
+	log = log.Next()
+	assert.Equal(t, log.Value, "FooDataConn#GetText 1")
+	log = log.Next()
+	assert.Equal(t, log.Value, "BarDataSrc#CreateDataConn 2")
+	log = log.Next()
+	assert.Equal(t, log.Value, "NewBarDataConn 2")
+	log = log.Next()
+	assert.Equal(t, log.Value, "BarDataConn#SetText 2")
+	log = log.Next()
+	assert.Equal(t, log.Value, "FooDataConn#GetText 1")
+	log = log.Next()
+	assert.Equal(t, log.Value, "BarDataConn#SetText 2")
+	log = log.Next()
+	assert.Equal(t, log.Value, "BarDataConn#Close 2")
+	log = log.Next()
+	assert.Equal(t, log.Value, "FooDataConn#Close 1")
+	log = log.Next()
+	assert.Equal(t, log.Value, "BarDataSrc#Close 2")
+	log = log.Next()
+	assert.Equal(t, log.Value, "FooDataSrc#Close 1")
+	log = log.Next()
+	assert.Nil(t, log)
 }
 
-func TestDataHubRunUsingLocal(t *testing.T) {
-	t.Run("test", func(t *testing.T) {
-		sabi.ResetGlobalVariables()
-		defer sabi.ResetGlobalVariables()
-
-		logger := list.New()
-
-		err := sabi.Setup().IfOkThen(func() errs.Err {
-			defer sabi.Shutdown()
-
-			hub := func() sabi.DataHub {
-				hub := sabi.NewDataHub()
-				data := struct {
-					sabi.DataHub
-					*FooDataAcc
-					*BarDataAcc
-				}{
-					DataHub:    hub,
-					FooDataAcc: &FooDataAcc{DataAcc: hub},
-					BarDataAcc: &BarDataAcc{DataAcc: hub},
-				}
-				return data
-			}()
-			defer hub.Close()
-
-			hub.Uses("foo", &FooDataSrc{id: 1, text: "hello", logger: logger, will_fail: false})
-			hub.Uses("bar", &BarDataSrc{id: 2, logger: logger})
-
-			ctx := context.Background()
-			return sabi.Run(hub, ctx, sample_logic)
-		})
-		assert.True(t, err.IsOk())
-
-		elem := logger.Front()
-		assert.Equal(t, elem.Value, "FooDataSrc 1 setupped")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "BarDataSrc 2 setupped")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "FooDataSrc 1 created FooDataConn")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "BarDataSrc 2 created BarDataConn")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "BarDataConn.text = hello")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "BarDataConn 2 closed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "FooDataConn 1 closed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "BarDataSrc.text = ")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "BarDataSrc 2 closed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "FooDataSrc 1 closed")
-		elem = elem.Next()
-		assert.Nil(t, elem)
-	})
-
-	t.Run("test not run logic if fail to setup local data src", func(t *testing.T) {
-		sabi.ResetGlobalVariables()
-		defer sabi.ResetGlobalVariables()
-
-		logger := list.New()
-
-		err := sabi.Setup().IfOkThen(func() errs.Err {
-			defer sabi.Shutdown()
-
-			hub := func() sabi.DataHub {
-				hub := sabi.NewDataHub()
-				data := struct {
-					sabi.DataHub
-					*FooDataAcc
-					*BarDataAcc
-				}{
-					DataHub:    hub,
-					FooDataAcc: &FooDataAcc{DataAcc: hub},
-					BarDataAcc: &BarDataAcc{DataAcc: hub},
-				}
-				return data
-			}()
-			defer hub.Close()
-
-			hub.Uses("foo", &FooDataSrc{id: 1, text: "hello", logger: logger, will_fail: true})
-			hub.Uses("bar", &BarDataSrc{id: 2, logger: logger})
-
-			ctx := context.Background()
-			return sabi.Run(hub, ctx, sample_logic)
-		})
-		switch r := err.Reason().(type) {
-		case sabi.FailToSetupLocalDataSrcs:
-			e := r.Errors["foo"]
-			assert.Equal(t, e.Reason(), "XXX")
-		default:
-			assert.Fail(t, err.Error())
-		}
-
-		elem := logger.Front()
-		assert.Equal(t, elem.Value, "FooDataSrc 1 failed to setup")
-		elem = elem.Next()
-		assert.Nil(t, elem)
-	})
-}
-
-func TestDataHubRunUsingGlobalAndLocal(t *testing.T) {
-	t.Run("test", func(t *testing.T) {
-		sabi.ResetGlobalVariables()
-		defer sabi.ResetGlobalVariables()
-
-		logger := list.New()
-
-		sabi.Uses("bar", &BarDataSrc{id: 1, logger: logger})
-
-		err := sabi.Setup().IfOkThen(func() errs.Err {
-			defer sabi.Shutdown()
-
-			hub := func() sabi.DataHub {
-				hub := sabi.NewDataHub()
-				data := struct {
-					sabi.DataHub
-					*FooDataAcc
-					*BarDataAcc
-				}{
-					DataHub:    hub,
-					FooDataAcc: &FooDataAcc{DataAcc: hub},
-					BarDataAcc: &BarDataAcc{DataAcc: hub},
-				}
-				return data
-			}()
-			defer hub.Close()
-
-			hub.Uses("foo", &FooDataSrc{id: 2, text: "Hello", logger: logger, will_fail: false})
-
-			ctx := context.Background()
-			return sabi.Run(hub, ctx, sample_logic)
-		})
-		assert.True(t, err.IsOk())
-
-		elem := logger.Front()
-		assert.Equal(t, elem.Value, "BarDataSrc 1 setupped")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "FooDataSrc 2 setupped")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "FooDataSrc 2 created FooDataConn")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "BarDataSrc 1 created BarDataConn")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "BarDataConn.text = Hello")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "BarDataConn 1 closed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "FooDataConn 2 closed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "FooDataSrc 2 closed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "BarDataSrc.text = ")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "BarDataSrc 1 closed")
-		elem = elem.Next()
-		assert.Nil(t, elem)
-	})
-}
-
-func TestDataHubTxnUsingGlobal(t *testing.T) {
-	t.Run("test", func(t *testing.T) {
-		sabi.ResetGlobalVariables()
-		defer sabi.ResetGlobalVariables()
-
-		logger := list.New()
-
-		sabi.Uses("foo", &FooDataSrc{id: 1, text: "Hello", logger: logger, will_fail: false})
-		sabi.Uses("bar", &BarDataSrc{id: 2, logger: logger})
-
-		err := sabi.Setup().IfOkThen(func() errs.Err {
-			defer sabi.Shutdown()
-
-			hub := func() sabi.DataHub {
-				hub := sabi.NewDataHub()
-				data := struct {
-					sabi.DataHub
-					*FooDataAcc
-					*BarDataAcc
-				}{
-					DataHub:    hub,
-					FooDataAcc: &FooDataAcc{DataAcc: hub},
-					BarDataAcc: &BarDataAcc{DataAcc: hub},
-				}
-				return data
-			}()
-			defer hub.Close()
-
-			ctx := context.Background()
-			return sabi.Txn(hub, ctx, sample_logic)
-		})
-		assert.True(t, err.IsOk())
-
-		elem := logger.Front()
-		assert.Equal(t, elem.Value, "FooDataSrc 1 setupped")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "BarDataSrc 2 setupped")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "FooDataSrc 1 created FooDataConn")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "BarDataSrc 2 created BarDataConn")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "FooDataConn 1 pre committed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "BarDataConn 2 pre committed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "FooDataConn 1 committed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "BarDataConn 2 committed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "FooDataConn 1 post committed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "BarDataConn 2 post committed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "BarDataConn.text = Hello")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "BarDataConn 2 closed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "FooDataConn 1 closed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "BarDataSrc.text = Hello")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "BarDataSrc 2 closed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "FooDataSrc 1 closed")
-		elem = elem.Next()
-		assert.Nil(t, elem)
-	})
-}
-
-func TestDataHubTxnUsingLocal(t *testing.T) {
-	t.Run("test", func(t *testing.T) {
-		sabi.ResetGlobalVariables()
-		defer sabi.ResetGlobalVariables()
-
-		logger := list.New()
-
-		err := sabi.Setup().IfOkThen(func() errs.Err {
-			defer sabi.Shutdown()
-
-			hub := func() sabi.DataHub {
-				hub := sabi.NewDataHub()
-				data := struct {
-					sabi.DataHub
-					*FooDataAcc
-					*BarDataAcc
-				}{
-					DataHub:    hub,
-					FooDataAcc: &FooDataAcc{DataAcc: hub},
-					BarDataAcc: &BarDataAcc{DataAcc: hub},
-				}
-				return data
-			}()
-			defer hub.Close()
-
-			hub.Uses("foo", &FooDataSrc{id: 1, text: "Hello", logger: logger, will_fail: false})
-			hub.Uses("bar", &BarDataSrc{id: 2, logger: logger})
-
-			ctx := context.Background()
-			return sabi.Txn(hub, ctx, sample_logic)
-		})
-		assert.True(t, err.IsOk())
-
-		elem := logger.Front()
-		assert.Equal(t, elem.Value, "FooDataSrc 1 setupped")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "BarDataSrc 2 setupped")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "FooDataSrc 1 created FooDataConn")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "BarDataSrc 2 created BarDataConn")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "FooDataConn 1 pre committed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "BarDataConn 2 pre committed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "FooDataConn 1 committed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "BarDataConn 2 committed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "FooDataConn 1 post committed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "BarDataConn 2 post committed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "BarDataConn.text = Hello")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "BarDataConn 2 closed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "FooDataConn 1 closed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "BarDataSrc.text = Hello")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "BarDataSrc 2 closed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "FooDataSrc 1 closed")
-		elem = elem.Next()
-		assert.Nil(t, elem)
-	})
-
-	t.Run("test not run logic if fail to setup local data src", func(t *testing.T) {
-		sabi.ResetGlobalVariables()
-		defer sabi.ResetGlobalVariables()
-
-		logger := list.New()
-
-		err := sabi.Setup().IfOkThen(func() errs.Err {
-			defer sabi.Shutdown()
-
-			hub := func() sabi.DataHub {
-				hub := sabi.NewDataHub()
-				data := struct {
-					sabi.DataHub
-					*FooDataAcc
-					*BarDataAcc
-				}{
-					DataHub:    hub,
-					FooDataAcc: &FooDataAcc{DataAcc: hub},
-					BarDataAcc: &BarDataAcc{DataAcc: hub},
-				}
-				return data
-			}()
-			defer hub.Close()
-
-			hub.Uses("foo", &FooDataSrc{id: 1, text: "Hello", logger: logger, will_fail: true})
-			hub.Uses("bar", &BarDataSrc{id: 2, logger: logger})
-
-			ctx := context.Background()
-			return sabi.Txn(hub, ctx, sample_logic)
-		})
-		switch r := err.Reason().(type) {
-		case sabi.FailToSetupLocalDataSrcs:
-			e := r.Errors["foo"]
-			assert.Equal(t, e.Reason(), "XXX")
-		default:
-			assert.Fail(t, err.Error())
-		}
-
-		elem := logger.Front()
-		assert.Equal(t, elem.Value, "FooDataSrc 1 failed to setup")
-		elem = elem.Next()
-		assert.Nil(t, elem)
-	})
-
-	t.Run("test fail to run logic in txn and rollback", func(t *testing.T) {
-		sabi.ResetGlobalVariables()
-		defer sabi.ResetGlobalVariables()
-
-		logger := list.New()
-
-		err := sabi.Setup().IfOkThen(func() errs.Err {
-			defer sabi.Shutdown()
-
-			hub := func() sabi.DataHub {
-				hub := sabi.NewDataHub()
-				data := struct {
-					sabi.DataHub
-					*FooDataAcc
-					*BarDataAcc
-				}{
-					DataHub:    hub,
-					FooDataAcc: &FooDataAcc{DataAcc: hub},
-					BarDataAcc: &BarDataAcc{DataAcc: hub},
-				}
-				return data
-			}()
-			defer hub.Close()
-
-			hub.Uses("foo", &FooDataSrc{id: 1, text: "Hello", logger: logger, will_fail: false})
-			hub.Uses("bar", &BarDataSrc{id: 2, logger: logger})
-
-			ctx := context.Background()
-			return sabi.Txn(hub, ctx, failing_logic)
-		})
-		assert.Equal(t, err.Reason(), "ZZZ")
-
-		elem := logger.Front()
-		assert.Equal(t, elem.Value, "FooDataSrc 1 setupped")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "BarDataSrc 2 setupped")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "BarDataSrc.text = ")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "BarDataSrc 2 closed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "FooDataSrc 1 closed")
-		elem = elem.Next()
-		assert.Nil(t, elem)
-	})
-}
-
-func TestDataHubTxnUsingGlobalAndLocal(t *testing.T) {
-	t.Run("test", func(t *testing.T) {
-		sabi.ResetGlobalVariables()
-		defer sabi.ResetGlobalVariables()
-
-		logger := list.New()
-
-		sabi.Uses("bar", &BarDataSrc{id: 1, logger: logger})
-
-		err := sabi.Setup().IfOkThen(func() errs.Err {
-			defer sabi.Shutdown()
-
-			hub := func() sabi.DataHub {
-				hub := sabi.NewDataHub()
-				data := struct {
-					sabi.DataHub
-					*FooDataAcc
-					*BarDataAcc
-				}{
-					DataHub:    hub,
-					FooDataAcc: &FooDataAcc{DataAcc: hub},
-					BarDataAcc: &BarDataAcc{DataAcc: hub},
-				}
-				return data
-			}()
-			defer hub.Close()
-
-			hub.Uses("foo", &FooDataSrc{id: 2, text: "Hello", logger: logger, will_fail: false})
-
-			ctx := context.Background()
-			return sabi.Txn(hub, ctx, sample_logic)
-		})
-		assert.True(t, err.IsOk())
-
-		elem := logger.Front()
-		assert.Equal(t, elem.Value, "BarDataSrc 1 setupped")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "FooDataSrc 2 setupped")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "FooDataSrc 2 created FooDataConn")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "BarDataSrc 1 created BarDataConn")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "FooDataConn 2 pre committed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "BarDataConn 1 pre committed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "FooDataConn 2 committed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "BarDataConn 1 committed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "FooDataConn 2 post committed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "BarDataConn 1 post committed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "BarDataConn.text = Hello")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "BarDataConn 1 closed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "FooDataConn 2 closed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "FooDataSrc 2 closed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "BarDataSrc.text = Hello")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "BarDataSrc 1 closed")
-		elem = elem.Next()
-		assert.Nil(t, elem)
-	})
+func TestTxn(t *testing.T) {
 }

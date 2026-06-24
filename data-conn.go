@@ -1,4 +1,4 @@
-// Copyright (C) 2023-2025 Takayuki Sato. All Rights Reserved.
+// Copyright (C) 2023-2026 Takayuki Sato. All Rights Reserved.
 // This program is free software under MIT License.
 // See the file LICENSE in this distribution for more details.
 
@@ -8,101 +8,231 @@ import (
 	"github.com/sttk/errs"
 )
 
-// The interface that abstracts a connection per session to an external data service,
-// such as a database, file system, or messaging service.
-//
-// Its primary purpose is to enable cohesive transaction operations across multiple
-// external data services within a single transaction context. Implementations of this
-// interface provide the concrete input/output operations for their respective data services.
-//
-// Methods declared within this interface are designed to handle transactional logic.
-// The AsyncGroup parameter in various methods allows for asynchronous processing
-// when commit or rollback operations are time-consuming.
+type /* error reasons */ (
+	FailToPreCommitDataConn struct {
+		Errors []DataConnErr
+	}
+
+	FailToCommitDataConn struct {
+		Errors []DataConnErr
+	}
+
+	FailToPostCommitDataConn struct {
+		Errors []DataConnErr
+	}
+)
+
+type DataConnErr struct {
+	Name string
+	Err  errs.Err
+}
+
 type DataConn interface {
-	// Attempts to commit the changes made within this data connection's transaction.
-	//
-	// This method should encapsulate the logic required to finalize the transaction
-	// for the specific external data service.
 	Commit(ag *AsyncGroup) errs.Err
-
-	// This method is executed before the transaction commit process for all DataConn instances
-	// involved in the transaction.
-	//
-	// This method provides a timing to execute unusual commit processes or update operations not
-	// supported by transactions beforehand.
-	// This allows other update operations to be rolled back if the operations in this method
-	// fail.
 	PreCommit(ag *AsyncGroup) errs.Err
-
-	// This method is executed after the transaction commit process has successfully completed
-	// for all DataConn instances involved in the transaction.
-	//
-	// It provides a moment to perform follow-up actions that depend on a successful commit.
-	// For example, after a database commit, a messaging service's DataConn might use this
-	// method to send a "transaction completed" message.
-	PostCommit(ag *AsyncGroup)
-
-	// Determines whether a "force back" operation is required for this data connection.
-	//
-	// A force back is typically executed if one external data service successfully commits
-	// its changes, but a subsequent external data service within the same transaction fails
-	// its commit. This method indicates if the committed changes of *this* data service
-	// need to be undone (forced back).
-	ShouldForceBack() bool
-
-	// Rolls back any changes made within this data connection's transaction.
-	//
-	// This method undoes all operations performed since the beginning of the transaction,
-	// restoring the data service to its state before the transaction began.
-	Rollback(ag *AsyncGroup)
-
-	// Executes an operation to revert committed changes.
-	//
-	// This method provides an opportunity to undo changes that were successfully committed
-	// to this external data service, typically when a commit fails for *another* data service
-	// within the same distributed transaction, necessitating a rollback of already committed
-	// changes.
-	ForceBack(ag *AsyncGroup)
-
-	// Closes the connection to the external data service.
-	//
-	// This method should release any resources held by the data connection, ensuring
-	// a graceful shutdown of the connection.
+	PostCommit(ag *AsyncGroup) errs.Err
+	IsCommitted() bool
+	Rollback(ag *AsyncGroup) errs.Err
+	OnTxnFailure(ag *AsyncGroup, reports []TxnFailureReport)
 	Close()
 }
 
 type dataConnContainer struct {
-	prev *dataConnContainer
-	next *dataConnContainer
 	name string
 	conn DataConn
 }
 
-type dataConnList struct {
-	head *dataConnContainer
-	last *dataConnContainer
+type dataConnManager struct {
+	list     []dataConnContainer
+	indexMap map[string]int
 }
 
-func (list *dataConnList) appendContainer(ptr *dataConnContainer) {
-	ptr.next = nil
+func newDataConnManager() dataConnManager {
+	return dataConnManager{
+		list:     make([]dataConnContainer, 0),
+		indexMap: make(map[string]int, 0),
+	}
+}
 
-	if list.last == nil {
-		list.head = ptr
-		list.last = ptr
-		ptr.prev = nil
+func newDataConnManagerWithCommitOrder(names []string) dataConnManager {
+	mgr := dataConnManager{
+		list:     make([]dataConnContainer, len(names)),
+		indexMap: make(map[string]int, len(names)),
+	}
+	// Because earlier ones take precedence when names overlap
+	for i := len(names) - 1; i >= 0; i-- {
+		mgr.indexMap[names[i]] = i
+		mgr.list[i].name = names[i]
+	}
+	return mgr
+}
+
+func (mgr *dataConnManager) add(cont dataConnContainer) {
+	if idx, ok := mgr.indexMap[cont.name]; ok {
+		// Because earlier ones take precedence when names overlap
+		if mgr.list[idx].conn == nil {
+			mgr.list[idx] = cont
+		}
 	} else {
-		list.last.next = ptr
-		ptr.prev = list.last
-		list.last = ptr
+		mgr.indexMap[cont.name] = len(mgr.list)
+		mgr.list = append(mgr.list, cont)
 	}
 }
 
-func (list *dataConnList) closeDataConns() {
-	ptr := list.last
-	for ptr != nil {
-		ptr.conn.Close()
-		ptr = ptr.prev
+func (mgr *dataConnManager) findByName(name string) (*dataConnContainer, bool) {
+	if idx, ok := mgr.indexMap[name]; ok {
+		return &mgr.list[idx], true
 	}
-	list.head = nil
-	list.last = nil
+	return nil, false
+}
+
+func (mgr *dataConnManager) commitOrRollback(err errs.Err) errs.Err {
+	reports := mgr.newFailureReports()
+	if err.IsOk() {
+		err = mgr.commit(reports)
+	}
+	if err.IsNotOk() {
+		mgr.rollback(reports)
+	}
+	return err
+}
+
+func (mgr *dataConnManager) newFailureReports() []TxnFailureReport {
+	reps := make([]TxnFailureReport, 0, len(mgr.indexMap))
+	for i := range mgr.list {
+		if mgr.list[i].conn != nil {
+			reps = append(reps, newTxnFailureReport(mgr.list[i].name, typeNameOf(mgr.list[i].conn)))
+		}
+	}
+	return reps
+}
+
+func (mgr *dataConnManager) commit(reports []TxnFailureReport) errs.Err {
+	ag := AsyncGroup{}
+	ii := 0
+	for i := range mgr.list {
+		if mgr.list[i].conn != nil {
+			ag._index = ii
+			if err := mgr.list[i].conn.PreCommit(&ag); err.IsNotOk() {
+				ag.addErr(ag._index, err)
+				break
+			}
+			ii++
+		}
+	}
+	indexed_errors := ag.join()
+
+	if len(indexed_errors) > 0 {
+		errors := make([]DataConnErr, len(indexed_errors))
+		for i := range indexed_errors {
+			idx := indexed_errors[i].Index
+			reports[idx].Cause = TxnFailureCause{State: LogicFailure, Err: indexed_errors[i].Err}
+			errors[i].Name = reports[idx].DataConnName
+			errors[i].Err = indexed_errors[i].Err
+		}
+		return errs.New(FailToPreCommitDataConn{Errors: errors})
+	}
+
+	ag = AsyncGroup{}
+	ii = 0
+	for i := range mgr.list {
+		if mgr.list[i].conn != nil {
+			if !mgr.list[i].conn.IsCommitted() {
+				ag._index = ii
+				if err := mgr.list[i].conn.Commit(&ag); err.IsNotOk() {
+					ag.addErr(ag._index, err)
+					break
+				}
+			}
+			ii++
+		}
+	}
+	indexed_errors = ag.join()
+
+	if len(indexed_errors) > 0 {
+		errors := make([]DataConnErr, len(indexed_errors))
+		for i := range indexed_errors {
+			idx := indexed_errors[i].Index
+			reports[idx].Cause = TxnFailureCause{State: CommitFailure, Err: indexed_errors[i].Err}
+			errors[i].Name = reports[idx].DataConnName
+			errors[i].Err = indexed_errors[i].Err
+		}
+		return errs.New(FailToCommitDataConn{Errors: errors})
+	}
+
+	ag = AsyncGroup{}
+	ii = 0
+	for i := range mgr.list {
+		if mgr.list[i].conn != nil {
+			ag._index = ii
+			if err := mgr.list[i].conn.PostCommit(&ag); err.IsNotOk() {
+				ag.addErr(ag._index, err)
+				// don't break
+			}
+			ii++
+		}
+	}
+	indexed_errors = ag.join()
+
+	if len(indexed_errors) > 0 {
+		errors := make([]DataConnErr, len(indexed_errors))
+		for i := range indexed_errors {
+			idx := indexed_errors[i].Index
+			reports[idx].Cause = TxnFailureCause{State: PostCommitFailure, Err: indexed_errors[i].Err}
+			errors[i].Name = reports[idx].DataConnName
+			errors[i].Err = indexed_errors[i].Err
+		}
+		return errs.New(FailToPostCommitDataConn{Errors: errors})
+	}
+
+	return errs.Ok()
+}
+
+func (mgr *dataConnManager) rollback(reports []TxnFailureReport) {
+	ag := AsyncGroup{}
+	ii := 0
+	for i := range mgr.list {
+		if mgr.list[i].conn != nil {
+			if mgr.list[i].conn.IsCommitted() {
+				if reports[ii].Cause.State == NoneByUncommitted {
+					reports[ii].Cause.State = NoneByCommitted
+				}
+				continue
+			}
+			ag._index = ii
+			if err := mgr.list[i].conn.Rollback(&ag); err.IsNotOk() {
+				ag.addErr(ag._index, err)
+			} else {
+				reports[ii].Rollback.State = NoneByRolledBack
+			}
+			ii++
+		}
+	}
+	indexed_errors := ag.join()
+
+	if len(indexed_errors) > 0 {
+		for i := range indexed_errors {
+			idx := indexed_errors[i].Index
+			reports[idx].Rollback = TxnFailureRollback{State: RollbackFailure, Err: indexed_errors[i].Err}
+		}
+	}
+
+	ag = AsyncGroup{}
+	for i := range mgr.list {
+		if mgr.list[i].conn != nil {
+			mgr.list[i].conn.OnTxnFailure(&ag, reports)
+		}
+	}
+	_ = ag.join()
+}
+
+func (mgr *dataConnManager) close() {
+	clear(mgr.indexMap)
+
+	for i := len(mgr.list) - 1; i >= 0; i-- {
+		if mgr.list[i].conn != nil {
+			mgr.list[i].conn.Close()
+		}
+	}
+	clear(mgr.list)
 }

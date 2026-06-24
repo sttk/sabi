@@ -2,2232 +2,1723 @@ package sabi
 
 import (
 	"container/list"
+	"context"
 	"fmt"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/sttk/errs"
 )
 
+type Failure uint8
+
 const (
-	fail__not = iota
-	fail__setup
-	fail__create_data_conn
-	fail__commit
-	fail__pre_commit
+	Failure_None Failure = iota
+	Failure_PreCommit
+	Failure_Commit
+	Failure_PostCommit
+	Failure_Rollback
+	Failure_Setup
+	Failure_CreateDataConn
+	Failure_CreatedDataConnIsNil
+	Failure_NoDataSrcToCreateDataConn
 )
 
-type SyncDataSrc2 struct {
-	id     int8
-	fail   int8
-	logger *list.List
+type MyDataConn struct {
+	id        uint8
+	failure   Failure
+	committed bool
+	logger    *list.List
 }
 
-func (ds *SyncDataSrc2) Setup(ag *AsyncGroup) errs.Err {
-	if ds.fail == fail__setup {
-		ds.logger.PushBack(fmt.Sprintf("SyncDataSrc2 %d failed to setup", ds.id))
-		return errs.New("XXX")
+func NewMyDataConn(id uint8, failure Failure, logger *list.List) *MyDataConn {
+	return &MyDataConn{
+		id:        id,
+		failure:   failure,
+		committed: false,
+		logger:    logger,
 	}
-	ds.logger.PushBack(fmt.Sprintf("SyncDataSrc2 %d setupped", ds.id))
-	return errs.Ok()
-}
-func (ds *SyncDataSrc2) Close() {
-	ds.logger.PushBack(fmt.Sprintf("SyncDataSrc2 %d closed", ds.id))
-}
-func (ds *SyncDataSrc2) CreateDataConn() (DataConn, errs.Err) {
-	if ds.fail == fail__create_data_conn {
-		ds.logger.PushBack(fmt.Sprintf("SyncDataSrc2 %d failed to create a DataConn", ds.id))
-		return nil, errs.New("xxx")
-	}
-	ds.logger.PushBack(fmt.Sprintf("SyncDataSrc2 %d created DataConn", ds.id))
-	conn := &SyncDataConn2{id: ds.id, logger: ds.logger, fail: ds.fail}
-	return conn, errs.Ok()
 }
 
-type AsyncDataSrc2 struct {
-	id     int8
-	fail   int8
-	logger *list.List
+func (dc *MyDataConn) IsCommitted() bool {
+	return dc.committed
 }
 
-func (ds *AsyncDataSrc2) Setup(ag *AsyncGroup) errs.Err {
-	ag.Add(func() errs.Err {
-		time.Sleep(200 * time.Millisecond)
-		if ds.fail == fail__setup {
-			ds.logger.PushBack(fmt.Sprintf("AsyncDataSrc2 %d failed to setup", ds.id))
-			return errs.New("YYY")
-		}
-		ds.logger.PushBack(fmt.Sprintf("AsyncDataSrc2 %d setupped", ds.id))
+func (dc *MyDataConn) PreCommit(ag *AsyncGroup) errs.Err {
+	if dc.failure == Failure_PreCommit {
+		dc.logger.PushBack(fmt.Sprintf("MyDataConn#PreCommit %d failed", dc.id))
+		return errs.New("pre commit error")
+	} else {
+		dc.logger.PushBack(fmt.Sprintf("MyDataConn#PreCommit %d", dc.id))
 		return errs.Ok()
+	}
+}
+
+func (dc *MyDataConn) Commit(ag *AsyncGroup) errs.Err {
+	if dc.failure == Failure_Commit {
+		dc.logger.PushBack(fmt.Sprintf("MyDataConn#Commit %d failed", dc.id))
+		return errs.New("commit error")
+	} else {
+		dc.logger.PushBack(fmt.Sprintf("MyDataConn#Commit %d", dc.id))
+		return errs.Ok()
+	}
+}
+
+func (dc *MyDataConn) PostCommit(ag *AsyncGroup) errs.Err {
+	if dc.failure == Failure_PostCommit {
+		dc.logger.PushBack(fmt.Sprintf("MyDataConn#PostCommit %d failed", dc.id))
+		return errs.New("post commit error")
+	} else {
+		dc.logger.PushBack(fmt.Sprintf("MyDataConn#PostCommit %d", dc.id))
+		return errs.Ok()
+	}
+}
+
+func (dc *MyDataConn) Rollback(ag *AsyncGroup) errs.Err {
+	if dc.failure == Failure_Rollback {
+		dc.logger.PushBack(fmt.Sprintf("MyDataConn#Rollback %d failed", dc.id))
+		return errs.New("rollback error")
+	} else {
+		dc.logger.PushBack(fmt.Sprintf("MyDataConn#Rollback %d", dc.id))
+		return errs.Ok()
+	}
+}
+
+func (dc *MyDataConn) OnTxnFailure(ag *AsyncGroup, reports []TxnFailureReport) {
+	dc.logger.PushBack(fmt.Sprintf("MyDataConn#OnTxnFailure %d", dc.id))
+}
+
+func (dc *MyDataConn) Close() {
+	dc.logger.PushBack(fmt.Sprintf("MyDataConn#Close %d", dc.id))
+}
+
+type MyDataSrc struct {
+	id      uint8
+	failure Failure
+	logger  *list.List
+}
+
+func NewMyDataSrc(id uint8, failure Failure, logger *list.List) *MyDataSrc {
+	return &MyDataSrc{
+		id:      id,
+		failure: failure,
+		logger:  logger,
+	}
+}
+
+func (ds *MyDataSrc) Setup(ag *AsyncGroup) errs.Err {
+	if ds.failure == Failure_Setup {
+		ds.logger.PushBack(fmt.Sprintf("MyDataSrc#Setup %d failed", ds.id))
+		return errs.New("setup error")
+	} else {
+		ds.logger.PushBack(fmt.Sprintf("MyDataSrc#Setup %d", ds.id))
+		return errs.Ok()
+	}
+}
+
+func (ds *MyDataSrc) Close() {
+	ds.logger.PushBack(fmt.Sprintf("MyDataSrc#Close %d", ds.id))
+}
+
+func (ds *MyDataSrc) CreateDataConn() (DataConn, errs.Err) {
+	if ds.failure == Failure_CreateDataConn {
+		ds.logger.PushBack(fmt.Sprintf("MyDataSrc#CreateDataConn %d failed", ds.id))
+		return nil, errs.New("eeee")
+	}
+	if ds.failure == Failure_CreatedDataConnIsNil {
+		ds.logger.PushBack(fmt.Sprintf("MyDataSrc#CreateDataConn %d is nil", ds.id))
+		return nil, errs.Ok()
+	}
+	if ds.failure == Failure_NoDataSrcToCreateDataConn {
+		ds.logger.PushBack(fmt.Sprintf("MyDataSrc#CreateDataConn %d is no data src", ds.id))
+		return nil, errs.New("eeee2")
+	}
+	ds.logger.PushBack(fmt.Sprintf("MyDataSrc#CreateDataConn %d", ds.id))
+	return NewMyDataConn(ds.id, ds.failure, ds.logger), errs.Ok()
+}
+
+type BadDataConn struct{}
+
+func (dc *BadDataConn) IsCommitted() bool                                       { return true }
+func (dc *BadDataConn) PreCommit(ag *AsyncGroup) errs.Err                       { return errs.Ok() }
+func (dc *BadDataConn) Commit(ag *AsyncGroup) errs.Err                          { return errs.Ok() }
+func (dc *BadDataConn) PostCommit(ag *AsyncGroup) errs.Err                      { return errs.Ok() }
+func (dc *BadDataConn) Rollback(ag *AsyncGroup) errs.Err                        { return errs.Ok() }
+func (dc *BadDataConn) OnTxnFailure(ag *AsyncGroup, reports []TxnFailureReport) {}
+func (dc *BadDataConn) Close()                                                  {}
+
+func countDs(list []dataSrcContainer) int {
+	n := 0
+	for _, cont := range list {
+		if cont.ds != nil {
+			n++
+		}
+	}
+	return n
+}
+
+func TestDataHub(t *testing.T) {
+	t.Run("NewDataHub", func(t *testing.T) {
+		hub := NewDataHub()
+		defer hub.Close()
+
+		hubImpl := hub.(*dataHubImpl)
+		assert.Equal(t, countDs(hubImpl.localDataSrcManager.listUnready), 0)
+		assert.Equal(t, countDs(hubImpl.localDataSrcManager.listReady), 0)
+		assert.True(t, hubImpl.localDataSrcManager.local)
+		assert.Empty(t, hubImpl.dataSrcMap)
+		assert.Empty(t, hubImpl.dataConnManager.list)
+		assert.Empty(t, hubImpl.dataConnManager.indexMap)
+		assert.Empty(t, hubImpl.dataConnMap)
+		assert.False(t, hubImpl.fixed)
+		assert.Nil(t, hubImpl.origCtx)
+		assert.Nil(t, hubImpl.ctx)
+		assert.Nil(t, hubImpl.cancel)
 	})
-	return errs.Ok()
-}
-func (ds *AsyncDataSrc2) Close() {
-	ds.logger.PushBack(fmt.Sprintf("AsyncDataSrc2 %d closed", ds.id))
-}
-func (ds *AsyncDataSrc2) CreateDataConn() (DataConn, errs.Err) {
-	if ds.fail == fail__create_data_conn {
-		ds.logger.PushBack(fmt.Sprintf("AsyncDataSrc2 %d failed to create a DataConn", ds.id))
-		return nil, errs.New("yyy")
-	}
-	ds.logger.PushBack(fmt.Sprintf("AsyncDataSrc2 %d created DataConn", ds.id))
-	conn := &AsyncDataConn2{id: ds.id, logger: ds.logger, fail: ds.fail}
-	return conn, errs.Ok()
-}
 
-type SyncDataConn2 struct {
-	id        int8
-	committed bool
-	fail      int8
-	logger    *list.List
-}
+	t.Run("NewDataHubWithCommitOrder", func(t *testing.T) {
+		hub := NewDataHubWithCommitOrder("bar", "qux", "foo")
+		defer hub.Close()
 
-func (conn *SyncDataConn2) Commit(ag *AsyncGroup) errs.Err {
-	if conn.fail == fail__commit {
-		conn.logger.PushBack(fmt.Sprintf("SyncDataConn2 %d failed to commit", conn.id))
-		return errs.New("ZZZ")
-	}
-	conn.committed = true
-	conn.logger.PushBack(fmt.Sprintf("SyncDataConn2 %d committed", conn.id))
-	return errs.Ok()
-}
-func (conn *SyncDataConn2) PreCommit(ag *AsyncGroup) errs.Err {
-	if conn.fail == fail__pre_commit {
-		conn.logger.PushBack(fmt.Sprintf("SyncDataConn2 %d failed to pre commit", conn.id))
-		return errs.New("zzz")
-	}
-	conn.logger.PushBack(fmt.Sprintf("SyncDataConn2 %d pre committed", conn.id))
-	return errs.Ok()
-}
-func (conn *SyncDataConn2) PostCommit(ag *AsyncGroup) {
-	conn.logger.PushBack(fmt.Sprintf("SyncDataConn2 %d post committed", conn.id))
-}
-func (conn *SyncDataConn2) ShouldForceBack() bool {
-	return conn.committed
-}
-func (conn *SyncDataConn2) Rollback(ag *AsyncGroup) {
-	conn.logger.PushBack(fmt.Sprintf("SyncDataConn2 %d rollbacked", conn.id))
-}
-func (conn *SyncDataConn2) ForceBack(ag *AsyncGroup) {
-	conn.logger.PushBack(fmt.Sprintf("SyncDataConn2 %d forced back", conn.id))
-}
-func (conn *SyncDataConn2) Close() {
-	conn.logger.PushBack(fmt.Sprintf("SyncDataConn2 %d closed", conn.id))
-}
+		hubImpl := hub.(*dataHubImpl)
+		assert.Equal(t, countDs(hubImpl.localDataSrcManager.listUnready), 0)
+		assert.Equal(t, countDs(hubImpl.localDataSrcManager.listReady), 0)
+		assert.True(t, hubImpl.localDataSrcManager.local)
+		assert.Empty(t, hubImpl.dataSrcMap)
+		assert.Len(t, hubImpl.dataConnManager.list, 3)
+		assert.Len(t, hubImpl.dataConnManager.indexMap, 3)
+		assert.Empty(t, hubImpl.dataConnMap)
+		assert.False(t, hubImpl.fixed)
+		assert.Nil(t, hubImpl.origCtx)
+		assert.Nil(t, hubImpl.ctx)
+		assert.Nil(t, hubImpl.cancel)
+	})
 
-type AsyncDataConn2 struct {
-	id        int8
-	committed bool
-	fail      int8
-	logger    *list.List
-}
-
-func (conn *AsyncDataConn2) Commit(ag *AsyncGroup) errs.Err {
-	if conn.fail == fail__commit {
-		conn.logger.PushBack(fmt.Sprintf("AsyncDataConn2 %d failed to commit", conn.id))
-		return errs.New("VVV")
-	}
-	conn.committed = true
-	conn.logger.PushBack(fmt.Sprintf("AsyncDataConn2 %d committed", conn.id))
-	return errs.Ok()
-}
-func (conn *AsyncDataConn2) PreCommit(ag *AsyncGroup) errs.Err {
-	if conn.fail == fail__pre_commit {
-		conn.logger.PushBack(fmt.Sprintf("AsyncDataConn2 %d failed to pre commit", conn.id))
-		return errs.New("vvv")
-	}
-	conn.logger.PushBack(fmt.Sprintf("AsyncDataConn2 %d pre committed", conn.id))
-	return errs.Ok()
-}
-func (conn *AsyncDataConn2) PostCommit(ag *AsyncGroup) {
-	conn.logger.PushBack(fmt.Sprintf("AsyncDataConn2 %d post committed", conn.id))
-}
-func (conn *AsyncDataConn2) ShouldForceBack() bool {
-	return conn.committed
-}
-func (conn *AsyncDataConn2) Rollback(ag *AsyncGroup) {
-	conn.logger.PushBack(fmt.Sprintf("AsyncDataConn2 %d rollbacked", conn.id))
-}
-func (conn *AsyncDataConn2) ForceBack(ag *AsyncGroup) {
-	conn.logger.PushBack(fmt.Sprintf("AsyncDataConn2 %d forced back", conn.id))
-}
-func (conn *AsyncDataConn2) Close() {
-	conn.logger.PushBack(fmt.Sprintf("AsyncDataConn2 %d closed", conn.id))
-}
-
-func ResetGlobalVariables() {
-	globalDataSrcsFixed = false
-	globalDataSrcList.closeDataSrcs()
-}
-
-func TestOfGlobalFunctions(t *testing.T) {
-	t.Run("setup and shutdown", func(t *testing.T) {
-		ResetGlobalVariables()
-		defer ResetGlobalVariables()
-
+	t.Run("Uses and ok", func(t *testing.T) {
 		logger := list.New()
-
-		assert.Nil(t, globalDataSrcList.notSetupHead)
-		assert.Nil(t, globalDataSrcList.didSetupHead)
-
-		Uses("foo", &AsyncDataSrc2{id: 1, fail: fail__not, logger: logger})
-		Uses("bar", &SyncDataSrc2{id: 2, fail: fail__not, logger: logger})
-
-		ptr := globalDataSrcList.notSetupHead
-		assert.NotNil(t, ptr)
-		assert.Equal(t, ptr.name, "foo")
-		ptr = ptr.next
-		assert.NotNil(t, ptr)
-		assert.Equal(t, ptr.name, "bar")
-		ptr = ptr.next
-		assert.Nil(t, ptr)
-
-		assert.Nil(t, globalDataSrcList.didSetupHead)
-
-		func() {
-			err := Setup()
-			assert.True(t, err.IsOk())
-			defer Shutdown()
-
-			assert.Nil(t, globalDataSrcList.notSetupHead)
-
-			ptr := globalDataSrcList.didSetupHead
-			assert.NotNil(t, ptr)
-			assert.Equal(t, ptr.name, "foo")
-			ptr = ptr.next
-			assert.NotNil(t, ptr)
-			assert.Equal(t, ptr.name, "bar")
-			ptr = ptr.next
-			assert.Nil(t, ptr)
-		}()
-
-		assert.Nil(t, globalDataSrcList.notSetupHead)
-		assert.Nil(t, globalDataSrcList.didSetupHead)
-
-		elem := logger.Front()
-		assert.Equal(t, elem.Value, "SyncDataSrc2 2 setupped")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataSrc2 1 setupped")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "SyncDataSrc2 2 closed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataSrc2 1 closed")
-		elem = elem.Next()
-		assert.Nil(t, elem)
-	})
-
-	t.Run("fail to setup", func(t *testing.T) {
-		ResetGlobalVariables()
-		defer ResetGlobalVariables()
-
-		logger := list.New()
-
-		assert.Nil(t, globalDataSrcList.notSetupHead)
-		assert.Nil(t, globalDataSrcList.didSetupHead)
-
-		Uses("foo", &AsyncDataSrc2{id: 1, fail: fail__setup, logger: logger})
-		Uses("bar", &SyncDataSrc2{id: 2, fail: fail__setup, logger: logger})
-
-		ptr := globalDataSrcList.notSetupHead
-		assert.NotNil(t, ptr)
-		assert.Equal(t, ptr.name, "foo")
-		ptr = ptr.next
-		assert.NotNil(t, ptr)
-		assert.Equal(t, ptr.name, "bar")
-		ptr = ptr.next
-		assert.Nil(t, ptr)
-
-		assert.Nil(t, globalDataSrcList.didSetupHead)
-
-		func() {
-			err := Setup()
-			switch r := err.Reason().(type) {
-			case FailToSetupGlobalDataSrcs:
-				err2, ok := r.Errors["foo"]
-				assert.True(t, ok)
-				assert.Equal(t, err2.Reason(), "YYY")
-
-				err2, ok = r.Errors["bar"]
-				assert.True(t, ok)
-				assert.Equal(t, err2.Reason(), "XXX")
-			default:
-				assert.Fail(t, err.Error())
-			}
-		}()
-
-		assert.Nil(t, globalDataSrcList.notSetupHead)
-		assert.Nil(t, globalDataSrcList.didSetupHead)
-
-		elem := logger.Front()
-		assert.Equal(t, elem.Value, "SyncDataSrc2 2 failed to setup")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataSrc2 1 failed to setup")
-		elem = elem.Next()
-		assert.Nil(t, elem)
-	})
-
-	t.Run("cannot add global data srcs after setup", func(t *testing.T) {
-		ResetGlobalVariables()
-		defer ResetGlobalVariables()
-
-		assert.Nil(t, globalDataSrcList.notSetupHead)
-		assert.Nil(t, globalDataSrcList.didSetupHead)
-
-		logger := list.New()
-
-		Uses("foo", &AsyncDataSrc2{id: 1, fail: fail__not, logger: logger})
-
-		ptr := globalDataSrcList.notSetupHead
-		assert.NotNil(t, ptr)
-		assert.Equal(t, ptr.name, "foo")
-		ptr = ptr.next
-		assert.Nil(t, ptr)
-
-		assert.Nil(t, globalDataSrcList.didSetupHead)
-
-		func() {
-			err := Setup()
-			assert.True(t, err.IsOk())
-			defer Shutdown()
-
-			assert.Nil(t, globalDataSrcList.notSetupHead)
-
-			ptr := globalDataSrcList.didSetupHead
-			assert.NotNil(t, ptr)
-			assert.Equal(t, ptr.name, "foo")
-			ptr = ptr.next
-			assert.Nil(t, ptr)
-
-			Uses("bar", &SyncDataSrc2{id: 2, fail: fail__setup, logger: logger})
-
-			assert.Nil(t, globalDataSrcList.notSetupHead)
-
-			ptr = globalDataSrcList.didSetupHead
-			assert.NotNil(t, ptr)
-			assert.Equal(t, ptr.name, "foo")
-			ptr = ptr.next
-			assert.Nil(t, ptr)
-		}()
-
-		assert.Nil(t, globalDataSrcList.notSetupHead)
-		assert.Nil(t, globalDataSrcList.didSetupHead)
-
-		elem := logger.Front()
-		assert.Equal(t, elem.Value, "AsyncDataSrc2 1 setupped")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataSrc2 1 closed")
-		elem = elem.Next()
-		assert.Nil(t, elem)
-	})
-
-	t.Run("do nothing if executing setup twice", func(t *testing.T) {
-		ResetGlobalVariables()
-		defer ResetGlobalVariables()
-
-		assert.Nil(t, globalDataSrcList.notSetupHead)
-		assert.Nil(t, globalDataSrcList.didSetupHead)
-
-		logger := list.New()
-
-		Uses("foo", &AsyncDataSrc2{id: 1, fail: fail__not, logger: logger})
-
-		ptr := globalDataSrcList.notSetupHead
-		assert.NotNil(t, ptr)
-		assert.Equal(t, ptr.name, "foo")
-		ptr = ptr.next
-		assert.Nil(t, ptr)
-
-		assert.Nil(t, globalDataSrcList.didSetupHead)
-
-		func() {
-			err := Setup()
-			assert.True(t, err.IsOk())
-			defer Shutdown()
-
-			assert.Nil(t, globalDataSrcList.notSetupHead)
-
-			ptr := globalDataSrcList.didSetupHead
-			assert.NotNil(t, ptr)
-			assert.Equal(t, ptr.name, "foo")
-			ptr = ptr.next
-			assert.Nil(t, ptr)
-
-			err = Setup()
-			assert.True(t, err.IsOk())
-
-			assert.Nil(t, globalDataSrcList.notSetupHead)
-
-			ptr = globalDataSrcList.didSetupHead
-			assert.NotNil(t, ptr)
-			assert.Equal(t, ptr.name, "foo")
-			ptr = ptr.next
-			assert.Nil(t, ptr)
-		}()
-
-		assert.Nil(t, globalDataSrcList.notSetupHead)
-		assert.Nil(t, globalDataSrcList.didSetupHead)
-
-		elem := logger.Front()
-		assert.Equal(t, elem.Value, "AsyncDataSrc2 1 setupped")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataSrc2 1 closed")
-		elem = elem.Next()
-		assert.Nil(t, elem)
-	})
-}
-
-func TestOfDatHubLocal(t *testing.T) {
-	t.Run("new and close with no global data srcs", func(t *testing.T) {
-		ResetGlobalVariables()
-		defer ResetGlobalVariables()
 
 		hub := NewDataHub()
+		defer hub.Close()
+
+		hub.Uses("foo", NewMyDataSrc(1, Failure_None, logger))
+		hub.Uses("bar", NewMyDataSrc(2, Failure_None, logger))
+
 		hubImpl := hub.(*dataHubImpl)
-
-		assert.Nil(t, hubImpl.localDataSrcList.notSetupHead)
-		assert.Nil(t, hubImpl.localDataSrcList.didSetupHead)
-		assert.Equal(t, len(hubImpl.dataSrcMap), 0)
-		assert.Equal(t, len(hubImpl.dataConnMap), 0)
+		assert.Equal(t, countDs(hubImpl.localDataSrcManager.listUnready), 2)
+		assert.Equal(t, countDs(hubImpl.localDataSrcManager.listReady), 0)
+		assert.True(t, hubImpl.localDataSrcManager.local)
+		assert.Empty(t, hubImpl.dataSrcMap)
+		assert.Empty(t, hubImpl.dataConnManager.list)
+		assert.Empty(t, hubImpl.dataConnManager.indexMap)
+		assert.Empty(t, hubImpl.dataConnMap)
 		assert.False(t, hubImpl.fixed)
+		assert.Nil(t, hubImpl.origCtx)
+		assert.Nil(t, hubImpl.ctx)
+		assert.Nil(t, hubImpl.cancel)
+
+		assert.True(t, hub.begin().IsOk())
+
+		assert.Equal(t, countDs(hubImpl.localDataSrcManager.listUnready), 0)
+		assert.Equal(t, countDs(hubImpl.localDataSrcManager.listReady), 2)
+		assert.True(t, hubImpl.localDataSrcManager.local)
+		assert.Len(t, hubImpl.dataSrcMap, 2)
+		assert.Empty(t, hubImpl.dataConnManager.list)
+		assert.Empty(t, hubImpl.dataConnManager.indexMap)
+		assert.Empty(t, hubImpl.dataConnMap)
+		assert.True(t, hubImpl.fixed)
+		assert.Nil(t, hubImpl.origCtx)
+		assert.Nil(t, hubImpl.ctx)
+		assert.Nil(t, hubImpl.cancel)
 	})
 
-	t.Run("new and close with global data srcs", func(t *testing.T) {
-		ResetGlobalVariables()
-		defer ResetGlobalVariables()
-
+	t.Run("Uses but already fixed", func(t *testing.T) {
 		logger := list.New()
 
-		Uses("foo", &AsyncDataSrc2{id: 1, fail: fail__not, logger: logger})
-		Uses("bar", &SyncDataSrc2{id: 2, fail: fail__not, logger: logger})
+		hub := NewDataHub()
+		defer hub.Close()
 
-		func() {
-			err := Setup()
-			assert.True(t, err.IsOk())
-			defer Shutdown()
+		hub.Uses("foo", NewMyDataSrc(1, Failure_None, logger))
 
-			assert.Nil(t, globalDataSrcList.notSetupHead)
+		hubImpl := hub.(*dataHubImpl)
+		assert.Equal(t, countDs(hubImpl.localDataSrcManager.listUnready), 1)
+		assert.Equal(t, countDs(hubImpl.localDataSrcManager.listReady), 0)
+		assert.True(t, hubImpl.localDataSrcManager.local)
+		assert.Empty(t, hubImpl.dataSrcMap)
+		assert.Empty(t, hubImpl.dataConnManager.list)
+		assert.Empty(t, hubImpl.dataConnManager.indexMap)
+		assert.Empty(t, hubImpl.dataConnMap)
+		assert.False(t, hubImpl.fixed)
+		assert.Nil(t, hubImpl.origCtx)
+		assert.Nil(t, hubImpl.ctx)
+		assert.Nil(t, hubImpl.cancel)
 
-			ptr := globalDataSrcList.didSetupHead
-			assert.NotNil(t, ptr)
-			assert.Equal(t, ptr.name, "foo")
-			ptr = ptr.next
-			assert.NotNil(t, ptr)
-			assert.Equal(t, ptr.name, "bar")
-			ptr = ptr.next
-			assert.Nil(t, ptr)
+		assert.True(t, hub.begin().IsOk())
 
-			hub := NewDataHub()
-			hubImpl := hub.(*dataHubImpl)
+		assert.Equal(t, countDs(hubImpl.localDataSrcManager.listUnready), 0)
+		assert.Equal(t, countDs(hubImpl.localDataSrcManager.listReady), 1)
+		assert.True(t, hubImpl.localDataSrcManager.local)
+		assert.Len(t, hubImpl.dataSrcMap, 1)
+		assert.Empty(t, hubImpl.dataConnManager.list)
+		assert.Empty(t, hubImpl.dataConnManager.indexMap)
+		assert.Empty(t, hubImpl.dataConnMap)
+		assert.True(t, hubImpl.fixed)
+		assert.Nil(t, hubImpl.origCtx)
+		assert.Nil(t, hubImpl.ctx)
+		assert.Nil(t, hubImpl.cancel)
 
-			assert.Nil(t, hubImpl.localDataSrcList.notSetupHead)
-			assert.Nil(t, hubImpl.localDataSrcList.didSetupHead)
-			assert.Nil(t, hubImpl.dataConnList.head)
-			assert.Equal(t, len(hubImpl.dataSrcMap), 2)
-			assert.Equal(t, len(hubImpl.dataConnMap), 0)
-			assert.False(t, hubImpl.fixed)
+		hub.Uses("bar", NewMyDataSrc(2, Failure_None, logger))
 
-			assert.Nil(t, globalDataSrcList.notSetupHead)
-
-			ptr = globalDataSrcList.didSetupHead
-			assert.NotNil(t, ptr)
-			ptr = ptr.next
-			assert.NotNil(t, ptr)
-			ptr = ptr.next
-			assert.Nil(t, ptr)
-		}()
-
-		assert.Nil(t, globalDataSrcList.notSetupHead)
-		assert.Nil(t, globalDataSrcList.didSetupHead)
-
-		elem := logger.Front()
-		assert.Equal(t, elem.Value, "SyncDataSrc2 2 setupped")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataSrc2 1 setupped")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "SyncDataSrc2 2 closed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataSrc2 1 closed")
-		elem = elem.Next()
-		assert.Nil(t, elem)
+		assert.Equal(t, countDs(hubImpl.localDataSrcManager.listUnready), 0)
+		assert.Equal(t, countDs(hubImpl.localDataSrcManager.listReady), 1)
+		assert.True(t, hubImpl.localDataSrcManager.local)
+		assert.Len(t, hubImpl.dataSrcMap, 1)
+		assert.Empty(t, hubImpl.dataConnManager.list)
+		assert.Empty(t, hubImpl.dataConnManager.indexMap)
+		assert.Empty(t, hubImpl.dataConnMap)
+		assert.True(t, hubImpl.fixed)
+		assert.Nil(t, hubImpl.origCtx)
+		assert.Nil(t, hubImpl.ctx)
+		assert.Nil(t, hubImpl.cancel)
 	})
 
-	t.Run("uses and disuses", func(t *testing.T) {
-		ResetGlobalVariables()
-		defer ResetGlobalVariables()
-
+	t.Run("Disuses and ok", func(t *testing.T) {
 		logger := list.New()
 
-		Uses("foo", &AsyncDataSrc2{id: 1, fail: fail__not, logger: logger})
-		Uses("bar", &SyncDataSrc2{id: 2, fail: fail__not, logger: logger})
+		hub := NewDataHub()
+		defer hub.Close()
 
-		func() {
-			err := Setup()
-			assert.True(t, err.IsOk())
-			defer Shutdown()
+		hub.Uses("foo", NewMyDataSrc(1, Failure_None, logger))
+		hub.Uses("bar", NewMyDataSrc(2, Failure_None, logger))
 
-			hub := NewDataHub()
-			hubImpl := hub.(*dataHubImpl)
+		hubImpl := hub.(*dataHubImpl)
+		assert.Equal(t, countDs(hubImpl.localDataSrcManager.listUnready), 2)
+		assert.Equal(t, countDs(hubImpl.localDataSrcManager.listReady), 0)
+		assert.True(t, hubImpl.localDataSrcManager.local)
+		assert.Empty(t, hubImpl.dataSrcMap)
+		assert.Empty(t, hubImpl.dataConnManager.list)
+		assert.Empty(t, hubImpl.dataConnManager.indexMap)
+		assert.Empty(t, hubImpl.dataConnMap)
+		assert.False(t, hubImpl.fixed)
+		assert.Nil(t, hubImpl.origCtx)
+		assert.Nil(t, hubImpl.ctx)
+		assert.Nil(t, hubImpl.cancel)
 
-			assert.Nil(t, hubImpl.localDataSrcList.notSetupHead)
-			assert.Nil(t, hubImpl.localDataSrcList.didSetupHead)
-			assert.Nil(t, hubImpl.dataConnList.head)
-			assert.Equal(t, len(hubImpl.dataSrcMap), 2)
-			assert.Equal(t, len(hubImpl.dataConnMap), 0)
-			assert.False(t, hubImpl.fixed)
+		hub.Disuses("foo")
 
-			hub.Uses("baz", &SyncDataSrc2{id: 3, fail: fail__not, logger: logger})
-			ptr := hubImpl.localDataSrcList.notSetupHead
-			assert.NotNil(t, ptr)
-			ptr = ptr.next
-			assert.Nil(t, ptr)
-			assert.Nil(t, hubImpl.localDataSrcList.didSetupHead)
-			assert.Nil(t, hubImpl.dataConnList.head)
-			assert.Equal(t, len(hubImpl.dataSrcMap), 2)
-			assert.Equal(t, len(hubImpl.dataConnMap), 0)
-			assert.False(t, hubImpl.fixed)
+		assert.Equal(t, countDs(hubImpl.localDataSrcManager.listUnready), 1)
+		assert.Equal(t, countDs(hubImpl.localDataSrcManager.listReady), 0)
+		assert.True(t, hubImpl.localDataSrcManager.local)
+		assert.Empty(t, hubImpl.dataSrcMap)
+		assert.Empty(t, hubImpl.dataConnManager.list)
+		assert.Empty(t, hubImpl.dataConnManager.indexMap)
+		assert.Empty(t, hubImpl.dataConnMap)
+		assert.False(t, hubImpl.fixed)
+		assert.Nil(t, hubImpl.origCtx)
+		assert.Nil(t, hubImpl.ctx)
+		assert.Nil(t, hubImpl.cancel)
 
-			hub.Uses("qux", &AsyncDataSrc2{id: 4, fail: fail__not, logger: logger})
-			ptr = hubImpl.localDataSrcList.notSetupHead
-			assert.NotNil(t, ptr)
-			ptr = ptr.next
-			assert.NotNil(t, ptr)
-			ptr = ptr.next
-			assert.Nil(t, ptr)
-			assert.Nil(t, hubImpl.localDataSrcList.didSetupHead)
-			assert.Nil(t, hubImpl.dataConnList.head)
-			assert.Equal(t, len(hubImpl.dataSrcMap), 2)
-			assert.Equal(t, len(hubImpl.dataConnMap), 0)
-			assert.False(t, hubImpl.fixed)
+		hub.Disuses("bar")
 
-			hub.Disuses("foo") // do nothing because of global
-			hub.Disuses("bar") // do nothing because of global
-			ptr = hubImpl.localDataSrcList.notSetupHead
-			assert.NotNil(t, ptr)
-			ptr = ptr.next
-			assert.NotNil(t, ptr)
-			ptr = ptr.next
-			assert.Nil(t, ptr)
-			assert.Nil(t, hubImpl.localDataSrcList.didSetupHead)
-			assert.Nil(t, hubImpl.dataConnList.head)
-			assert.Equal(t, len(hubImpl.dataSrcMap), 2)
-			assert.Equal(t, len(hubImpl.dataConnMap), 0)
-			assert.False(t, hubImpl.fixed)
-
-			hub.Disuses("baz")
-			ptr = hubImpl.localDataSrcList.notSetupHead
-			assert.NotNil(t, ptr)
-			ptr = ptr.next
-			assert.Nil(t, ptr)
-			assert.Nil(t, hubImpl.localDataSrcList.didSetupHead)
-			assert.Nil(t, hubImpl.dataConnList.head)
-			assert.Equal(t, len(hubImpl.dataSrcMap), 2)
-			assert.Equal(t, len(hubImpl.dataConnMap), 0)
-			assert.False(t, hubImpl.fixed)
-
-			hub.Disuses("qux")
-			ptr = hubImpl.localDataSrcList.notSetupHead
-			assert.Nil(t, ptr)
-			assert.Nil(t, hubImpl.localDataSrcList.didSetupHead)
-			assert.Nil(t, hubImpl.dataConnList.head)
-			assert.Equal(t, len(hubImpl.dataSrcMap), 2)
-			assert.Equal(t, len(hubImpl.dataConnMap), 0)
-			assert.False(t, hubImpl.fixed)
-		}()
-
-		elem := logger.Front()
-		assert.Equal(t, elem.Value, "SyncDataSrc2 2 setupped")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataSrc2 1 setupped")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "SyncDataSrc2 3 closed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataSrc2 4 closed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "SyncDataSrc2 2 closed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataSrc2 1 closed")
-		elem = elem.Next()
-		assert.Nil(t, elem)
+		assert.Equal(t, countDs(hubImpl.localDataSrcManager.listUnready), 0)
+		assert.Equal(t, countDs(hubImpl.localDataSrcManager.listReady), 0)
+		assert.True(t, hubImpl.localDataSrcManager.local)
+		assert.Empty(t, hubImpl.dataSrcMap)
+		assert.Empty(t, hubImpl.dataConnManager.list)
+		assert.Empty(t, hubImpl.dataConnManager.indexMap)
+		assert.Empty(t, hubImpl.dataConnMap)
+		assert.False(t, hubImpl.fixed)
+		assert.Nil(t, hubImpl.origCtx)
+		assert.Nil(t, hubImpl.ctx)
+		assert.Nil(t, hubImpl.cancel)
 	})
 
-	t.Run("cannot add and remove data src between begin and end", func(t *testing.T) {
-		ResetGlobalVariables()
-		defer ResetGlobalVariables()
+	t.Run("Disuses and fix", func(t *testing.T) {
+		logger := list.New()
 
+		hub := NewDataHub()
+		defer hub.Close()
+
+		hub.Uses("foo", NewMyDataSrc(1, Failure_None, logger))
+		hub.Uses("bar", NewMyDataSrc(2, Failure_None, logger))
+
+		hubImpl := hub.(*dataHubImpl)
+		assert.Equal(t, countDs(hubImpl.localDataSrcManager.listUnready), 2)
+		assert.Equal(t, countDs(hubImpl.localDataSrcManager.listReady), 0)
+		assert.True(t, hubImpl.localDataSrcManager.local)
+		assert.Empty(t, hubImpl.dataSrcMap)
+		assert.Empty(t, hubImpl.dataConnManager.list)
+		assert.Empty(t, hubImpl.dataConnManager.indexMap)
+		assert.Empty(t, hubImpl.dataConnMap)
+		assert.False(t, hubImpl.fixed)
+		assert.Nil(t, hubImpl.origCtx)
+		assert.Nil(t, hubImpl.ctx)
+		assert.Nil(t, hubImpl.cancel)
+
+		hub.Disuses("foo")
+
+		assert.Equal(t, countDs(hubImpl.localDataSrcManager.listUnready), 1)
+		assert.Equal(t, countDs(hubImpl.localDataSrcManager.listReady), 0)
+		assert.True(t, hubImpl.localDataSrcManager.local)
+		assert.Empty(t, hubImpl.dataSrcMap)
+		assert.Empty(t, hubImpl.dataConnManager.list)
+		assert.Empty(t, hubImpl.dataConnManager.indexMap)
+		assert.Empty(t, hubImpl.dataConnMap)
+		assert.False(t, hubImpl.fixed)
+		assert.Nil(t, hubImpl.origCtx)
+		assert.Nil(t, hubImpl.ctx)
+		assert.Nil(t, hubImpl.cancel)
+
+		hub.Disuses("bar")
+
+		assert.Equal(t, countDs(hubImpl.localDataSrcManager.listUnready), 0)
+		assert.Equal(t, countDs(hubImpl.localDataSrcManager.listReady), 0)
+		assert.True(t, hubImpl.localDataSrcManager.local)
+		assert.Empty(t, hubImpl.dataSrcMap)
+		assert.Empty(t, hubImpl.dataConnManager.list)
+		assert.Empty(t, hubImpl.dataConnManager.indexMap)
+		assert.Empty(t, hubImpl.dataConnMap)
+		assert.False(t, hubImpl.fixed)
+		assert.Nil(t, hubImpl.origCtx)
+		assert.Nil(t, hubImpl.ctx)
+		assert.Nil(t, hubImpl.cancel)
+
+		hub.Uses("foo", NewMyDataSrc(1, Failure_None, logger))
+		hub.Uses("bar", NewMyDataSrc(2, Failure_None, logger))
+
+		assert.True(t, hub.begin().IsOk())
+
+		assert.Equal(t, countDs(hubImpl.localDataSrcManager.listUnready), 0)
+		assert.Equal(t, countDs(hubImpl.localDataSrcManager.listReady), 2)
+		assert.True(t, hubImpl.localDataSrcManager.local)
+		assert.Len(t, hubImpl.dataSrcMap, 2)
+		assert.Empty(t, hubImpl.dataConnManager.list)
+		assert.Empty(t, hubImpl.dataConnManager.indexMap)
+		assert.Empty(t, hubImpl.dataConnMap)
+		assert.True(t, hubImpl.fixed)
+		assert.Nil(t, hubImpl.origCtx)
+		assert.Nil(t, hubImpl.ctx)
+		assert.Nil(t, hubImpl.cancel)
+
+		hub.Disuses("foo")
+
+		assert.Equal(t, countDs(hubImpl.localDataSrcManager.listUnready), 0)
+		assert.Equal(t, countDs(hubImpl.localDataSrcManager.listReady), 2)
+		assert.True(t, hubImpl.localDataSrcManager.local)
+		assert.Len(t, hubImpl.dataSrcMap, 2)
+		assert.Empty(t, hubImpl.dataConnManager.list)
+		assert.Empty(t, hubImpl.dataConnManager.indexMap)
+		assert.Empty(t, hubImpl.dataConnMap)
+		assert.True(t, hubImpl.fixed)
+		assert.Nil(t, hubImpl.origCtx)
+		assert.Nil(t, hubImpl.ctx)
+		assert.Nil(t, hubImpl.cancel)
+
+		hub.Disuses("bar")
+
+		assert.Equal(t, countDs(hubImpl.localDataSrcManager.listUnready), 0)
+		assert.Equal(t, countDs(hubImpl.localDataSrcManager.listReady), 2)
+		assert.True(t, hubImpl.localDataSrcManager.local)
+		assert.Len(t, hubImpl.dataSrcMap, 2)
+		assert.Empty(t, hubImpl.dataConnManager.list)
+		assert.Empty(t, hubImpl.dataConnManager.indexMap)
+		assert.Empty(t, hubImpl.dataConnMap)
+		assert.True(t, hubImpl.fixed)
+		assert.Nil(t, hubImpl.origCtx)
+		assert.Nil(t, hubImpl.ctx)
+		assert.Nil(t, hubImpl.cancel)
+
+		hub.end()
+
+		assert.Equal(t, countDs(hubImpl.localDataSrcManager.listUnready), 0)
+		assert.Equal(t, countDs(hubImpl.localDataSrcManager.listReady), 2)
+		assert.True(t, hubImpl.localDataSrcManager.local)
+		assert.Len(t, hubImpl.dataSrcMap, 2)
+		assert.Empty(t, hubImpl.dataConnManager.list)
+		assert.Empty(t, hubImpl.dataConnManager.indexMap)
+		assert.Empty(t, hubImpl.dataConnMap)
+		assert.False(t, hubImpl.fixed)
+		assert.Nil(t, hubImpl.origCtx)
+		assert.Nil(t, hubImpl.ctx)
+		assert.Nil(t, hubImpl.cancel)
+
+		hub.Disuses("foo")
+
+		assert.Equal(t, countDs(hubImpl.localDataSrcManager.listUnready), 0)
+		assert.Equal(t, countDs(hubImpl.localDataSrcManager.listReady), 1)
+		assert.True(t, hubImpl.localDataSrcManager.local)
+		assert.Len(t, hubImpl.dataSrcMap, 1)
+		assert.Empty(t, hubImpl.dataConnManager.list)
+		assert.Empty(t, hubImpl.dataConnManager.indexMap)
+		assert.Empty(t, hubImpl.dataConnMap)
+		assert.False(t, hubImpl.fixed)
+		assert.Nil(t, hubImpl.origCtx)
+		assert.Nil(t, hubImpl.ctx)
+		assert.Nil(t, hubImpl.cancel)
+
+		hub.Disuses("bar")
+
+		assert.Equal(t, countDs(hubImpl.localDataSrcManager.listUnready), 0)
+		assert.Equal(t, countDs(hubImpl.localDataSrcManager.listReady), 0)
+		assert.True(t, hubImpl.localDataSrcManager.local)
+		assert.Len(t, hubImpl.dataSrcMap, 0)
+		assert.Empty(t, hubImpl.dataConnManager.list)
+		assert.Empty(t, hubImpl.dataConnManager.indexMap)
+		assert.Empty(t, hubImpl.dataConnMap)
+		assert.False(t, hubImpl.fixed)
+		assert.Nil(t, hubImpl.origCtx)
+		assert.Nil(t, hubImpl.ctx)
+		assert.Nil(t, hubImpl.cancel)
+	})
+
+	t.Run("begin if empty", func(t *testing.T) {
+		hub := NewDataHub()
+		defer hub.Close()
+
+		assert.True(t, hub.begin().IsOk())
+
+		hubImpl := hub.(*dataHubImpl)
+		assert.Equal(t, countDs(hubImpl.localDataSrcManager.listUnready), 0)
+		assert.Equal(t, countDs(hubImpl.localDataSrcManager.listReady), 0)
+		assert.True(t, hubImpl.localDataSrcManager.local)
+		assert.Empty(t, hubImpl.dataSrcMap)
+		assert.Empty(t, hubImpl.dataConnManager.list)
+		assert.Empty(t, hubImpl.dataConnManager.indexMap)
+		assert.Empty(t, hubImpl.dataConnMap)
+		assert.True(t, hubImpl.fixed)
+		assert.Nil(t, hubImpl.origCtx)
+		assert.Nil(t, hubImpl.ctx)
+		assert.Nil(t, hubImpl.cancel)
+
+		hub.end()
+
+		assert.Equal(t, countDs(hubImpl.localDataSrcManager.listUnready), 0)
+		assert.Equal(t, countDs(hubImpl.localDataSrcManager.listReady), 0)
+		assert.True(t, hubImpl.localDataSrcManager.local)
+		assert.Empty(t, hubImpl.dataSrcMap)
+		assert.Empty(t, hubImpl.dataConnManager.list)
+		assert.Empty(t, hubImpl.dataConnManager.indexMap)
+		assert.Empty(t, hubImpl.dataConnMap)
+		assert.False(t, hubImpl.fixed)
+		assert.Nil(t, hubImpl.origCtx)
+		assert.Nil(t, hubImpl.ctx)
+		assert.Nil(t, hubImpl.cancel)
+	})
+
+	t.Run("begin and ok", func(t *testing.T) {
 		logger := list.New()
 
 		func() {
-			err := Setup()
-			assert.True(t, err.IsOk())
-			defer Shutdown()
-
 			hub := NewDataHub()
+			defer hub.Close()
+
+			hub.Uses("foo", NewMyDataSrc(1, Failure_None, logger))
+			hub.Uses("bar", NewMyDataSrc(2, Failure_None, logger))
+
 			hubImpl := hub.(*dataHubImpl)
-
-			ptr := hubImpl.localDataSrcList.notSetupHead
-			assert.Nil(t, ptr)
-			ptr = hubImpl.localDataSrcList.didSetupHead
-			assert.Nil(t, ptr)
-			assert.Nil(t, hubImpl.dataConnList.head)
-			assert.Equal(t, len(hubImpl.dataSrcMap), 0)
-			assert.Equal(t, len(hubImpl.dataConnMap), 0)
+			assert.Equal(t, countDs(hubImpl.localDataSrcManager.listUnready), 2)
+			assert.Equal(t, countDs(hubImpl.localDataSrcManager.listReady), 0)
+			assert.True(t, hubImpl.localDataSrcManager.local)
+			assert.Empty(t, hubImpl.dataSrcMap)
+			assert.Empty(t, hubImpl.dataConnManager.list)
+			assert.Empty(t, hubImpl.dataConnManager.indexMap)
+			assert.Empty(t, hubImpl.dataConnMap)
 			assert.False(t, hubImpl.fixed)
-
-			hub.Uses("baz", &SyncDataSrc2{id: 1, fail: fail__not, logger: logger})
-
-			ptr = hubImpl.localDataSrcList.notSetupHead
-			assert.NotNil(t, ptr)
-			ptr = ptr.next
-			assert.Nil(t, ptr)
-			ptr = hubImpl.localDataSrcList.didSetupHead
-			assert.Nil(t, ptr)
-			assert.Nil(t, hubImpl.dataConnList.head)
-			assert.Equal(t, len(hubImpl.dataSrcMap), 0)
-			assert.Equal(t, len(hubImpl.dataConnMap), 0)
-			assert.False(t, hubImpl.fixed)
+			assert.Nil(t, hubImpl.origCtx)
+			assert.Nil(t, hubImpl.ctx)
+			assert.Nil(t, hubImpl.cancel)
 
 			assert.True(t, hub.begin().IsOk())
 
-			ptr = hubImpl.localDataSrcList.notSetupHead
-			assert.Nil(t, ptr)
-			ptr = hubImpl.localDataSrcList.didSetupHead
-			assert.NotNil(t, ptr)
-			ptr = ptr.next
-			assert.Nil(t, ptr)
-			assert.Nil(t, hubImpl.dataConnList.head)
-			assert.Equal(t, len(hubImpl.dataSrcMap), 1)
-			assert.Equal(t, len(hubImpl.dataConnMap), 0)
+			assert.Equal(t, countDs(hubImpl.localDataSrcManager.listUnready), 0)
+			assert.Equal(t, countDs(hubImpl.localDataSrcManager.listReady), 2)
+			assert.True(t, hubImpl.localDataSrcManager.local)
+			assert.Len(t, hubImpl.dataSrcMap, 2)
+			assert.Empty(t, hubImpl.dataConnManager.list)
+			assert.Empty(t, hubImpl.dataConnManager.indexMap)
+			assert.Empty(t, hubImpl.dataConnMap)
 			assert.True(t, hubImpl.fixed)
-
-			hub.Uses("foo", &AsyncDataSrc2{id: 2, fail: fail__not, logger: logger})
-
-			ptr = hubImpl.localDataSrcList.notSetupHead
-			assert.Nil(t, ptr)
-			ptr = hubImpl.localDataSrcList.didSetupHead
-			assert.NotNil(t, ptr)
-			ptr = ptr.next
-			assert.Nil(t, ptr)
-			assert.Nil(t, hubImpl.dataConnList.head)
-			assert.Equal(t, len(hubImpl.dataSrcMap), 1)
-			assert.Equal(t, len(hubImpl.dataConnMap), 0)
-			assert.True(t, hubImpl.fixed)
-
-			hub.Disuses("baz")
-
-			ptr = hubImpl.localDataSrcList.notSetupHead
-			assert.Nil(t, ptr)
-			ptr = hubImpl.localDataSrcList.didSetupHead
-			assert.NotNil(t, ptr)
-			ptr = ptr.next
-			assert.Nil(t, ptr)
-			assert.Nil(t, hubImpl.dataConnList.head)
-			assert.Equal(t, len(hubImpl.dataSrcMap), 1)
-			assert.Equal(t, len(hubImpl.dataConnMap), 0)
-			assert.True(t, hubImpl.fixed)
+			assert.Nil(t, hubImpl.origCtx)
+			assert.Nil(t, hubImpl.ctx)
+			assert.Nil(t, hubImpl.cancel)
 
 			hub.end()
 
-			ptr = hubImpl.localDataSrcList.notSetupHead
-			assert.Nil(t, ptr)
-			ptr = hubImpl.localDataSrcList.didSetupHead
-			assert.NotNil(t, ptr)
-			ptr = ptr.next
-			assert.Nil(t, ptr)
-			assert.Nil(t, hubImpl.dataConnList.head)
-			assert.Equal(t, len(hubImpl.dataSrcMap), 1)
-			assert.Equal(t, len(hubImpl.dataConnMap), 0)
+			assert.Equal(t, countDs(hubImpl.localDataSrcManager.listUnready), 0)
+			assert.Equal(t, countDs(hubImpl.localDataSrcManager.listReady), 2)
+			assert.True(t, hubImpl.localDataSrcManager.local)
+			assert.Len(t, hubImpl.dataSrcMap, 2)
+			assert.Empty(t, hubImpl.dataConnManager.list)
+			assert.Empty(t, hubImpl.dataConnManager.indexMap)
+			assert.Empty(t, hubImpl.dataConnMap)
 			assert.False(t, hubImpl.fixed)
-
-			hub.Uses("foo", &AsyncDataSrc2{id: 2, fail: fail__not, logger: logger})
-
-			ptr = hubImpl.localDataSrcList.notSetupHead
-			assert.NotNil(t, ptr)
-			ptr = ptr.next
-			assert.Nil(t, ptr)
-			ptr = hubImpl.localDataSrcList.didSetupHead
-			assert.NotNil(t, ptr)
-			ptr = ptr.next
-			assert.Nil(t, ptr)
-			assert.Nil(t, hubImpl.dataConnList.head)
-			assert.Equal(t, len(hubImpl.dataSrcMap), 1)
-			assert.Equal(t, len(hubImpl.dataConnMap), 0)
-			assert.False(t, hubImpl.fixed)
-
-			hub.Disuses("baz")
-
-			ptr = hubImpl.localDataSrcList.notSetupHead
-			assert.NotNil(t, ptr)
-			ptr = ptr.next
-			assert.Nil(t, ptr)
-			ptr = hubImpl.localDataSrcList.didSetupHead
-			assert.Nil(t, ptr)
-			assert.Nil(t, hubImpl.dataConnList.head)
-			assert.Equal(t, len(hubImpl.dataSrcMap), 0)
-			assert.Equal(t, len(hubImpl.dataConnMap), 0)
-			assert.False(t, hubImpl.fixed)
+			assert.Nil(t, hubImpl.origCtx)
+			assert.Nil(t, hubImpl.ctx)
+			assert.Nil(t, hubImpl.cancel)
 		}()
 
-		elem := logger.Front()
-		assert.Equal(t, elem.Value, "SyncDataSrc2 1 setupped")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "SyncDataSrc2 1 closed")
-		elem = elem.Next()
-		assert.Nil(t, elem)
+		log := logger.Front()
+		assert.Equal(t, log.Value, "MyDataSrc#Setup 1")
+		log = log.Next()
+		assert.Equal(t, log.Value, "MyDataSrc#Setup 2")
+		log = log.Next()
+		assert.Equal(t, log.Value, "MyDataSrc#Close 2")
+		log = log.Next()
+		assert.Equal(t, log.Value, "MyDataSrc#Close 1")
+		log = log.Next()
+		assert.Nil(t, log)
 	})
 
-	t.Run("begin and end", func(t *testing.T) {
-		ResetGlobalVariables()
-		defer ResetGlobalVariables()
-
+	t.Run("begin but failed", func(t *testing.T) {
 		logger := list.New()
 
-		Uses("foo", &AsyncDataSrc2{id: 1, logger: logger, fail: fail__not})
-		Uses("bar", &SyncDataSrc2{id: 2, logger: logger, fail: fail__not})
-
-		err := Setup().IfOkThen(func() errs.Err {
-			defer Shutdown()
-
+		func() {
 			hub := NewDataHub()
-			hubImpl := hub.(*dataHubImpl)
 			defer hub.Close()
 
-			hub.Uses("baz", &SyncDataSrc2{id: 3, fail: fail__not, logger: logger})
-			hub.Uses("qux", &AsyncDataSrc2{id: 4, fail: fail__not, logger: logger})
+			hub.Uses("foo", NewMyDataSrc(1, Failure_None, logger))
+			hub.Uses("bar", NewMyDataSrc(2, Failure_Setup, logger))
+			hub.Uses("baz", NewMyDataSrc(3, Failure_None, logger))
 
-			ptr := hubImpl.localDataSrcList.notSetupHead
-			assert.NotNil(t, ptr)
-			ptr = ptr.next
-			assert.NotNil(t, ptr)
-			ptr = ptr.next
-			assert.Nil(t, ptr)
-			assert.Nil(t, hubImpl.localDataSrcList.didSetupHead)
-			assert.Equal(t, len(hubImpl.dataSrcMap), 2)
-			assert.Equal(t, len(hubImpl.dataConnMap), 0)
-			assert.False(t, hubImpl.fixed)
-
-			assert.True(t, hub.begin().IsOk())
-
-			ptr = hubImpl.localDataSrcList.notSetupHead
-			assert.Nil(t, ptr)
-			ptr = hubImpl.localDataSrcList.didSetupHead
-			assert.NotNil(t, ptr)
-			ptr = ptr.next
-			assert.NotNil(t, ptr)
-			ptr = ptr.next
-			assert.Nil(t, ptr)
-			assert.Nil(t, hubImpl.dataConnList.head)
-			assert.Equal(t, len(hubImpl.dataSrcMap), 4)
-			assert.Equal(t, len(hubImpl.dataConnMap), 0)
-			assert.True(t, hubImpl.fixed)
-
-			hub.end()
-
-			ptr = hubImpl.localDataSrcList.notSetupHead
-			assert.Nil(t, ptr)
-			ptr = hubImpl.localDataSrcList.didSetupHead
-			assert.NotNil(t, ptr)
-			ptr = ptr.next
-			assert.NotNil(t, ptr)
-			ptr = ptr.next
-			assert.Nil(t, ptr)
-			assert.Nil(t, hubImpl.dataConnList.head)
-			assert.Equal(t, len(hubImpl.dataSrcMap), 4)
-			assert.Equal(t, len(hubImpl.dataConnMap), 0)
-			assert.False(t, hubImpl.fixed)
-
-			return errs.Ok()
-		})
-		assert.True(t, err.IsOk())
-
-		elem := logger.Front()
-		assert.Equal(t, elem.Value, "SyncDataSrc2 2 setupped")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataSrc2 1 setupped")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "SyncDataSrc2 3 setupped")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataSrc2 4 setupped")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataSrc2 4 closed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "SyncDataSrc2 3 closed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "SyncDataSrc2 2 closed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataSrc2 1 closed")
-		elem = elem.Next()
-		assert.Nil(t, elem)
-	})
-
-	t.Run("begin and end but fail sync", func(t *testing.T) {
-		ResetGlobalVariables()
-		defer ResetGlobalVariables()
-
-		logger := list.New()
-
-		Uses("foo", &AsyncDataSrc2{id: 1, logger: logger, fail: fail__not})
-		Uses("bar", &SyncDataSrc2{id: 2, logger: logger, fail: fail__not})
-
-		err := Setup().IfOkThen(func() errs.Err {
-			defer Shutdown()
-
-			hub := NewDataHub()
 			hubImpl := hub.(*dataHubImpl)
-			defer hub.Close()
-
-			hub.Uses("baz", &AsyncDataSrc2{id: 3, logger: logger, fail: fail__not})
-			hub.Uses("qux", &SyncDataSrc2{id: 4, logger: logger, fail: fail__setup})
+			assert.Equal(t, countDs(hubImpl.localDataSrcManager.listUnready), 3)
+			assert.Equal(t, countDs(hubImpl.localDataSrcManager.listReady), 0)
+			assert.True(t, hubImpl.localDataSrcManager.local)
+			assert.Empty(t, hubImpl.dataSrcMap)
+			assert.Empty(t, hubImpl.dataConnManager.list)
+			assert.Empty(t, hubImpl.dataConnManager.indexMap)
+			assert.Empty(t, hubImpl.dataConnMap)
+			assert.False(t, hubImpl.fixed)
+			assert.Nil(t, hubImpl.origCtx)
+			assert.Nil(t, hubImpl.ctx)
+			assert.Nil(t, hubImpl.cancel)
 
 			err := hub.begin()
-			switch r := err.Reason().(type) {
+			defer hub.end()
+
+			switch rsn := err.Reason().(type) {
 			case FailToSetupLocalDataSrcs:
-				assert.Equal(t, len(r.Errors), 1)
-				e, ok := r.Errors["qux"]
-				assert.True(t, ok)
-				assert.Equal(t, e.Reason(), "XXX")
+				assert.Len(t, rsn.Errors, 1)
+				assert.Equal(t, rsn.Errors[0].Name, "bar")
+				assert.Equal(t, rsn.Errors[0].Err.Reason(), "setup error")
 			default:
 				assert.Fail(t, err.Error())
 			}
+		}()
 
-			ptr := hubImpl.localDataSrcList.notSetupHead
-			assert.NotNil(t, ptr)
-			ptr = ptr.next
-			assert.Nil(t, ptr)
-			ptr = hubImpl.localDataSrcList.didSetupHead
-			assert.NotNil(t, ptr)
-			ptr = ptr.next
-			assert.Nil(t, ptr)
-			assert.Equal(t, len(hubImpl.dataSrcMap), 3)
-			assert.Equal(t, len(hubImpl.dataConnMap), 0)
-			assert.True(t, hubImpl.fixed)
-
-			hub.end()
-
-			ptr = hubImpl.localDataSrcList.notSetupHead
-			assert.NotNil(t, ptr)
-			ptr = ptr.next
-			assert.Nil(t, ptr)
-			ptr = hubImpl.localDataSrcList.didSetupHead
-			assert.NotNil(t, ptr)
-			ptr = ptr.next
-			assert.Nil(t, ptr)
-			assert.Equal(t, len(hubImpl.dataSrcMap), 3)
-			assert.Equal(t, len(hubImpl.dataConnMap), 0)
-			assert.False(t, hubImpl.fixed)
-
-			return errs.Ok()
-		})
-		assert.True(t, err.IsOk())
+		log := logger.Front()
+		assert.Equal(t, log.Value, "MyDataSrc#Setup 1")
+		log = log.Next()
+		assert.Equal(t, log.Value, "MyDataSrc#Setup 2 failed")
+		log = log.Next()
+		assert.Equal(t, log.Value, "MyDataSrc#Close 1")
+		log = log.Next()
+		assert.Nil(t, log)
 	})
 
-	t.Run("begin and end but fail async", func(t *testing.T) {
-		ResetGlobalVariables()
-		defer ResetGlobalVariables()
-
+	t.Run("run and ok", func(t *testing.T) {
 		logger := list.New()
 
-		Uses("foo", &AsyncDataSrc2{id: 1, logger: logger, fail: fail__not})
-		Uses("bar", &SyncDataSrc2{id: 2, logger: logger, fail: fail__not})
-
-		err := Setup().IfOkThen(func() errs.Err {
-			defer Shutdown()
-
+		func() {
 			hub := NewDataHub()
-			hubImpl := hub.(*dataHubImpl)
 			defer hub.Close()
 
-			hub.Uses("baz", &AsyncDataSrc2{id: 3, logger: logger, fail: fail__setup})
-			hub.Uses("qux", &SyncDataSrc2{id: 4, logger: logger, fail: fail__not})
+			hub.Uses("foo", NewMyDataSrc(1, Failure_None, logger))
+			hub.Uses("bar", NewMyDataSrc(2, Failure_None, logger))
 
-			err := hub.begin()
-			switch r := err.Reason().(type) {
-			case FailToSetupLocalDataSrcs:
-				assert.Equal(t, len(r.Errors), 1)
-				e, ok := r.Errors["baz"]
-				assert.True(t, ok)
-				assert.Equal(t, e.Reason(), "YYY")
+			err := Run(hub, func(data any) errs.Err {
+				logger.PushBack("execute logic")
+				return errs.Ok()
+			})
+			assert.True(t, err.IsOk())
+		}()
+
+		log := logger.Front()
+		assert.Equal(t, log.Value, "MyDataSrc#Setup 1")
+		log = log.Next()
+		assert.Equal(t, log.Value, "MyDataSrc#Setup 2")
+		log = log.Next()
+		assert.Equal(t, log.Value, "execute logic")
+		log = log.Next()
+		assert.Equal(t, log.Value, "MyDataSrc#Close 2")
+		log = log.Next()
+		assert.Equal(t, log.Value, "MyDataSrc#Close 1")
+		log = log.Next()
+		assert.Nil(t, log)
+	})
+
+	t.Run("run but failed to run logic", func(t *testing.T) {
+		logger := list.New()
+
+		func() {
+			hub := NewDataHub()
+			defer hub.Close()
+
+			hub.Uses("foo", NewMyDataSrc(1, Failure_None, logger))
+			hub.Uses("bar", NewMyDataSrc(2, Failure_None, logger))
+
+			err := Run(hub, func(data any) errs.Err {
+				logger.PushBack("execute logic but fail")
+				return errs.New("logic error")
+			})
+			assert.True(t, err.IsNotOk())
+			switch rsn := err.Reason().(type) {
+			case string:
+				assert.Equal(t, rsn, "logic error")
 			default:
 				assert.Fail(t, err.Error())
 			}
+		}()
 
-			ptr := hubImpl.localDataSrcList.notSetupHead
-			assert.NotNil(t, ptr)
-			ptr = ptr.next
-			assert.Nil(t, ptr)
-			ptr = hubImpl.localDataSrcList.didSetupHead
-			assert.NotNil(t, ptr)
-			ptr = ptr.next
-			assert.Nil(t, ptr)
-			assert.Equal(t, len(hubImpl.dataSrcMap), 3)
-			assert.Equal(t, len(hubImpl.dataConnMap), 0)
-			assert.True(t, hubImpl.fixed)
-
-			hub.end()
-
-			ptr = hubImpl.localDataSrcList.notSetupHead
-			assert.NotNil(t, ptr)
-			ptr = ptr.next
-			assert.Nil(t, ptr)
-			ptr = hubImpl.localDataSrcList.didSetupHead
-			assert.NotNil(t, ptr)
-			ptr = ptr.next
-			assert.Nil(t, ptr)
-			assert.Equal(t, len(hubImpl.dataSrcMap), 3)
-			assert.Equal(t, len(hubImpl.dataConnMap), 0)
-			assert.False(t, hubImpl.fixed)
-
-			return errs.Ok()
-		})
-		assert.True(t, err.IsOk())
+		log := logger.Front()
+		assert.Equal(t, log.Value, "MyDataSrc#Setup 1")
+		log = log.Next()
+		assert.Equal(t, log.Value, "MyDataSrc#Setup 2")
+		log = log.Next()
+		assert.Equal(t, log.Value, "execute logic but fail")
+		log = log.Next()
+		assert.Equal(t, log.Value, "MyDataSrc#Close 2")
+		log = log.Next()
+		assert.Equal(t, log.Value, "MyDataSrc#Close 1")
+		log = log.Next()
+		assert.Nil(t, log)
 	})
 
-	t.Run("commit", func(t *testing.T) {
-		ResetGlobalVariables()
-		defer ResetGlobalVariables()
+	t.Run("run but fail to cast to specified DataHub", func(t *testing.T) {
+		type MyData interface {
+			GetXxx() (string, errs.Err)
+		}
 
-		logger := list.New()
-
-		Uses("foo", &AsyncDataSrc2{id: 1, logger: logger, fail: fail__not})
-		Uses("bar", &SyncDataSrc2{id: 2, logger: logger, fail: fail__not})
-
-		err := Setup().IfOkThen(func() errs.Err {
-			defer Shutdown()
-
-			hub := NewDataHub()
-			defer hub.Close()
-			hub.Uses("baz", &AsyncDataSrc2{id: 3, fail: fail__not, logger: logger})
-			hub.Uses("qux", &SyncDataSrc2{id: 4, fail: fail__not, logger: logger})
-
-			assert.True(t, hub.begin().IsOk())
-
-			conn1, err1 := GetDataConn[*AsyncDataConn2](hub, "foo")
-			assert.True(t, err1.IsOk())
-			assert.NotNil(t, conn1)
-
-			conn2, err2 := GetDataConn[*SyncDataConn2](hub, "bar")
-			assert.True(t, err2.IsOk())
-			assert.NotNil(t, conn2)
-
-			conn3, err3 := GetDataConn[*AsyncDataConn2](hub, "baz")
-			assert.True(t, err3.IsOk())
-			assert.NotNil(t, conn3)
-
-			conn4, err4 := GetDataConn[*SyncDataConn2](hub, "qux")
-			assert.True(t, err4.IsOk())
-			assert.NotNil(t, conn4)
-
-			conn1, err1 = GetDataConn[*AsyncDataConn2](hub, "foo")
-			assert.True(t, err1.IsOk())
-			assert.NotNil(t, conn1)
-
-			conn2, err2 = GetDataConn[*SyncDataConn2](hub, "bar")
-			assert.True(t, err2.IsOk())
-			assert.NotNil(t, conn2)
-
-			conn3, err3 = GetDataConn[*AsyncDataConn2](hub, "baz")
-			assert.True(t, err3.IsOk())
-			assert.NotNil(t, conn3)
-
-			conn4, err4 = GetDataConn[*SyncDataConn2](hub, "qux")
-			assert.True(t, err4.IsOk())
-			assert.NotNil(t, conn4)
-
-			assert.True(t, hub.commit().IsOk())
-
-			return errs.Ok()
-		})
-		assert.True(t, err.IsOk())
-
-		elem := logger.Front()
-		assert.Equal(t, elem.Value, "SyncDataSrc2 2 setupped")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataSrc2 1 setupped")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "SyncDataSrc2 4 setupped")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataSrc2 3 setupped")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataSrc2 1 created DataConn")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "SyncDataSrc2 2 created DataConn")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataSrc2 3 created DataConn")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "SyncDataSrc2 4 created DataConn")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataConn2 1 pre committed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "SyncDataConn2 2 pre committed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataConn2 3 pre committed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "SyncDataConn2 4 pre committed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataConn2 1 committed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "SyncDataConn2 2 committed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataConn2 3 committed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "SyncDataConn2 4 committed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataConn2 1 post committed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "SyncDataConn2 2 post committed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataConn2 3 post committed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "SyncDataConn2 4 post committed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "SyncDataConn2 4 closed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataConn2 3 closed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "SyncDataConn2 2 closed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataConn2 1 closed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "SyncDataSrc2 4 closed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataSrc2 3 closed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "SyncDataSrc2 2 closed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataSrc2 1 closed")
-		elem = elem.Next()
-		assert.Nil(t, elem)
-	})
-
-	t.Run("fail to cast new data conn", func(t *testing.T) {
-		ResetGlobalVariables()
-		defer ResetGlobalVariables()
-
-		logger := list.New()
-
-		Uses("foo", &AsyncDataSrc2{id: 1, logger: logger, fail: fail__not})
-
-		Setup().IfOkThen(func() errs.Err {
-			defer Shutdown()
-
+		func() {
 			hub := NewDataHub()
 			defer hub.Close()
 
-			hub.Uses("bar", &SyncDataSrc2{id: 2, fail: fail__not, logger: logger})
-
-			assert.True(t, hub.begin().IsOk())
-
-			_, err1 := GetDataConn[*SyncDataConn2](hub, "foo")
-			switch r := err1.Reason().(type) {
-			case FailToCastDataConn:
-				assert.Equal(t, r.Name, "foo")
-				assert.Equal(t, r.CastToType, "*sabi.SyncDataConn2")
+			err := Run(hub, func(data MyData) errs.Err {
+				return errs.Ok()
+			})
+			assert.True(t, err.IsNotOk())
+			switch rsn := err.Reason().(type) {
+			case FailToCastDataHub:
+				assert.Equal(t, rsn.FromType, "sabi.DataHub")
+				assert.Equal(t, rsn.ToType, "sabi.MyData")
 			default:
-				assert.Fail(t, err1.Error())
+				assert.Fail(t, err.Error())
 			}
-
-			_, err2 := GetDataConn[*AsyncDataConn2](hub, "bar")
-			switch r := err2.Reason().(type) {
-			case FailToCastDataConn:
-				assert.Equal(t, r.Name, "bar")
-				assert.Equal(t, r.CastToType, "*sabi.AsyncDataConn2")
-			default:
-				assert.Fail(t, err2.Error())
-			}
-
-			return errs.Ok()
-		})
-
-		elem := logger.Front()
-		assert.Equal(t, elem.Value, "AsyncDataSrc2 1 setupped")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "SyncDataSrc2 2 setupped")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataSrc2 1 created DataConn")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "SyncDataSrc2 2 created DataConn")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "SyncDataConn2 2 closed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataConn2 1 closed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "SyncDataSrc2 2 closed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataSrc2 1 closed")
-		elem = elem.Next()
-		assert.Nil(t, elem)
+		}()
 	})
 
-	t.Run("fail to cast reused data conn", func(t *testing.T) {
-		ResetGlobalVariables()
-		defer ResetGlobalVariables()
-
+	t.Run("run but fail to setup", func(t *testing.T) {
 		logger := list.New()
 
-		Uses("foo", &AsyncDataSrc2{id: 1, logger: logger, fail: fail__not})
-
-		Setup().IfOkThen(func() errs.Err {
-			defer Shutdown()
-
+		func() {
 			hub := NewDataHub()
 			defer hub.Close()
 
-			hub.Uses("bar", &SyncDataSrc2{id: 2, fail: fail__not, logger: logger})
+			hub.Uses("foo", NewMyDataSrc(1, Failure_Setup, logger))
 
-			assert.True(t, hub.begin().IsOk())
-
-			conn1, err1 := GetDataConn[*AsyncDataConn2](hub, "foo")
-			assert.True(t, err1.IsOk())
-			assert.NotNil(t, conn1)
-
-			conn2, err2 := GetDataConn[*SyncDataConn2](hub, "bar")
-			assert.True(t, err2.IsOk())
-			assert.NotNil(t, conn2)
-
-			_, err1 = GetDataConn[*SyncDataConn2](hub, "foo")
-			switch r := err1.Reason().(type) {
-			case FailToCastDataConn:
-				assert.Equal(t, r.Name, "foo")
-				assert.Equal(t, r.CastToType, "*sabi.SyncDataConn2")
+			err := Run(hub, func(data any) errs.Err {
+				logger.PushBack("execute logic")
+				return errs.Ok()
+			})
+			assert.True(t, err.IsNotOk())
+			switch rsn := err.Reason().(type) {
+			case FailToSetupLocalDataSrcs:
+				assert.Len(t, rsn.Errors, 1)
+				assert.Equal(t, rsn.Errors[0].Name, "foo")
+				assert.Equal(t, rsn.Errors[0].Err.Reason(), "setup error")
 			default:
-				assert.Fail(t, err1.Error())
+				assert.Fail(t, err.Error())
 			}
+		}()
 
-			_, err2 = GetDataConn[*AsyncDataConn2](hub, "bar")
-			switch r := err2.Reason().(type) {
-			case FailToCastDataConn:
-				assert.Equal(t, r.Name, "bar")
-				assert.Equal(t, r.CastToType, "*sabi.AsyncDataConn2")
-			default:
-				assert.Fail(t, err2.Error())
-			}
-
-			return errs.Ok()
-		})
-
-		elem := logger.Front()
-		assert.Equal(t, elem.Value, "AsyncDataSrc2 1 setupped")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "SyncDataSrc2 2 setupped")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataSrc2 1 created DataConn")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "SyncDataSrc2 2 created DataConn")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "SyncDataConn2 2 closed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataConn2 1 closed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "SyncDataSrc2 2 closed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataSrc2 1 closed")
-		elem = elem.Next()
-		assert.Nil(t, elem)
+		log := logger.Front()
+		assert.Equal(t, log.Value, "MyDataSrc#Setup 1 failed")
+		log = log.Next()
+		assert.Nil(t, log)
 	})
 
-	t.Run("fail to create data conn", func(t *testing.T) {
-		ResetGlobalVariables()
-		defer ResetGlobalVariables()
-
+	t.Run("txn and no data access and ok", func(t *testing.T) {
 		logger := list.New()
 
-		Uses("foo", &AsyncDataSrc2{id: 1, logger: logger, fail: fail__not})
-
-		Setup().IfOkThen(func() errs.Err {
-			defer Shutdown()
-
+		func() {
 			hub := NewDataHub()
 			defer hub.Close()
 
-			hub.Uses("bar", &SyncDataSrc2{id: 2, fail: fail__create_data_conn, logger: logger})
+			hub.Uses("foo", NewMyDataSrc(1, Failure_None, logger))
+			hub.Uses("bar", NewMyDataSrc(2, Failure_None, logger))
 
-			assert.True(t, hub.begin().IsOk())
+			err := Txn(hub, func(data any) errs.Err {
+				logger.PushBack("execute logic")
+				return errs.Ok()
+			})
+			assert.True(t, err.IsOk())
+		}()
 
-			conn1, err1 := GetDataConn[*AsyncDataConn2](hub, "foo")
-			assert.True(t, err1.IsOk())
-			assert.NotNil(t, conn1)
+		log := logger.Front()
+		assert.Equal(t, log.Value, "MyDataSrc#Setup 1")
+		log = log.Next()
+		assert.Equal(t, log.Value, "MyDataSrc#Setup 2")
+		log = log.Next()
+		assert.Equal(t, log.Value, "execute logic")
+		log = log.Next()
+		assert.Equal(t, log.Value, "MyDataSrc#Close 2")
+		log = log.Next()
+		assert.Equal(t, log.Value, "MyDataSrc#Close 1")
+		log = log.Next()
+		assert.Nil(t, log)
+	})
 
-			_, err2 := GetDataConn[*SyncDataConn2](hub, "bar")
-			switch r := err2.Reason().(type) {
+	t.Run("txn and has data access and ok", func(t *testing.T) {
+		logger := list.New()
+
+		func() {
+			hub := NewDataHub()
+			defer hub.Close()
+
+			hub.Uses("foo", NewMyDataSrc(1, Failure_None, logger))
+			hub.Uses("bar", NewMyDataSrc(2, Failure_None, logger))
+
+			err := Txn(hub, func(data any) errs.Err {
+				logger.PushBack("execute logic")
+				_, err := GetDataConn[*MyDataConn](data, "foo")
+				assert.True(t, err.IsOk())
+				_, err = GetDataConn[*MyDataConn](data, "bar")
+				assert.True(t, err.IsOk())
+				return errs.Ok()
+			})
+			assert.True(t, err.IsOk())
+		}()
+
+		log := logger.Front()
+		assert.Equal(t, log.Value, "MyDataSrc#Setup 1")
+		log = log.Next()
+		assert.Equal(t, log.Value, "MyDataSrc#Setup 2")
+		log = log.Next()
+		assert.Equal(t, log.Value, "execute logic")
+		log = log.Next()
+		assert.Equal(t, log.Value, "MyDataSrc#CreateDataConn 1")
+		log = log.Next()
+		assert.Equal(t, log.Value, "MyDataSrc#CreateDataConn 2")
+		log = log.Next()
+		assert.Equal(t, log.Value, "MyDataConn#PreCommit 1")
+		log = log.Next()
+		assert.Equal(t, log.Value, "MyDataConn#PreCommit 2")
+		log = log.Next()
+		assert.Equal(t, log.Value, "MyDataConn#Commit 1")
+		log = log.Next()
+		assert.Equal(t, log.Value, "MyDataConn#Commit 2")
+		log = log.Next()
+		assert.Equal(t, log.Value, "MyDataConn#PostCommit 1")
+		log = log.Next()
+		assert.Equal(t, log.Value, "MyDataConn#PostCommit 2")
+		log = log.Next()
+		assert.Equal(t, log.Value, "MyDataConn#Close 2")
+		log = log.Next()
+		assert.Equal(t, log.Value, "MyDataConn#Close 1")
+		log = log.Next()
+		assert.Equal(t, log.Value, "MyDataSrc#Close 2")
+		log = log.Next()
+		assert.Equal(t, log.Value, "MyDataSrc#Close 1")
+		log = log.Next()
+		assert.Nil(t, log)
+	})
+
+	t.Run("txn but failed to run logic", func(t *testing.T) {
+		logger := list.New()
+
+		func() {
+			hub := NewDataHub()
+			defer hub.Close()
+
+			hub.Uses("foo", NewMyDataSrc(1, Failure_None, logger))
+			hub.Uses("bar", NewMyDataSrc(2, Failure_None, logger))
+
+			err := Txn(hub, func(data any) errs.Err {
+				logger.PushBack("execute logic")
+				_, err := GetDataConn[*MyDataConn](data, "foo")
+				assert.True(t, err.IsOk())
+				_, err = GetDataConn[*MyDataConn](data, "bar")
+				assert.True(t, err.IsOk())
+				return errs.New("logic error")
+			})
+			switch rsn := err.Reason().(type) {
+			case string:
+				assert.Equal(t, rsn, "logic error")
+			default:
+				assert.Fail(t, err.Error())
+			}
+		}()
+
+		log := logger.Front()
+		assert.Equal(t, log.Value, "MyDataSrc#Setup 1")
+		log = log.Next()
+		assert.Equal(t, log.Value, "MyDataSrc#Setup 2")
+		log = log.Next()
+		assert.Equal(t, log.Value, "execute logic")
+		log = log.Next()
+		assert.Equal(t, log.Value, "MyDataSrc#CreateDataConn 1")
+		log = log.Next()
+		assert.Equal(t, log.Value, "MyDataSrc#CreateDataConn 2")
+		log = log.Next()
+		assert.Equal(t, log.Value, "MyDataConn#Rollback 1")
+		log = log.Next()
+		assert.Equal(t, log.Value, "MyDataConn#Rollback 2")
+		log = log.Next()
+		assert.Equal(t, log.Value, "MyDataConn#OnTxnFailure 1")
+		log = log.Next()
+		assert.Equal(t, log.Value, "MyDataConn#OnTxnFailure 2")
+		log = log.Next()
+		assert.Equal(t, log.Value, "MyDataConn#Close 2")
+		log = log.Next()
+		assert.Equal(t, log.Value, "MyDataConn#Close 1")
+		log = log.Next()
+		assert.Equal(t, log.Value, "MyDataSrc#Close 2")
+		log = log.Next()
+		assert.Equal(t, log.Value, "MyDataSrc#Close 1")
+		log = log.Next()
+		assert.Nil(t, log)
+	})
+
+	t.Run("txn but failed to pre-commit", func(t *testing.T) {
+		logger := list.New()
+
+		func() {
+			hub := NewDataHub()
+			defer hub.Close()
+
+			hub.Uses("foo", NewMyDataSrc(1, Failure_PreCommit, logger))
+			hub.Uses("bar", NewMyDataSrc(2, Failure_PreCommit, logger))
+
+			err := Txn(hub, func(data any) errs.Err {
+				logger.PushBack("execute logic")
+				_, err := GetDataConn[*MyDataConn](data, "foo")
+				assert.True(t, err.IsOk())
+				_, err = GetDataConn[*MyDataConn](data, "bar")
+				assert.True(t, err.IsOk())
+				return errs.Ok()
+			})
+			switch rsn := err.Reason().(type) {
+			case FailToPreCommitDataConn:
+				assert.Len(t, rsn.Errors, 1)
+				assert.Equal(t, rsn.Errors[0].Name, "foo")
+				assert.Equal(t, rsn.Errors[0].Err.Reason(), "pre commit error")
+			default:
+				assert.Fail(t, err.Error())
+			}
+		}()
+
+		log := logger.Front()
+		assert.Equal(t, log.Value, "MyDataSrc#Setup 1")
+		log = log.Next()
+		assert.Equal(t, log.Value, "MyDataSrc#Setup 2")
+		log = log.Next()
+		assert.Equal(t, log.Value, "execute logic")
+		log = log.Next()
+		assert.Equal(t, log.Value, "MyDataSrc#CreateDataConn 1")
+		log = log.Next()
+		assert.Equal(t, log.Value, "MyDataSrc#CreateDataConn 2")
+		log = log.Next()
+		assert.Equal(t, log.Value, "MyDataConn#PreCommit 1 failed")
+		log = log.Next()
+		assert.Equal(t, log.Value, "MyDataConn#Rollback 1")
+		log = log.Next()
+		assert.Equal(t, log.Value, "MyDataConn#Rollback 2")
+		log = log.Next()
+		assert.Equal(t, log.Value, "MyDataConn#OnTxnFailure 1")
+		log = log.Next()
+		assert.Equal(t, log.Value, "MyDataConn#OnTxnFailure 2")
+		log = log.Next()
+		assert.Equal(t, log.Value, "MyDataConn#Close 2")
+		log = log.Next()
+		assert.Equal(t, log.Value, "MyDataConn#Close 1")
+		log = log.Next()
+		assert.Equal(t, log.Value, "MyDataSrc#Close 2")
+		log = log.Next()
+		assert.Equal(t, log.Value, "MyDataSrc#Close 1")
+		log = log.Next()
+		assert.Nil(t, log)
+	})
+
+	t.Run("txn but failed to commit", func(t *testing.T) {
+		logger := list.New()
+
+		func() {
+			hub := NewDataHub()
+			defer hub.Close()
+
+			hub.Uses("foo", NewMyDataSrc(1, Failure_Commit, logger))
+			hub.Uses("bar", NewMyDataSrc(2, Failure_Commit, logger))
+
+			err := Txn(hub, func(data any) errs.Err {
+				logger.PushBack("execute logic")
+				_, err := GetDataConn[*MyDataConn](data, "foo")
+				assert.True(t, err.IsOk())
+				_, err = GetDataConn[*MyDataConn](data, "bar")
+				assert.True(t, err.IsOk())
+				return errs.Ok()
+			})
+			switch rsn := err.Reason().(type) {
+			case FailToCommitDataConn:
+				assert.Len(t, rsn.Errors, 1)
+				assert.Equal(t, rsn.Errors[0].Name, "foo")
+				assert.Equal(t, rsn.Errors[0].Err.Reason(), "commit error")
+			default:
+				assert.Fail(t, err.Error())
+			}
+		}()
+
+		log := logger.Front()
+		assert.Equal(t, log.Value, "MyDataSrc#Setup 1")
+		log = log.Next()
+		assert.Equal(t, log.Value, "MyDataSrc#Setup 2")
+		log = log.Next()
+		assert.Equal(t, log.Value, "execute logic")
+		log = log.Next()
+		assert.Equal(t, log.Value, "MyDataSrc#CreateDataConn 1")
+		log = log.Next()
+		assert.Equal(t, log.Value, "MyDataSrc#CreateDataConn 2")
+		log = log.Next()
+		assert.Equal(t, log.Value, "MyDataConn#PreCommit 1")
+		log = log.Next()
+		assert.Equal(t, log.Value, "MyDataConn#PreCommit 2")
+		log = log.Next()
+		assert.Equal(t, log.Value, "MyDataConn#Commit 1 failed")
+		log = log.Next()
+		assert.Equal(t, log.Value, "MyDataConn#Rollback 1")
+		log = log.Next()
+		assert.Equal(t, log.Value, "MyDataConn#Rollback 2")
+		log = log.Next()
+		assert.Equal(t, log.Value, "MyDataConn#OnTxnFailure 1")
+		log = log.Next()
+		assert.Equal(t, log.Value, "MyDataConn#OnTxnFailure 2")
+		log = log.Next()
+		assert.Equal(t, log.Value, "MyDataConn#Close 2")
+		log = log.Next()
+		assert.Equal(t, log.Value, "MyDataConn#Close 1")
+		log = log.Next()
+		assert.Equal(t, log.Value, "MyDataSrc#Close 2")
+		log = log.Next()
+		assert.Equal(t, log.Value, "MyDataSrc#Close 1")
+		log = log.Next()
+		assert.Nil(t, log)
+	})
+
+	t.Run("txn but failed to post-commit", func(t *testing.T) {
+		logger := list.New()
+
+		func() {
+			hub := NewDataHub()
+			defer hub.Close()
+
+			hub.Uses("foo", NewMyDataSrc(1, Failure_PostCommit, logger))
+			hub.Uses("bar", NewMyDataSrc(2, Failure_PostCommit, logger))
+
+			err := Txn(hub, func(data any) errs.Err {
+				logger.PushBack("execute logic")
+				_, err := GetDataConn[*MyDataConn](data, "foo")
+				assert.True(t, err.IsOk())
+				_, err = GetDataConn[*MyDataConn](data, "bar")
+				assert.True(t, err.IsOk())
+				return errs.Ok()
+			})
+			switch rsn := err.Reason().(type) {
+			case FailToPostCommitDataConn:
+				assert.Len(t, rsn.Errors, 2)
+				assert.Equal(t, rsn.Errors[0].Name, "foo")
+				assert.Equal(t, rsn.Errors[0].Err.Reason(), "post commit error")
+				assert.Equal(t, rsn.Errors[1].Name, "bar")
+				assert.Equal(t, rsn.Errors[1].Err.Reason(), "post commit error")
+			default:
+				assert.Fail(t, err.Error())
+			}
+		}()
+
+		log := logger.Front()
+		assert.Equal(t, log.Value, "MyDataSrc#Setup 1")
+		log = log.Next()
+		assert.Equal(t, log.Value, "MyDataSrc#Setup 2")
+		log = log.Next()
+		assert.Equal(t, log.Value, "execute logic")
+		log = log.Next()
+		assert.Equal(t, log.Value, "MyDataSrc#CreateDataConn 1")
+		log = log.Next()
+		assert.Equal(t, log.Value, "MyDataSrc#CreateDataConn 2")
+		log = log.Next()
+		assert.Equal(t, log.Value, "MyDataConn#PreCommit 1")
+		log = log.Next()
+		assert.Equal(t, log.Value, "MyDataConn#PreCommit 2")
+		log = log.Next()
+		assert.Equal(t, log.Value, "MyDataConn#Commit 1")
+		log = log.Next()
+		assert.Equal(t, log.Value, "MyDataConn#Commit 2")
+		log = log.Next()
+		assert.Equal(t, log.Value, "MyDataConn#PostCommit 1 failed")
+		log = log.Next()
+		assert.Equal(t, log.Value, "MyDataConn#PostCommit 2 failed")
+		log = log.Next()
+		assert.Equal(t, log.Value, "MyDataConn#Rollback 1")
+		log = log.Next()
+		assert.Equal(t, log.Value, "MyDataConn#Rollback 2")
+		log = log.Next()
+		assert.Equal(t, log.Value, "MyDataConn#OnTxnFailure 1")
+		log = log.Next()
+		assert.Equal(t, log.Value, "MyDataConn#OnTxnFailure 2")
+		log = log.Next()
+		assert.Equal(t, log.Value, "MyDataConn#Close 2")
+		log = log.Next()
+		assert.Equal(t, log.Value, "MyDataConn#Close 1")
+		log = log.Next()
+		assert.Equal(t, log.Value, "MyDataSrc#Close 2")
+		log = log.Next()
+		assert.Equal(t, log.Value, "MyDataSrc#Close 1")
+		log = log.Next()
+		assert.Nil(t, log)
+	})
+
+	t.Run("txn but failed to rollback", func(t *testing.T) {
+		logger := list.New()
+
+		func() {
+			hub := NewDataHub()
+			defer hub.Close()
+
+			hub.Uses("foo", NewMyDataSrc(1, Failure_Rollback, logger))
+			hub.Uses("bar", NewMyDataSrc(2, Failure_Rollback, logger))
+
+			err := Txn(hub, func(data any) errs.Err {
+				logger.PushBack("execute logic")
+				_, err := GetDataConn[*MyDataConn](data, "foo")
+				assert.True(t, err.IsOk())
+				_, err = GetDataConn[*MyDataConn](data, "bar")
+				assert.True(t, err.IsOk())
+				return errs.New("logic error")
+			})
+			switch rsn := err.Reason().(type) {
+			case string:
+				assert.Equal(t, rsn, "logic error")
+			default:
+				assert.Fail(t, err.Error())
+			}
+		}()
+
+		log := logger.Front()
+		assert.Equal(t, log.Value, "MyDataSrc#Setup 1")
+		log = log.Next()
+		assert.Equal(t, log.Value, "MyDataSrc#Setup 2")
+		log = log.Next()
+		assert.Equal(t, log.Value, "execute logic")
+		log = log.Next()
+		assert.Equal(t, log.Value, "MyDataSrc#CreateDataConn 1")
+		log = log.Next()
+		assert.Equal(t, log.Value, "MyDataSrc#CreateDataConn 2")
+		log = log.Next()
+		assert.Equal(t, log.Value, "MyDataConn#Rollback 1 failed")
+		log = log.Next()
+		assert.Equal(t, log.Value, "MyDataConn#Rollback 2 failed")
+		log = log.Next()
+		assert.Equal(t, log.Value, "MyDataConn#OnTxnFailure 1")
+		log = log.Next()
+		assert.Equal(t, log.Value, "MyDataConn#OnTxnFailure 2")
+		log = log.Next()
+		assert.Equal(t, log.Value, "MyDataConn#Close 2")
+		log = log.Next()
+		assert.Equal(t, log.Value, "MyDataConn#Close 1")
+		log = log.Next()
+		assert.Equal(t, log.Value, "MyDataSrc#Close 2")
+		log = log.Next()
+		assert.Equal(t, log.Value, "MyDataSrc#Close 1")
+		log = log.Next()
+		assert.Nil(t, log)
+	})
+
+	t.Run("txn with commit order", func(t *testing.T) {
+		logger := list.New()
+
+		func() {
+			hub := NewDataHubWithCommitOrder("bar", "foo")
+			defer hub.Close()
+
+			hub.Uses("foo", NewMyDataSrc(1, Failure_None, logger))
+			hub.Uses("bar", NewMyDataSrc(2, Failure_None, logger))
+
+			err := Txn(hub, func(data any) errs.Err {
+				logger.PushBack("execute logic")
+				_, err := GetDataConn[*MyDataConn](data, "foo")
+				assert.True(t, err.IsOk())
+				_, err = GetDataConn[*MyDataConn](data, "bar")
+				assert.True(t, err.IsOk())
+				return errs.Ok()
+			})
+			assert.True(t, err.IsOk())
+		}()
+
+		log := logger.Front()
+		assert.Equal(t, log.Value, "MyDataSrc#Setup 1")
+		log = log.Next()
+		assert.Equal(t, log.Value, "MyDataSrc#Setup 2")
+		log = log.Next()
+		assert.Equal(t, log.Value, "execute logic")
+		log = log.Next()
+		assert.Equal(t, log.Value, "MyDataSrc#CreateDataConn 1")
+		log = log.Next()
+		assert.Equal(t, log.Value, "MyDataSrc#CreateDataConn 2")
+		log = log.Next()
+		assert.Equal(t, log.Value, "MyDataConn#PreCommit 2")
+		log = log.Next()
+		assert.Equal(t, log.Value, "MyDataConn#PreCommit 1")
+		log = log.Next()
+		assert.Equal(t, log.Value, "MyDataConn#Commit 2")
+		log = log.Next()
+		assert.Equal(t, log.Value, "MyDataConn#Commit 1")
+		log = log.Next()
+		assert.Equal(t, log.Value, "MyDataConn#PostCommit 2")
+		log = log.Next()
+		assert.Equal(t, log.Value, "MyDataConn#PostCommit 1")
+		log = log.Next()
+		assert.Equal(t, log.Value, "MyDataConn#Close 1")
+		log = log.Next()
+		assert.Equal(t, log.Value, "MyDataConn#Close 2")
+		log = log.Next()
+		assert.Equal(t, log.Value, "MyDataSrc#Close 2")
+		log = log.Next()
+		assert.Equal(t, log.Value, "MyDataSrc#Close 1")
+		log = log.Next()
+		assert.Nil(t, log)
+	})
+
+	t.Run("txn but fail to cast to specified DataHub", func(t *testing.T) {
+		type MyData interface {
+			GetXxx() (string, errs.Err)
+		}
+
+		func() {
+			hub := NewDataHub()
+			defer hub.Close()
+
+			err := Txn(hub, func(data MyData) errs.Err {
+				return errs.Ok()
+			})
+			assert.True(t, err.IsNotOk())
+			switch rsn := err.Reason().(type) {
+			case FailToCastDataHub:
+				assert.Equal(t, rsn.FromType, "sabi.DataHub")
+				assert.Equal(t, rsn.ToType, "sabi.MyData")
+			default:
+				assert.Fail(t, err.Error())
+			}
+		}()
+	})
+
+	t.Run("txn but fail to setup", func(t *testing.T) {
+		logger := list.New()
+
+		func() {
+			hub := NewDataHub()
+			defer hub.Close()
+
+			hub.Uses("foo", NewMyDataSrc(1, Failure_Setup, logger))
+
+			err := Txn(hub, func(data any) errs.Err {
+				logger.PushBack("execute logic")
+				return errs.Ok()
+			})
+			assert.True(t, err.IsNotOk())
+			switch rsn := err.Reason().(type) {
+			case FailToSetupLocalDataSrcs:
+				assert.Len(t, rsn.Errors, 1)
+				assert.Equal(t, rsn.Errors[0].Name, "foo")
+				assert.Equal(t, rsn.Errors[0].Err.Reason(), "setup error")
+			default:
+				assert.Fail(t, err.Error())
+			}
+		}()
+
+		log := logger.Front()
+		assert.Equal(t, log.Value, "MyDataSrc#Setup 1 failed")
+		log = log.Next()
+		assert.Nil(t, log)
+	})
+
+	t.Run("get data conn cached", func(t *testing.T) {
+		logger := list.New()
+
+		func() {
+			hub := NewDataHub()
+			defer hub.Close()
+
+			hub.Uses("foo", NewMyDataSrc(1, Failure_None, logger))
+
+			err := Txn(hub, func(data any) errs.Err {
+				logger.PushBack("execute logic")
+				_, err := GetDataConn[*MyDataConn](data, "foo")
+				assert.True(t, err.IsOk())
+				_, err = GetDataConn[*MyDataConn](data, "foo")
+				assert.True(t, err.IsOk())
+				return errs.Ok()
+			})
+			assert.True(t, err.IsOk())
+		}()
+
+		log := logger.Front()
+		assert.Equal(t, log.Value, "MyDataSrc#Setup 1")
+		log = log.Next()
+		assert.Equal(t, log.Value, "execute logic")
+		log = log.Next()
+		assert.Equal(t, log.Value, "MyDataSrc#CreateDataConn 1")
+		log = log.Next()
+		assert.Equal(t, log.Value, "MyDataConn#PreCommit 1")
+		log = log.Next()
+		assert.Equal(t, log.Value, "MyDataConn#Commit 1")
+		log = log.Next()
+		assert.Equal(t, log.Value, "MyDataConn#PostCommit 1")
+		log = log.Next()
+		assert.Equal(t, log.Value, "MyDataConn#Close 1")
+		log = log.Next()
+		assert.Equal(t, log.Value, "MyDataSrc#Close 1")
+		log = log.Next()
+		assert.Nil(t, log)
+	})
+
+	t.Run("get data conn and no data src to create data conn", func(t *testing.T) {
+		logger := list.New()
+
+		func() {
+			hub := NewDataHub()
+			defer hub.Close()
+
+			err := Txn(hub, func(data any) errs.Err {
+				logger.PushBack("execute logic")
+				_, err := GetDataConn[*MyDataConn](data, "foo")
+				return err
+			})
+			assert.True(t, err.IsNotOk())
+			switch rsn := err.Reason().(type) {
+			case NoDataSrcToCreateDataConn:
+				assert.Equal(t, rsn.Name, "foo")
+				assert.Equal(t, rsn.DataConnType, "*sabi.MyDataConn")
+			default:
+				assert.Fail(t, err.Error())
+			}
+		}()
+
+		log := logger.Front()
+		assert.Equal(t, log.Value, "execute logic")
+		log = log.Next()
+		assert.Nil(t, log)
+	})
+
+	t.Run("get data conn and failed to create data conn is nil", func(t *testing.T) {
+		logger := list.New()
+
+		func() {
+			hub := NewDataHub()
+			defer hub.Close()
+
+			hub.Uses("foo", NewMyDataSrc(1, Failure_CreateDataConn, logger))
+
+			err := Txn(hub, func(data any) errs.Err {
+				logger.PushBack("execute logic")
+				_, err := GetDataConn[*MyDataConn](data, "foo")
+				return err
+			})
+			assert.True(t, err.IsNotOk())
+			switch rsn := err.Reason().(type) {
 			case FailToCreateDataConn:
-				assert.Equal(t, r.Name, "bar")
-				assert.Equal(t, r.DataConnType, "*sabi.SyncDataConn2")
+				assert.Equal(t, rsn.Name, "foo")
+				assert.Equal(t, rsn.DataConnType, "*sabi.MyDataConn")
 			default:
-				assert.Fail(t, err2.Error())
+				assert.Fail(t, err.Error())
 			}
-			assert.Equal(t, err2.Cause().(errs.Err).Reason(), "xxx")
+		}()
 
-			return errs.Ok()
-		})
-
-		elem := logger.Front()
-		assert.Equal(t, elem.Value, "AsyncDataSrc2 1 setupped")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "SyncDataSrc2 2 setupped")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataSrc2 1 created DataConn")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "SyncDataSrc2 2 failed to create a DataConn")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataConn2 1 closed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "SyncDataSrc2 2 closed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataSrc2 1 closed")
-		elem = elem.Next()
-		assert.Nil(t, elem)
+		log := logger.Front()
+		assert.Equal(t, log.Value, "MyDataSrc#Setup 1")
+		log = log.Next()
+		assert.Equal(t, log.Value, "execute logic")
+		log = log.Next()
+		assert.Equal(t, log.Value, "MyDataSrc#CreateDataConn 1 failed")
+		log = log.Next()
+		assert.Equal(t, log.Value, "MyDataSrc#Close 1")
+		log = log.Next()
+		assert.Nil(t, log)
 	})
 
-	t.Run("fail to create data conn because of no data src", func(t *testing.T) {
-		ResetGlobalVariables()
-		defer ResetGlobalVariables()
-
+	t.Run("get data conn and created data conn is nil", func(t *testing.T) {
 		logger := list.New()
 
-		Uses("foo", &AsyncDataSrc2{id: 1, logger: logger, fail: fail__not})
-
-		Setup().IfOkThen(func() errs.Err {
-			defer Shutdown()
-
+		func() {
 			hub := NewDataHub()
 			defer hub.Close()
 
-			hub.Uses("bar", &SyncDataSrc2{id: 2, fail: fail__create_data_conn, logger: logger})
+			hub.Uses("foo", NewMyDataSrc(1, Failure_CreatedDataConnIsNil, logger))
 
-			assert.True(t, hub.begin().IsOk())
-
-			_, err1 := GetDataConn[*SyncDataConn2](hub, "baz")
-			switch r := err1.Reason().(type) {
-			case NoDataSrcToCreateDataConn:
-				assert.Equal(t, r.Name, "baz")
-				assert.Equal(t, r.DataConnType, "*sabi.SyncDataConn2")
+			err := Txn(hub, func(data any) errs.Err {
+				logger.PushBack("execute logic")
+				_, err := GetDataConn[*MyDataConn](data, "foo")
+				return err
+			})
+			assert.True(t, err.IsNotOk())
+			switch rsn := err.Reason().(type) {
+			case CreatedDataConnIsNil:
+				assert.Equal(t, rsn.Name, "foo")
+				assert.Equal(t, rsn.DataConnType, "*sabi.MyDataConn")
 			default:
-				assert.Fail(t, err1.Error())
+				assert.Fail(t, err.Error())
 			}
-			assert.Nil(t, err1.Cause())
+		}()
 
-			_, err2 := GetDataConn[*AsyncDataConn2](hub, "qux")
-			switch r := err2.Reason().(type) {
-			case NoDataSrcToCreateDataConn:
-				assert.Equal(t, r.Name, "qux")
-				assert.Equal(t, r.DataConnType, "*sabi.AsyncDataConn2")
-			default:
-				assert.Fail(t, err2.Error())
-			}
-			assert.Nil(t, err1.Cause())
-
-			return errs.Ok()
-		})
-
-		elem := logger.Front()
-		assert.Equal(t, elem.Value, "AsyncDataSrc2 1 setupped")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "SyncDataSrc2 2 setupped")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "SyncDataSrc2 2 closed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataSrc2 1 closed")
-		elem = elem.Next()
-		assert.Nil(t, elem)
+		log := logger.Front()
+		assert.Equal(t, log.Value, "MyDataSrc#Setup 1")
+		log = log.Next()
+		assert.Equal(t, log.Value, "execute logic")
+		log = log.Next()
+		assert.Equal(t, log.Value, "MyDataSrc#CreateDataConn 1 is nil")
+		log = log.Next()
+		assert.Equal(t, log.Value, "MyDataSrc#Close 1")
+		log = log.Next()
+		assert.Nil(t, log)
 	})
 
-	t.Run("commit when no data conn", func(t *testing.T) {
-		ResetGlobalVariables()
-		defer ResetGlobalVariables()
-
+	t.Run("get data conn and failed to create data conn", func(t *testing.T) {
 		logger := list.New()
 
-		Uses("foo", &AsyncDataSrc2{id: 1, logger: logger, fail: fail__not})
-		Uses("bar", &SyncDataSrc2{id: 2, logger: logger, fail: fail__not})
-
-		Setup().IfOkThen(func() errs.Err {
-			defer Shutdown()
-
+		func() {
 			hub := NewDataHub()
 			defer hub.Close()
 
-			hub.Uses("baz", &AsyncDataSrc2{id: 3, fail: fail__not, logger: logger})
-			hub.Uses("qux", &SyncDataSrc2{id: 4, fail: fail__not, logger: logger})
+			hub.Uses("foo", NewMyDataSrc(1, Failure_None, logger))
+			hub.Uses("bar", NewMyDataSrc(2, Failure_None, logger))
 
-			assert.True(t, hub.begin().IsOk())
-			assert.True(t, hub.commit().IsOk())
-			hub.end()
+			err := Txn(hub, func(data any) errs.Err {
+				logger.PushBack("execute logic")
+				_, err := GetDataConn[*MyDataConn](data, "foo")
+				assert.True(t, err.IsOk())
+				_, err = GetDataConn[*BadDataConn](data, "bar")
+				assert.True(t, err.IsNotOk())
+				switch rsn := err.Reason().(type) {
+				case FailToCastDataConn:
+					assert.Equal(t, rsn.Name, "bar")
+					assert.Equal(t, rsn.ToDataConnType, "*sabi.BadDataConn")
+				default:
+					assert.Fail(t, err.Error())
+				}
+				return err
+			})
+			assert.True(t, err.IsNotOk())
+			switch rsn := err.Reason().(type) {
+			case FailToCastDataConn:
+				assert.Equal(t, rsn.Name, "bar")
+				assert.Equal(t, rsn.ToDataConnType, "*sabi.BadDataConn")
+			default:
+				assert.Fail(t, err.Error())
+			}
+		}()
 
-			return errs.Ok()
-		})
-
-		elem := logger.Front()
-		assert.Equal(t, elem.Value, "SyncDataSrc2 2 setupped")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataSrc2 1 setupped")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "SyncDataSrc2 4 setupped")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataSrc2 3 setupped")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "SyncDataSrc2 4 closed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataSrc2 3 closed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "SyncDataSrc2 2 closed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataSrc2 1 closed")
-		elem = elem.Next()
-		assert.Nil(t, elem)
+		log := logger.Front()
+		assert.Equal(t, log.Value, "MyDataSrc#Setup 1")
+		log = log.Next()
+		assert.Equal(t, log.Value, "MyDataSrc#Setup 2")
+		log = log.Next()
+		assert.Equal(t, log.Value, "execute logic")
+		log = log.Next()
+		assert.Equal(t, log.Value, "MyDataSrc#CreateDataConn 1")
+		log = log.Next()
+		assert.Equal(t, log.Value, "MyDataSrc#CreateDataConn 2")
+		log = log.Next()
+		assert.Equal(t, log.Value, "MyDataConn#Rollback 1")
+		log = log.Next()
+		assert.Equal(t, log.Value, "MyDataConn#Rollback 2")
+		log = log.Next()
+		assert.Equal(t, log.Value, "MyDataConn#OnTxnFailure 1")
+		log = log.Next()
+		assert.Equal(t, log.Value, "MyDataConn#OnTxnFailure 2")
+		log = log.Next()
+		assert.Equal(t, log.Value, "MyDataConn#Close 2")
+		log = log.Next()
+		assert.Equal(t, log.Value, "MyDataConn#Close 1")
+		log = log.Next()
+		assert.Equal(t, log.Value, "MyDataSrc#Close 2")
+		log = log.Next()
+		assert.Equal(t, log.Value, "MyDataSrc#Close 1")
+		log = log.Next()
+		assert.Nil(t, log)
 	})
 
-	t.Run("commit but fail global sync", func(t *testing.T) {
-		ResetGlobalVariables()
-		defer ResetGlobalVariables()
+	t.Run("use context.Context", func(t *testing.T) {
+		logger := list.New()
+
+		hub := NewDataHub()
+		defer hub.Close()
+
+		hub.Uses("foo", NewMyDataSrc(1, Failure_None, logger))
+
+		err := Run(hub, func(data DataAcc) errs.Err {
+			logger.PushBack("execute logic")
+			assert.Nil(t, data.Context())
+			return errs.Ok()
+		})
+		assert.True(t, err.IsOk())
+
+		err = Txn(hub, func(data DataAcc) errs.Err {
+			logger.PushBack("execute logic")
+			assert.Nil(t, data.Context())
+			return errs.Ok()
+		})
+		assert.True(t, err.IsOk())
+
+		ctx := context.Background()
+		hub.(*dataHubImpl).SetContext(ctx)
+
+		err = Run(hub, func(data DataAcc) errs.Err {
+			logger.PushBack("execute logic")
+			assert.NotNil(t, data.Context())
+			return errs.Ok()
+		})
+		assert.True(t, err.IsOk())
+
+		err = Txn(hub, func(data DataAcc) errs.Err {
+			logger.PushBack("execute logic")
+			assert.NotNil(t, data.Context())
+			return errs.Ok()
+		})
+		assert.True(t, err.IsOk())
+	})
+}
+
+func ResetGlobals() {
+	globalDataSrcsFixed = false
+	globalDataSrcManager.close()
+}
+
+func TestGlobals(t *testing.T) {
+	t.Run("Uses and Setup, and ok", func(t *testing.T) {
+		ResetGlobals()
+		defer ResetGlobals()
 
 		logger := list.New()
 
-		Uses("foo", &AsyncDataSrc2{id: 1, logger: logger, fail: fail__not})
-		Uses("bar", &SyncDataSrc2{id: 2, logger: logger, fail: fail__commit})
+		assert.False(t, globalDataSrcsFixed)
+		assert.False(t, globalDataSrcManager.local)
+		assert.Len(t, globalDataSrcManager.listUnready, 0)
+		assert.Len(t, globalDataSrcManager.listReady, 0)
 
-		Setup().IfOkThen(func() errs.Err {
+		Uses("foo", NewMyDataSrc(1, Failure_None, logger))
+
+		assert.False(t, globalDataSrcsFixed)
+		assert.False(t, globalDataSrcManager.local)
+		assert.Len(t, globalDataSrcManager.listUnready, 1)
+		assert.Len(t, globalDataSrcManager.listReady, 0)
+
+		func() {
+			err := Setup()
 			defer Shutdown()
+			assert.True(t, err.IsOk())
 
-			hub := NewDataHub()
-			defer hub.Close()
+			assert.True(t, globalDataSrcsFixed)
+			assert.False(t, globalDataSrcManager.local)
+			assert.Len(t, globalDataSrcManager.listUnready, 0)
+			assert.Len(t, globalDataSrcManager.listReady, 1)
+		}()
 
-			hub.Uses("baz", &AsyncDataSrc2{id: 3, fail: fail__not, logger: logger})
-			hub.Uses("qux", &SyncDataSrc2{id: 4, fail: fail__not, logger: logger})
+		log := logger.Front()
+		assert.Equal(t, log.Value, "MyDataSrc#Setup 1")
+		log = log.Next()
+		assert.Equal(t, log.Value, "MyDataSrc#Close 1")
+		log = log.Next()
+		assert.Nil(t, log)
+	})
 
-			assert.True(t, hub.begin().IsOk())
+	t.Run("Uses and Setup, but fail", func(t *testing.T) {
+		ResetGlobals()
+		defer ResetGlobals()
 
-			conn1, err1 := GetDataConn[*AsyncDataConn2](hub, "foo")
-			assert.True(t, err1.IsOk())
-			assert.NotNil(t, conn1)
+		logger := list.New()
 
-			conn2, err2 := GetDataConn[*SyncDataConn2](hub, "bar")
-			assert.True(t, err2.IsOk())
-			assert.NotNil(t, conn2)
+		assert.False(t, globalDataSrcsFixed)
+		assert.False(t, globalDataSrcManager.local)
+		assert.Len(t, globalDataSrcManager.listUnready, 0)
+		assert.Len(t, globalDataSrcManager.listReady, 0)
 
-			conn3, err3 := GetDataConn[*AsyncDataConn2](hub, "baz")
-			assert.True(t, err3.IsOk())
-			assert.NotNil(t, conn3)
+		Uses("foo", NewMyDataSrc(1, Failure_Setup, logger))
 
-			conn4, err4 := GetDataConn[*SyncDataConn2](hub, "qux")
-			assert.True(t, err4.IsOk())
-			assert.NotNil(t, conn4)
+		assert.False(t, globalDataSrcsFixed)
+		assert.False(t, globalDataSrcManager.local)
+		assert.Len(t, globalDataSrcManager.listUnready, 1)
+		assert.Len(t, globalDataSrcManager.listReady, 0)
 
-			err := hub.commit()
-			switch r := err.Reason().(type) {
-			case FailToCommitDataConn:
-				assert.Equal(t, len(r.Errors), 1)
-				e := r.Errors["bar"]
-				assert.Equal(t, e.Reason(), "ZZZ")
+		func() {
+			err := Setup()
+			defer Shutdown()
+			assert.True(t, err.IsNotOk())
+
+			switch rsn := err.Reason().(type) {
+			case FailToSetupGlobalDataSrcs:
+				assert.Len(t, rsn.Errors, 1)
+				assert.Equal(t, rsn.Errors[0].Name, "foo")
+				assert.Equal(t, rsn.Errors[0].Err.Reason(), "setup error")
 			default:
 				assert.Fail(t, err.Error())
 			}
 
-			hub.end()
-			return errs.Ok()
-		})
+			assert.True(t, globalDataSrcsFixed)
+			assert.False(t, globalDataSrcManager.local)
+			assert.Len(t, globalDataSrcManager.listUnready, 0)
+			assert.Len(t, globalDataSrcManager.listReady, 0)
+		}()
 
-		elem := logger.Front()
-		assert.Equal(t, elem.Value, "SyncDataSrc2 2 setupped")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataSrc2 1 setupped")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "SyncDataSrc2 4 setupped")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataSrc2 3 setupped")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataSrc2 1 created DataConn")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "SyncDataSrc2 2 created DataConn")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataSrc2 3 created DataConn")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "SyncDataSrc2 4 created DataConn")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataConn2 1 pre committed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "SyncDataConn2 2 pre committed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataConn2 3 pre committed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "SyncDataConn2 4 pre committed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataConn2 1 committed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "SyncDataConn2 2 failed to commit")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "SyncDataConn2 4 closed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataConn2 3 closed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "SyncDataConn2 2 closed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataConn2 1 closed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "SyncDataSrc2 4 closed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataSrc2 3 closed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "SyncDataSrc2 2 closed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataSrc2 1 closed")
-		elem = elem.Next()
-		assert.Nil(t, elem)
+		log := logger.Front()
+		assert.Equal(t, log.Value, "MyDataSrc#Setup 1 failed")
+		log = log.Next()
+		assert.Nil(t, log)
 	})
 
-	t.Run("commit but fail global async", func(t *testing.T) {
-		ResetGlobalVariables()
-		defer ResetGlobalVariables()
+	t.Run("Uses and Setup, but already fixed before", func(t *testing.T) {
+		ResetGlobals()
+		defer ResetGlobals()
 
 		logger := list.New()
 
-		Uses("foo", &AsyncDataSrc2{id: 1, logger: logger, fail: fail__commit})
-		Uses("bar", &SyncDataSrc2{id: 2, logger: logger, fail: fail__not})
+		assert.False(t, globalDataSrcsFixed)
+		assert.False(t, globalDataSrcManager.local)
+		assert.Len(t, globalDataSrcManager.listUnready, 0)
+		assert.Len(t, globalDataSrcManager.listReady, 0)
 
-		Setup().IfOkThen(func() errs.Err {
+		err := Setup()
+		assert.True(t, err.IsOk())
+
+		assert.True(t, globalDataSrcsFixed)
+		assert.False(t, globalDataSrcManager.local)
+		assert.Len(t, globalDataSrcManager.listUnready, 0)
+		assert.Len(t, globalDataSrcManager.listReady, 0)
+
+		Uses("foo", NewMyDataSrc(1, Failure_Setup, logger))
+
+		assert.True(t, globalDataSrcsFixed)
+		assert.False(t, globalDataSrcManager.local)
+		assert.Len(t, globalDataSrcManager.listUnready, 0)
+		assert.Len(t, globalDataSrcManager.listReady, 0)
+
+		Shutdown()
+
+		log := logger.Front()
+		assert.Nil(t, log)
+	})
+
+	t.Run("Uses and SetupWithOrder, and ok", func(t *testing.T) {
+		ResetGlobals()
+		defer ResetGlobals()
+
+		logger := list.New()
+
+		assert.False(t, globalDataSrcsFixed)
+		assert.False(t, globalDataSrcManager.local)
+		assert.Len(t, globalDataSrcManager.listUnready, 0)
+		assert.Len(t, globalDataSrcManager.listReady, 0)
+
+		Uses("foo", NewMyDataSrc(1, Failure_None, logger))
+		Uses("bar", NewMyDataSrc(2, Failure_None, logger))
+
+		assert.False(t, globalDataSrcsFixed)
+		assert.False(t, globalDataSrcManager.local)
+		assert.Len(t, globalDataSrcManager.listUnready, 2)
+		assert.Len(t, globalDataSrcManager.listReady, 0)
+
+		func() {
+			err := SetupWithOrder("bar", "foo")
 			defer Shutdown()
+			assert.True(t, err.IsOk())
 
-			hub := NewDataHub()
-			defer hub.Close()
+			assert.True(t, globalDataSrcsFixed)
+			assert.False(t, globalDataSrcManager.local)
+			assert.Len(t, globalDataSrcManager.listUnready, 0)
+			assert.Len(t, globalDataSrcManager.listReady, 2)
+		}()
 
-			hub.Uses("baz", &AsyncDataSrc2{id: 3, fail: fail__not, logger: logger})
-			hub.Uses("qux", &SyncDataSrc2{id: 4, fail: fail__not, logger: logger})
+		log := logger.Front()
+		assert.Equal(t, log.Value, "MyDataSrc#Setup 2")
+		log = log.Next()
+		assert.Equal(t, log.Value, "MyDataSrc#Setup 1")
+		log = log.Next()
+		assert.Equal(t, log.Value, "MyDataSrc#Close 1")
+		log = log.Next()
+		assert.Equal(t, log.Value, "MyDataSrc#Close 2")
+		log = log.Next()
+		assert.Nil(t, log)
+	})
 
-			assert.True(t, hub.begin().IsOk())
+	t.Run("Uses and SetupWithOrder, but fail", func(t *testing.T) {
+		ResetGlobals()
+		defer ResetGlobals()
 
-			conn1, err1 := GetDataConn[*AsyncDataConn2](hub, "foo")
-			assert.True(t, err1.IsOk())
-			assert.NotNil(t, conn1)
+		logger := list.New()
 
-			conn2, err2 := GetDataConn[*SyncDataConn2](hub, "bar")
-			assert.True(t, err2.IsOk())
-			assert.NotNil(t, conn2)
+		assert.False(t, globalDataSrcsFixed)
+		assert.False(t, globalDataSrcManager.local)
+		assert.Len(t, globalDataSrcManager.listUnready, 0)
+		assert.Len(t, globalDataSrcManager.listReady, 0)
 
-			conn3, err3 := GetDataConn[*AsyncDataConn2](hub, "baz")
-			assert.True(t, err3.IsOk())
-			assert.NotNil(t, conn3)
+		Uses("foo", NewMyDataSrc(1, Failure_Setup, logger))
+		Uses("bar", NewMyDataSrc(1, Failure_Setup, logger))
 
-			conn4, err4 := GetDataConn[*SyncDataConn2](hub, "qux")
-			assert.True(t, err4.IsOk())
-			assert.NotNil(t, conn4)
+		assert.False(t, globalDataSrcsFixed)
+		assert.False(t, globalDataSrcManager.local)
+		assert.Len(t, globalDataSrcManager.listUnready, 2)
+		assert.Len(t, globalDataSrcManager.listReady, 0)
 
-			err := hub.commit()
-			switch r := err.Reason().(type) {
-			case FailToCommitDataConn:
-				assert.Equal(t, len(r.Errors), 1)
-				e := r.Errors["foo"]
-				assert.Equal(t, e.Reason(), "VVV")
+		func() {
+			err := SetupWithOrder("bar", "foo")
+			defer Shutdown()
+			assert.True(t, err.IsNotOk())
+
+			switch rsn := err.Reason().(type) {
+			case FailToSetupGlobalDataSrcs:
+				assert.Len(t, rsn.Errors, 1)
+				assert.Equal(t, rsn.Errors[0].Name, "bar")
+				assert.Equal(t, rsn.Errors[0].Err.Reason(), "setup error")
 			default:
 				assert.Fail(t, err.Error())
 			}
 
-			hub.end()
-			return errs.Ok()
-		})
+			assert.True(t, globalDataSrcsFixed)
+			assert.False(t, globalDataSrcManager.local)
+			assert.Len(t, globalDataSrcManager.listUnready, 0)
+			assert.Len(t, globalDataSrcManager.listReady, 0)
+		}()
 
-		elem := logger.Front()
-		assert.Equal(t, elem.Value, "SyncDataSrc2 2 setupped")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataSrc2 1 setupped")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "SyncDataSrc2 4 setupped")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataSrc2 3 setupped")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataSrc2 1 created DataConn")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "SyncDataSrc2 2 created DataConn")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataSrc2 3 created DataConn")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "SyncDataSrc2 4 created DataConn")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataConn2 1 pre committed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "SyncDataConn2 2 pre committed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataConn2 3 pre committed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "SyncDataConn2 4 pre committed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataConn2 1 failed to commit")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "SyncDataConn2 4 closed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataConn2 3 closed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "SyncDataConn2 2 closed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataConn2 1 closed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "SyncDataSrc2 4 closed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataSrc2 3 closed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "SyncDataSrc2 2 closed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataSrc2 1 closed")
-		elem = elem.Next()
-		assert.Nil(t, elem)
+		log := logger.Front()
+		assert.Equal(t, log.Value, "MyDataSrc#Setup 1 failed")
+		log = log.Next()
+		assert.Nil(t, log)
 	})
 
-	t.Run("commit but fail local sync", func(t *testing.T) {
-		ResetGlobalVariables()
-		defer ResetGlobalVariables()
+	t.Run("Uses and SetupWithOrder, but already fixed before", func(t *testing.T) {
+		ResetGlobals()
+		defer ResetGlobals()
 
 		logger := list.New()
 
-		Uses("foo", &AsyncDataSrc2{id: 1, logger: logger, fail: fail__not})
-		Uses("bar", &SyncDataSrc2{id: 2, logger: logger, fail: fail__not})
+		assert.False(t, globalDataSrcsFixed)
+		assert.False(t, globalDataSrcManager.local)
+		assert.Len(t, globalDataSrcManager.listUnready, 0)
+		assert.Len(t, globalDataSrcManager.listReady, 0)
 
-		Setup().IfOkThen(func() errs.Err {
-			defer Shutdown()
+		err := SetupWithOrder("bar", "foo")
+		assert.True(t, err.IsOk())
 
-			hub := NewDataHub()
-			defer hub.Close()
+		assert.True(t, globalDataSrcsFixed)
+		assert.False(t, globalDataSrcManager.local)
+		assert.Len(t, globalDataSrcManager.listUnready, 0)
+		assert.Len(t, globalDataSrcManager.listReady, 0)
 
-			hub.Uses("baz", &AsyncDataSrc2{id: 3, fail: fail__not, logger: logger})
-			hub.Uses("qux", &SyncDataSrc2{id: 4, fail: fail__commit, logger: logger})
+		Uses("foo", NewMyDataSrc(1, Failure_Setup, logger))
 
-			assert.True(t, hub.begin().IsOk())
+		assert.True(t, globalDataSrcsFixed)
+		assert.False(t, globalDataSrcManager.local)
+		assert.Len(t, globalDataSrcManager.listUnready, 0)
+		assert.Len(t, globalDataSrcManager.listReady, 0)
 
-			conn1, err1 := GetDataConn[*AsyncDataConn2](hub, "foo")
-			assert.True(t, err1.IsOk())
-			assert.NotNil(t, conn1)
+		Shutdown()
 
-			conn2, err2 := GetDataConn[*SyncDataConn2](hub, "bar")
-			assert.True(t, err2.IsOk())
-			assert.NotNil(t, conn2)
-
-			conn3, err3 := GetDataConn[*AsyncDataConn2](hub, "baz")
-			assert.True(t, err3.IsOk())
-			assert.NotNil(t, conn3)
-
-			conn4, err4 := GetDataConn[*SyncDataConn2](hub, "qux")
-			assert.True(t, err4.IsOk())
-			assert.NotNil(t, conn4)
-
-			err := hub.commit()
-			switch r := err.Reason().(type) {
-			case FailToCommitDataConn:
-				assert.Equal(t, len(r.Errors), 1)
-				e := r.Errors["qux"]
-				assert.Equal(t, e.Reason(), "ZZZ")
-			default:
-				assert.Fail(t, err.Error())
-			}
-
-			hub.end()
-			return errs.Ok()
-		})
-
-		elem := logger.Front()
-		assert.Equal(t, elem.Value, "SyncDataSrc2 2 setupped")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataSrc2 1 setupped")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "SyncDataSrc2 4 setupped")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataSrc2 3 setupped")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataSrc2 1 created DataConn")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "SyncDataSrc2 2 created DataConn")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataSrc2 3 created DataConn")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "SyncDataSrc2 4 created DataConn")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataConn2 1 pre committed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "SyncDataConn2 2 pre committed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataConn2 3 pre committed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "SyncDataConn2 4 pre committed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataConn2 1 committed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "SyncDataConn2 2 committed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataConn2 3 committed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "SyncDataConn2 4 failed to commit")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "SyncDataConn2 4 closed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataConn2 3 closed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "SyncDataConn2 2 closed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataConn2 1 closed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "SyncDataSrc2 4 closed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataSrc2 3 closed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "SyncDataSrc2 2 closed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataSrc2 1 closed")
-		elem = elem.Next()
-		assert.Nil(t, elem)
-	})
-
-	t.Run("commit but fail local async", func(t *testing.T) {
-		ResetGlobalVariables()
-		defer ResetGlobalVariables()
-
-		logger := list.New()
-
-		Uses("foo", &AsyncDataSrc2{id: 1, logger: logger, fail: fail__not})
-		Uses("bar", &SyncDataSrc2{id: 2, logger: logger, fail: fail__not})
-
-		Setup().IfOkThen(func() errs.Err {
-			defer Shutdown()
-
-			hub := NewDataHub()
-			defer hub.Close()
-
-			hub.Uses("baz", &AsyncDataSrc2{id: 3, fail: fail__commit, logger: logger})
-			hub.Uses("qux", &SyncDataSrc2{id: 4, fail: fail__not, logger: logger})
-
-			assert.True(t, hub.begin().IsOk())
-
-			conn1, err1 := GetDataConn[*AsyncDataConn2](hub, "foo")
-			assert.True(t, err1.IsOk())
-			assert.NotNil(t, conn1)
-
-			conn2, err2 := GetDataConn[*SyncDataConn2](hub, "bar")
-			assert.True(t, err2.IsOk())
-			assert.NotNil(t, conn2)
-
-			conn3, err3 := GetDataConn[*AsyncDataConn2](hub, "baz")
-			assert.True(t, err3.IsOk())
-			assert.NotNil(t, conn3)
-
-			conn4, err4 := GetDataConn[*SyncDataConn2](hub, "qux")
-			assert.True(t, err4.IsOk())
-			assert.NotNil(t, conn4)
-
-			err := hub.commit()
-			switch r := err.Reason().(type) {
-			case FailToCommitDataConn:
-				assert.Equal(t, len(r.Errors), 1)
-				e := r.Errors["baz"]
-				assert.Equal(t, e.Reason(), "VVV")
-			default:
-				assert.Fail(t, err.Error())
-			}
-
-			hub.end()
-			return errs.Ok()
-		})
-
-		elem := logger.Front()
-		assert.Equal(t, elem.Value, "SyncDataSrc2 2 setupped")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataSrc2 1 setupped")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "SyncDataSrc2 4 setupped")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataSrc2 3 setupped")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataSrc2 1 created DataConn")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "SyncDataSrc2 2 created DataConn")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataSrc2 3 created DataConn")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "SyncDataSrc2 4 created DataConn")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataConn2 1 pre committed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "SyncDataConn2 2 pre committed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataConn2 3 pre committed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "SyncDataConn2 4 pre committed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataConn2 1 committed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "SyncDataConn2 2 committed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataConn2 3 failed to commit")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "SyncDataConn2 4 closed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataConn2 3 closed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "SyncDataConn2 2 closed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataConn2 1 closed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "SyncDataSrc2 4 closed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataSrc2 3 closed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "SyncDataSrc2 2 closed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataSrc2 1 closed")
-		elem = elem.Next()
-		assert.Nil(t, elem)
-	})
-
-	t.Run("pre commit but fail global sync", func(t *testing.T) {
-		ResetGlobalVariables()
-		defer ResetGlobalVariables()
-
-		logger := list.New()
-
-		Uses("foo", &AsyncDataSrc2{id: 1, logger: logger, fail: fail__not})
-		Uses("bar", &SyncDataSrc2{id: 2, logger: logger, fail: fail__pre_commit})
-
-		Setup().IfOkThen(func() errs.Err {
-			defer Shutdown()
-
-			hub := NewDataHub()
-			defer hub.Close()
-
-			hub.Uses("baz", &AsyncDataSrc2{id: 3, fail: fail__not, logger: logger})
-			hub.Uses("qux", &SyncDataSrc2{id: 4, fail: fail__not, logger: logger})
-
-			assert.True(t, hub.begin().IsOk())
-
-			conn1, err1 := GetDataConn[*AsyncDataConn2](hub, "foo")
-			assert.True(t, err1.IsOk())
-			assert.NotNil(t, conn1)
-
-			conn2, err2 := GetDataConn[*SyncDataConn2](hub, "bar")
-			assert.True(t, err2.IsOk())
-			assert.NotNil(t, conn2)
-
-			conn3, err3 := GetDataConn[*AsyncDataConn2](hub, "baz")
-			assert.True(t, err3.IsOk())
-			assert.NotNil(t, conn3)
-
-			conn4, err4 := GetDataConn[*SyncDataConn2](hub, "qux")
-			assert.True(t, err4.IsOk())
-			assert.NotNil(t, conn4)
-
-			err := hub.commit()
-			switch r := err.Reason().(type) {
-			case FailToPreCommitDataConn:
-				assert.Equal(t, len(r.Errors), 1)
-				e := r.Errors["bar"]
-				assert.Equal(t, e.Reason(), "zzz")
-			default:
-				assert.Fail(t, err.Error())
-			}
-
-			hub.end()
-			return errs.Ok()
-		})
-
-		elem := logger.Front()
-		assert.Equal(t, elem.Value, "SyncDataSrc2 2 setupped")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataSrc2 1 setupped")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "SyncDataSrc2 4 setupped")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataSrc2 3 setupped")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataSrc2 1 created DataConn")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "SyncDataSrc2 2 created DataConn")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataSrc2 3 created DataConn")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "SyncDataSrc2 4 created DataConn")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataConn2 1 pre committed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "SyncDataConn2 2 failed to pre commit")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "SyncDataConn2 4 closed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataConn2 3 closed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "SyncDataConn2 2 closed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataConn2 1 closed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "SyncDataSrc2 4 closed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataSrc2 3 closed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "SyncDataSrc2 2 closed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataSrc2 1 closed")
-		elem = elem.Next()
-		assert.Nil(t, elem)
-	})
-
-	t.Run("pre commit but fail global async", func(t *testing.T) {
-		ResetGlobalVariables()
-		defer ResetGlobalVariables()
-
-		logger := list.New()
-
-		Uses("foo", &AsyncDataSrc2{id: 1, logger: logger, fail: fail__pre_commit})
-		Uses("bar", &SyncDataSrc2{id: 2, logger: logger, fail: fail__not})
-
-		Setup().IfOkThen(func() errs.Err {
-			defer Shutdown()
-
-			hub := NewDataHub()
-			defer hub.Close()
-
-			hub.Uses("baz", &AsyncDataSrc2{id: 3, fail: fail__not, logger: logger})
-			hub.Uses("qux", &SyncDataSrc2{id: 4, fail: fail__not, logger: logger})
-
-			assert.True(t, hub.begin().IsOk())
-
-			conn1, err1 := GetDataConn[*AsyncDataConn2](hub, "foo")
-			assert.True(t, err1.IsOk())
-			assert.NotNil(t, conn1)
-
-			conn2, err2 := GetDataConn[*SyncDataConn2](hub, "bar")
-			assert.True(t, err2.IsOk())
-			assert.NotNil(t, conn2)
-
-			conn3, err3 := GetDataConn[*AsyncDataConn2](hub, "baz")
-			assert.True(t, err3.IsOk())
-			assert.NotNil(t, conn3)
-
-			conn4, err4 := GetDataConn[*SyncDataConn2](hub, "qux")
-			assert.True(t, err4.IsOk())
-			assert.NotNil(t, conn4)
-
-			err := hub.commit()
-			switch r := err.Reason().(type) {
-			case FailToPreCommitDataConn:
-				assert.Equal(t, len(r.Errors), 1)
-				e := r.Errors["foo"]
-				assert.Equal(t, e.Reason(), "vvv")
-			default:
-				assert.Fail(t, err.Error())
-			}
-
-			hub.end()
-			return errs.Ok()
-		})
-
-		elem := logger.Front()
-		assert.Equal(t, elem.Value, "SyncDataSrc2 2 setupped")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataSrc2 1 setupped")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "SyncDataSrc2 4 setupped")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataSrc2 3 setupped")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataSrc2 1 created DataConn")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "SyncDataSrc2 2 created DataConn")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataSrc2 3 created DataConn")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "SyncDataSrc2 4 created DataConn")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataConn2 1 failed to pre commit")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "SyncDataConn2 4 closed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataConn2 3 closed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "SyncDataConn2 2 closed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataConn2 1 closed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "SyncDataSrc2 4 closed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataSrc2 3 closed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "SyncDataSrc2 2 closed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataSrc2 1 closed")
-		elem = elem.Next()
-		assert.Nil(t, elem)
-	})
-
-	t.Run("pre commit but fail local sync", func(t *testing.T) {
-		ResetGlobalVariables()
-		defer ResetGlobalVariables()
-
-		logger := list.New()
-
-		Uses("foo", &AsyncDataSrc2{id: 1, logger: logger, fail: fail__not})
-		Uses("bar", &SyncDataSrc2{id: 2, logger: logger, fail: fail__not})
-
-		Setup().IfOkThen(func() errs.Err {
-			defer Shutdown()
-
-			hub := NewDataHub()
-			defer hub.Close()
-
-			hub.Uses("baz", &AsyncDataSrc2{id: 3, fail: fail__not, logger: logger})
-			hub.Uses("qux", &SyncDataSrc2{id: 4, fail: fail__pre_commit, logger: logger})
-
-			assert.True(t, hub.begin().IsOk())
-
-			conn1, err1 := GetDataConn[*AsyncDataConn2](hub, "foo")
-			assert.True(t, err1.IsOk())
-			assert.NotNil(t, conn1)
-
-			conn2, err2 := GetDataConn[*SyncDataConn2](hub, "bar")
-			assert.True(t, err2.IsOk())
-			assert.NotNil(t, conn2)
-
-			conn3, err3 := GetDataConn[*AsyncDataConn2](hub, "baz")
-			assert.True(t, err3.IsOk())
-			assert.NotNil(t, conn3)
-
-			conn4, err4 := GetDataConn[*SyncDataConn2](hub, "qux")
-			assert.True(t, err4.IsOk())
-			assert.NotNil(t, conn4)
-
-			err := hub.commit()
-			switch r := err.Reason().(type) {
-			case FailToPreCommitDataConn:
-				assert.Equal(t, len(r.Errors), 1)
-				e := r.Errors["qux"]
-				assert.Equal(t, e.Reason(), "zzz")
-			default:
-				assert.Fail(t, err.Error())
-			}
-
-			hub.end()
-			return errs.Ok()
-		})
-
-		elem := logger.Front()
-		assert.Equal(t, elem.Value, "SyncDataSrc2 2 setupped")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataSrc2 1 setupped")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "SyncDataSrc2 4 setupped")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataSrc2 3 setupped")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataSrc2 1 created DataConn")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "SyncDataSrc2 2 created DataConn")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataSrc2 3 created DataConn")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "SyncDataSrc2 4 created DataConn")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataConn2 1 pre committed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "SyncDataConn2 2 pre committed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataConn2 3 pre committed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "SyncDataConn2 4 failed to pre commit")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "SyncDataConn2 4 closed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataConn2 3 closed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "SyncDataConn2 2 closed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataConn2 1 closed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "SyncDataSrc2 4 closed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataSrc2 3 closed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "SyncDataSrc2 2 closed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataSrc2 1 closed")
-		elem = elem.Next()
-		assert.Nil(t, elem)
-	})
-
-	t.Run("pre commit but fail local async", func(t *testing.T) {
-		ResetGlobalVariables()
-		defer ResetGlobalVariables()
-
-		logger := list.New()
-
-		Uses("foo", &AsyncDataSrc2{id: 1, logger: logger, fail: fail__not})
-		Uses("bar", &SyncDataSrc2{id: 2, logger: logger, fail: fail__not})
-
-		Setup().IfOkThen(func() errs.Err {
-			defer Shutdown()
-
-			hub := NewDataHub()
-			defer hub.Close()
-
-			hub.Uses("baz", &AsyncDataSrc2{id: 3, fail: fail__pre_commit, logger: logger})
-			hub.Uses("qux", &SyncDataSrc2{id: 4, fail: fail__not, logger: logger})
-
-			assert.True(t, hub.begin().IsOk())
-
-			conn1, err1 := GetDataConn[*AsyncDataConn2](hub, "foo")
-			assert.True(t, err1.IsOk())
-			assert.NotNil(t, conn1)
-
-			conn2, err2 := GetDataConn[*SyncDataConn2](hub, "bar")
-			assert.True(t, err2.IsOk())
-			assert.NotNil(t, conn2)
-
-			conn3, err3 := GetDataConn[*AsyncDataConn2](hub, "baz")
-			assert.True(t, err3.IsOk())
-			assert.NotNil(t, conn3)
-
-			conn4, err4 := GetDataConn[*SyncDataConn2](hub, "qux")
-			assert.True(t, err4.IsOk())
-			assert.NotNil(t, conn4)
-
-			err := hub.commit()
-			switch r := err.Reason().(type) {
-			case FailToPreCommitDataConn:
-				assert.Equal(t, len(r.Errors), 1)
-				e := r.Errors["baz"]
-				assert.Equal(t, e.Reason(), "vvv")
-			default:
-				assert.Fail(t, err.Error())
-			}
-
-			hub.end()
-			return errs.Ok()
-		})
-
-		elem := logger.Front()
-		assert.Equal(t, elem.Value, "SyncDataSrc2 2 setupped")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataSrc2 1 setupped")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "SyncDataSrc2 4 setupped")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataSrc2 3 setupped")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataSrc2 1 created DataConn")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "SyncDataSrc2 2 created DataConn")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataSrc2 3 created DataConn")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "SyncDataSrc2 4 created DataConn")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataConn2 1 pre committed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "SyncDataConn2 2 pre committed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataConn2 3 failed to pre commit")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "SyncDataConn2 4 closed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataConn2 3 closed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "SyncDataConn2 2 closed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataConn2 1 closed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "SyncDataSrc2 4 closed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataSrc2 3 closed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "SyncDataSrc2 2 closed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataSrc2 1 closed")
-		elem = elem.Next()
-		assert.Nil(t, elem)
-	})
-
-	t.Run("rollback", func(t *testing.T) {
-		ResetGlobalVariables()
-		defer ResetGlobalVariables()
-
-		logger := list.New()
-
-		Uses("foo", &AsyncDataSrc2{id: 1, logger: logger, fail: fail__not})
-		Uses("bar", &SyncDataSrc2{id: 2, logger: logger, fail: fail__not})
-
-		Setup().IfOkThen(func() errs.Err {
-			defer Shutdown()
-
-			hub := NewDataHub()
-			defer hub.Close()
-
-			hub.Uses("baz", &AsyncDataSrc2{id: 3, fail: fail__not, logger: logger})
-			hub.Uses("qux", &SyncDataSrc2{id: 4, fail: fail__not, logger: logger})
-
-			assert.True(t, hub.begin().IsOk())
-
-			conn1, err1 := GetDataConn[*AsyncDataConn2](hub, "foo")
-			assert.True(t, err1.IsOk())
-			assert.NotNil(t, conn1)
-
-			conn2, err2 := GetDataConn[*SyncDataConn2](hub, "bar")
-			assert.True(t, err2.IsOk())
-			assert.NotNil(t, conn2)
-
-			conn3, err3 := GetDataConn[*AsyncDataConn2](hub, "baz")
-			assert.True(t, err3.IsOk())
-			assert.NotNil(t, conn3)
-
-			conn4, err4 := GetDataConn[*SyncDataConn2](hub, "qux")
-			assert.True(t, err4.IsOk())
-			assert.NotNil(t, conn4)
-
-			hub.rollback()
-			hub.end()
-			return errs.Ok()
-		})
-
-		elem := logger.Front()
-		assert.Equal(t, elem.Value, "SyncDataSrc2 2 setupped")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataSrc2 1 setupped")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "SyncDataSrc2 4 setupped")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataSrc2 3 setupped")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataSrc2 1 created DataConn")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "SyncDataSrc2 2 created DataConn")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataSrc2 3 created DataConn")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "SyncDataSrc2 4 created DataConn")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataConn2 1 rollbacked")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "SyncDataConn2 2 rollbacked")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataConn2 3 rollbacked")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "SyncDataConn2 4 rollbacked")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "SyncDataConn2 4 closed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataConn2 3 closed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "SyncDataConn2 2 closed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataConn2 1 closed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "SyncDataSrc2 4 closed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataSrc2 3 closed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "SyncDataSrc2 2 closed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataSrc2 1 closed")
-		elem = elem.Next()
-		assert.Nil(t, elem)
-	})
-
-	t.Run("force back", func(t *testing.T) {
-		ResetGlobalVariables()
-		defer ResetGlobalVariables()
-
-		logger := list.New()
-
-		Uses("foo", &AsyncDataSrc2{id: 1, logger: logger, fail: fail__not})
-		Uses("bar", &SyncDataSrc2{id: 2, logger: logger, fail: fail__not})
-
-		Setup().IfOkThen(func() errs.Err {
-			defer Shutdown()
-
-			hub := NewDataHub()
-			defer hub.Close()
-
-			hub.Uses("baz", &AsyncDataSrc2{id: 3, fail: fail__not, logger: logger})
-			hub.Uses("qux", &SyncDataSrc2{id: 4, fail: fail__not, logger: logger})
-
-			assert.True(t, hub.begin().IsOk())
-
-			conn1, err1 := GetDataConn[*AsyncDataConn2](hub, "foo")
-			assert.True(t, err1.IsOk())
-			assert.NotNil(t, conn1)
-
-			conn2, err2 := GetDataConn[*SyncDataConn2](hub, "bar")
-			assert.True(t, err2.IsOk())
-			assert.NotNil(t, conn2)
-
-			conn3, err3 := GetDataConn[*AsyncDataConn2](hub, "baz")
-			assert.True(t, err3.IsOk())
-			assert.NotNil(t, conn3)
-
-			conn4, err4 := GetDataConn[*SyncDataConn2](hub, "qux")
-			assert.True(t, err4.IsOk())
-			assert.NotNil(t, conn4)
-
-			assert.True(t, hub.commit().IsOk())
-			hub.rollback()
-			hub.end()
-			return errs.Ok()
-		})
-
-		elem := logger.Front()
-		assert.Equal(t, elem.Value, "SyncDataSrc2 2 setupped")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataSrc2 1 setupped")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "SyncDataSrc2 4 setupped")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataSrc2 3 setupped")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataSrc2 1 created DataConn")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "SyncDataSrc2 2 created DataConn")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataSrc2 3 created DataConn")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "SyncDataSrc2 4 created DataConn")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataConn2 1 pre committed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "SyncDataConn2 2 pre committed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataConn2 3 pre committed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "SyncDataConn2 4 pre committed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataConn2 1 committed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "SyncDataConn2 2 committed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataConn2 3 committed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "SyncDataConn2 4 committed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataConn2 1 post committed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "SyncDataConn2 2 post committed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataConn2 3 post committed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "SyncDataConn2 4 post committed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataConn2 1 forced back")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "SyncDataConn2 2 forced back")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataConn2 3 forced back")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "SyncDataConn2 4 forced back")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "SyncDataConn2 4 closed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataConn2 3 closed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "SyncDataConn2 2 closed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataConn2 1 closed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "SyncDataSrc2 4 closed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataSrc2 3 closed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "SyncDataSrc2 2 closed")
-		elem = elem.Next()
-		assert.Equal(t, elem.Value, "AsyncDataSrc2 1 closed")
-		elem = elem.Next()
-		assert.Nil(t, elem)
+		log := logger.Front()
+		assert.Nil(t, log)
 	})
 }

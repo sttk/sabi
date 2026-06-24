@@ -1,4 +1,4 @@
-// Copyright (C) 2023-2025 Takayuki Sato. All Rights Reserved.
+// Copyright (C) 2023-2026 Takayuki Sato. All Rights Reserved.
 // This program is free software under MIT License.
 // See the file LICENSE in this distribution for more details.
 
@@ -8,195 +8,189 @@ import (
 	"github.com/sttk/errs"
 )
 
-// The interface that abstracts a data source responsible for managing connections
-// to external data services, such as databases, file systems, or messaging services.
-//
-// It receives configuration for connecting to an external data service and then
-// creates and supplies a `DataConn` instance, representing a single session connection.
+type DataSrcErr struct {
+	Name string
+	Err  errs.Err
+}
+
 type DataSrc interface {
-	// Performs the setup process for the data source.
-	//
-	// This method is responsible for establishing global connections, configuring
-	// connection pools, or performing any necessary initializations required
-	// before DataConn instances can be created.
 	Setup(ag *AsyncGroup) errs.Err
-
-	// Closes the data source and releases any globally held resources.
-	//
-	// This method should perform cleanup operations, such as closing global connections
-	// or shutting down connection pools, that were established during the Setup phase.
 	Close()
-
-	// Creates a new DataConn instance which is a connection per session.
-	//
-	// Each call to this method should yield a distinct DataConn object tailored
-	// for a single session's operations.
 	CreateDataConn() (DataConn, errs.Err)
 }
 
 type dataSrcContainer struct {
-	prev  *dataSrcContainer
-	next  *dataSrcContainer
 	local bool
 	name  string
 	ds    DataSrc
 }
 
-type dataSrcList struct {
-	notSetupHead *dataSrcContainer
-	notSetupLast *dataSrcContainer
-	didSetupHead *dataSrcContainer
-	didSetupLast *dataSrcContainer
-	local        bool
+type dataSrcManager struct {
+	local       bool
+	listUnready []dataSrcContainer
+	listReady   []dataSrcContainer
 }
 
-func (list *dataSrcList) appendContainerPtrNotSetup(ptr *dataSrcContainer) {
-	ptr.next = nil
-
-	if list.notSetupLast == nil {
-		list.notSetupHead = ptr
-		list.notSetupLast = ptr
-		ptr.prev = nil
-	} else {
-		list.notSetupLast.next = ptr
-		ptr.prev = list.notSetupLast
-		list.notSetupLast = ptr
+func newDataSrcManager(local bool) dataSrcManager {
+	return dataSrcManager{
+		local:       local,
+		listUnready: make([]dataSrcContainer, 0),
+		listReady:   make([]dataSrcContainer, 0),
 	}
 }
 
-func (list *dataSrcList) removeContainerPtrNotSetup(ptr *dataSrcContainer) {
-	prev := ptr.prev
-	next := ptr.next
-
-	if prev == nil && next == nil {
-		list.notSetupHead = nil
-		list.notSetupLast = nil
-	} else if prev == nil {
-		next.prev = nil
-		list.notSetupHead = next
-	} else if next == nil {
-		prev.next = nil
-		list.notSetupLast = prev
-	} else {
-		next.prev = prev
-		prev.next = next
-	}
+func (mgr *dataSrcManager) add(name string, ds DataSrc) {
+	mgr.listUnready = append(mgr.listUnready, dataSrcContainer{local: mgr.local, name: name, ds: ds})
 }
 
-func (list *dataSrcList) removeAndCloseContainerPtrNotSetupByName(name string) {
-	ptr := list.notSetupHead
-	for ptr != nil {
-		next := ptr.next
-		if ptr.name == name {
-			list.removeContainerPtrNotSetup(ptr)
-			ptr.ds.Close()
+func (mgr *dataSrcManager) remove(name string) {
+	for i := range mgr.listReady {
+		if mgr.listReady[i].name == name && mgr.listReady[i].ds != nil {
+			mgr.listReady[i].ds.Close()
+			mgr.listReady[i].ds = nil
 		}
-		ptr = next
 	}
-}
-
-func (list *dataSrcList) appendContainerPtrDidSetup(ptr *dataSrcContainer) {
-	ptr.next = nil
-
-	if list.didSetupLast == nil {
-		list.didSetupHead = ptr
-		list.didSetupLast = ptr
-		ptr.prev = nil
-	} else {
-		list.didSetupLast.next = ptr
-		ptr.prev = list.didSetupLast
-		list.didSetupLast = ptr
-	}
-}
-
-func (list *dataSrcList) removeContainerPtrDidSetup(ptr *dataSrcContainer) {
-	prev := ptr.prev
-	next := ptr.next
-
-	if prev == nil && next == nil {
-		list.didSetupHead = nil
-		list.didSetupLast = nil
-	} else if prev == nil {
-		next.prev = nil
-		list.didSetupHead = next
-	} else if next == nil {
-		prev.next = nil
-		list.didSetupLast = prev
-	} else {
-		next.prev = prev
-		prev.next = next
-	}
-}
-
-func (list *dataSrcList) removeAndCloseContainerPtrDidSetupByName(name string) {
-	ptr := list.didSetupHead
-	for ptr != nil {
-		next := ptr.next
-		if ptr.name == name {
-			list.removeContainerPtrDidSetup(ptr)
-			ptr.ds.Close()
+	for i := range mgr.listUnready {
+		if mgr.listUnready[i].name == name && mgr.listUnready[i].ds != nil {
+			mgr.listUnready[i].ds = nil
 		}
-		ptr = next
 	}
 }
 
-func (list *dataSrcList) copyContainerPtrsDidSetupInto(m map[string]*dataSrcContainer) {
-	ptr := list.didSetupHead
-	for ptr != nil {
-		m[ptr.name] = ptr
-		ptr = ptr.next
+func (mgr *dataSrcManager) close() {
+	for i := len(mgr.listReady) - 1; i >= 0; i-- {
+		if mgr.listReady[i].ds != nil {
+			mgr.listReady[i].ds.Close()
+			mgr.listReady[i].ds = nil
+		}
 	}
+	for i := range mgr.listUnready {
+		if mgr.listUnready[i].ds != nil {
+			mgr.listUnready[i].ds = nil
+		}
+	}
+	mgr.listReady = nil
+	mgr.listUnready = nil
 }
 
-func (list *dataSrcList) addDataSrc(name string, ds DataSrc) {
-	ptr := &dataSrcContainer{local: list.local, name: name, ds: ds}
-	list.appendContainerPtrNotSetup(ptr)
-}
-
-func (list *dataSrcList) setupDataSrcs() map[string]errs.Err {
-	errMap := make(map[string]errs.Err)
-
-	if list.notSetupHead == nil {
-		return errMap
+func (mgr *dataSrcManager) setup() []DataSrcErr {
+	if len(mgr.listUnready) == 0 {
+		return nil
 	}
 
 	ag := AsyncGroup{}
-
-	ptr := list.notSetupHead
-	for ptr != nil {
-		ag.name = ptr.name
-		if err := ptr.ds.Setup(&ag); err.IsNotOk() {
-			errMap[ag.name] = err
-			break
+	for i := range mgr.listUnready {
+		if mgr.listUnready[i].ds != nil {
+			ag._index = i
+			if err := mgr.listUnready[i].ds.Setup(&ag); err.IsNotOk() {
+				ag.addErr(ag._index, err)
+				break
+			}
 		}
-		ptr = ptr.next
 	}
+	nDone := ag._index
+	indexedErrors := ag.join()
 
-	ag.joinAndPutErrorsInto(errMap)
-
-	firstPtrNotSetupYet := ptr
-
-	ptr = list.notSetupHead
-	for ptr != nil && ptr != firstPtrNotSetupYet {
-		next := ptr.next
-		if _, ok := errMap[ptr.name]; !ok {
-			list.removeContainerPtrNotSetup(ptr)
-			list.appendContainerPtrDidSetup(ptr)
+	if len(indexedErrors) == 0 {
+		for i := range mgr.listUnready {
+			if mgr.listUnready[i].ds != nil {
+				mgr.listReady = append(mgr.listReady, mgr.listUnready[i])
+			}
 		}
-		ptr = next
+		mgr.listUnready = nil
+		return nil
+	} else {
+		for i := nDone - 1; i >= 0; i-- {
+			if mgr.listUnready[i].ds != nil {
+				mgr.listUnready[i].ds.Close()
+			}
+		}
+		errors := make([]DataSrcErr, len(indexedErrors))
+		for i, idxErr := range indexedErrors {
+			errors[i].Name = mgr.listUnready[idxErr.Index].name
+			errors[i].Err = idxErr.Err
+		}
+		return errors
 	}
-
-	return errMap
 }
 
-func (list *dataSrcList) closeDataSrcs() {
-	ptr := list.didSetupLast
-	for ptr != nil {
-		ptr.ds.Close()
-		ptr = ptr.prev
+func (mgr *dataSrcManager) setupWithOrder(names []string) []DataSrcErr {
+	if len(mgr.listUnready) == 0 {
+		return nil
 	}
-	list.notSetupHead = nil
-	list.notSetupLast = nil
-	list.didSetupHead = nil
-	list.didSetupLast = nil
+
+	indexedMap := make(map[string]int, len(names))
+	// Becuase earlier ones take precedence when names overlap
+	for i := len(names) - 1; i >= 0; i-- {
+		indexedMap[names[i]] = i
+	}
+
+	const offsetAvoidingUnset = 1 // To distinguish from the unset value 0.
+
+	orderedIndexes := make([]int, len(names), len(mgr.listUnready))
+
+	for listIndex := range mgr.listUnready {
+		if mgr.listUnready[listIndex].ds != nil {
+			name := mgr.listUnready[listIndex].name
+			if orderIndex, ok := indexedMap[name]; ok {
+				orderedIndexes[orderIndex] = listIndex + offsetAvoidingUnset
+				delete(indexedMap, name)
+			} else {
+				orderedIndexes = append(orderedIndexes, listIndex+offsetAvoidingUnset)
+			}
+		}
+	}
+
+	ag := AsyncGroup{}
+	nDone := 0
+	for orderIndex, listIndexPlusOffset := range orderedIndexes {
+		if listIndexPlusOffset > 0 { // Ignore unset
+			listIndex := listIndexPlusOffset - offsetAvoidingUnset
+			if mgr.listUnready[listIndex].ds != nil {
+				ag._index = listIndex
+				if err := mgr.listUnready[listIndex].ds.Setup(&ag); err.IsNotOk() {
+					ag.addErr(ag._index, err)
+					nDone = orderIndex
+					break
+				}
+			}
+		}
+	}
+	indexedErrors := ag.join()
+
+	if len(indexedErrors) == 0 {
+		for _, listIndexPlusOffset := range orderedIndexes {
+			if listIndexPlusOffset > 0 { // Ignore unset
+				listIndex := listIndexPlusOffset - offsetAvoidingUnset
+				if mgr.listUnready[listIndex].ds != nil {
+					mgr.listReady = append(mgr.listReady, mgr.listUnready[listIndex])
+				}
+			}
+		}
+		mgr.listUnready = nil
+		return nil
+	} else {
+		for orderIndex := nDone - 1; orderIndex >= 0; orderIndex-- {
+			listIndexPlusOffset := orderedIndexes[orderIndex]
+			if listIndexPlusOffset > 0 { // Ignore unset
+				listIndex := listIndexPlusOffset - offsetAvoidingUnset
+				if mgr.listUnready[listIndex].ds != nil {
+					mgr.listUnready[listIndex].ds.Close()
+				}
+			}
+		}
+		errors := make([]DataSrcErr, len(indexedErrors))
+		for i, idxErr := range indexedErrors {
+			errors[i].Name = mgr.listUnready[idxErr.Index].name
+			errors[i].Err = idxErr.Err
+		}
+		return errors
+	}
+}
+
+func (mgr *dataSrcManager) copyDsReadyToMap(contMap map[string]dataSrcContainer) {
+	for i := range mgr.listReady {
+		contPtr := &mgr.listReady[i]
+		contMap[contPtr.name] = *contPtr
+	}
 }
