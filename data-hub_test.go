@@ -1306,42 +1306,6 @@ func TestDataHub(t *testing.T) {
 		assert.Nil(t, log)
 	})
 
-	t.Run("get data conn and failed to create data conn is nil", func(t *testing.T) {
-		logger := list.New()
-
-		func() {
-			hub := NewDataHub()
-			defer hub.Close()
-
-			hub.Uses("foo", NewMyDataSrc(1, Failure_CreateDataConn, logger))
-
-			err := Txn(hub, func(data any) errs.Err {
-				logger.PushBack("execute logic")
-				_, err := GetDataConn[*MyDataConn](data, "foo")
-				return err
-			})
-			assert.True(t, err.IsNotOk())
-			switch rsn := err.Reason().(type) {
-			case FailToCreateDataConn:
-				assert.Equal(t, rsn.Name, "foo")
-				assert.Equal(t, rsn.DataConnType, "*sabi.MyDataConn")
-			default:
-				assert.Fail(t, err.Error())
-			}
-		}()
-
-		log := logger.Front()
-		assert.Equal(t, log.Value, "MyDataSrc#Setup 1")
-		log = log.Next()
-		assert.Equal(t, log.Value, "execute logic")
-		log = log.Next()
-		assert.Equal(t, log.Value, "MyDataSrc#CreateDataConn 1 failed")
-		log = log.Next()
-		assert.Equal(t, log.Value, "MyDataSrc#Close 1")
-		log = log.Next()
-		assert.Nil(t, log)
-	})
-
 	t.Run("get data conn and created data conn is nil", func(t *testing.T) {
 		logger := list.New()
 
@@ -1379,6 +1343,42 @@ func TestDataHub(t *testing.T) {
 	})
 
 	t.Run("get data conn and failed to create data conn", func(t *testing.T) {
+		logger := list.New()
+
+		func() {
+			hub := NewDataHub()
+			defer hub.Close()
+
+			hub.Uses("foo", NewMyDataSrc(1, Failure_CreateDataConn, logger))
+
+			err := Txn(hub, func(data any) errs.Err {
+				logger.PushBack("execute logic")
+				_, err := GetDataConn[*MyDataConn](data, "foo")
+				return err
+			})
+			assert.True(t, err.IsNotOk())
+			switch rsn := err.Reason().(type) {
+			case FailToCreateDataConn:
+				assert.Equal(t, rsn.Name, "foo")
+				assert.Equal(t, rsn.DataConnType, "*sabi.MyDataConn")
+			default:
+				assert.Fail(t, err.Error())
+			}
+		}()
+
+		log := logger.Front()
+		assert.Equal(t, log.Value, "MyDataSrc#Setup 1")
+		log = log.Next()
+		assert.Equal(t, log.Value, "execute logic")
+		log = log.Next()
+		assert.Equal(t, log.Value, "MyDataSrc#CreateDataConn 1 failed")
+		log = log.Next()
+		assert.Equal(t, log.Value, "MyDataSrc#Close 1")
+		log = log.Next()
+		assert.Nil(t, log)
+	})
+
+	t.Run("get data conn and failed to cast data conn", func(t *testing.T) {
 		logger := list.New()
 
 		func() {
