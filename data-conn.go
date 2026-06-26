@@ -93,8 +93,9 @@ type dataConnContainer struct {
 }
 
 type dataConnManager struct {
-	list     []dataConnContainer
-	indexMap map[string]int
+	list      []dataConnContainer
+	indexMap  map[string]int
+	committed bool
 }
 
 func newDataConnManager() dataConnManager {
@@ -161,13 +162,14 @@ func (mgr *dataConnManager) commit(reports []TxnFailureReport) errs.Err {
 	ag := AsyncGroup{}
 	ii := 0
 	for i := range mgr.list {
-		if mgr.list[i].conn != nil {
-			ag._index = ii
-			if err := mgr.list[i].conn.PreCommit(&ag); err.IsNotOk() {
-				ag.addErr(ag._index, err)
-				break
-			}
-			ii++
+		if mgr.list[i].conn == nil {
+			continue
+		}
+		ag._index = ii
+		ii++
+		if err := mgr.list[i].conn.PreCommit(&ag); err.IsNotOk() {
+			ag.addErr(ag._index, err)
+			break
 		}
 	}
 	indexed_errors := ag.join()
@@ -186,15 +188,16 @@ func (mgr *dataConnManager) commit(reports []TxnFailureReport) errs.Err {
 	ag = AsyncGroup{}
 	ii = 0
 	for i := range mgr.list {
-		if mgr.list[i].conn != nil {
-			if !mgr.list[i].conn.IsCommitted() {
-				ag._index = ii
-				if err := mgr.list[i].conn.Commit(&ag); err.IsNotOk() {
-					ag.addErr(ag._index, err)
-					break
-				}
+		if mgr.list[i].conn == nil {
+			continue
+		}
+		ag._index = ii
+		ii++
+		if !mgr.list[i].conn.IsCommitted() {
+			if err := mgr.list[i].conn.Commit(&ag); err.IsNotOk() {
+				ag.addErr(ag._index, err)
+				break
 			}
-			ii++
 		}
 	}
 	indexed_errors = ag.join()
@@ -210,16 +213,19 @@ func (mgr *dataConnManager) commit(reports []TxnFailureReport) errs.Err {
 		return errs.New(FailToCommitDataConn{Errors: errors})
 	}
 
+	mgr.committed = true
+
 	ag = AsyncGroup{}
 	ii = 0
 	for i := range mgr.list {
-		if mgr.list[i].conn != nil {
-			ag._index = ii
-			if err := mgr.list[i].conn.PostCommit(&ag); err.IsNotOk() {
-				ag.addErr(ag._index, err)
-				// don't break
-			}
-			ii++
+		if mgr.list[i].conn == nil {
+			continue
+		}
+		ag._index = ii
+		ii++
+		if err := mgr.list[i].conn.PostCommit(&ag); err.IsNotOk() {
+			ag.addErr(ag._index, err)
+			// don't break
 		}
 	}
 	indexed_errors = ag.join()
@@ -242,20 +248,24 @@ func (mgr *dataConnManager) rollback(reports []TxnFailureReport) {
 	ag := AsyncGroup{}
 	ii := 0
 	for i := range mgr.list {
-		if mgr.list[i].conn != nil {
-			if mgr.list[i].conn.IsCommitted() {
-				if reports[ii].Cause.State == NoneByUncommitted {
-					reports[ii].Cause.State = NoneByCommitted
-				}
-				continue
+		if mgr.list[i].conn == nil {
+			continue
+		}
+		ag._index = ii
+		ii++
+		if mgr.list[i].conn.IsCommitted() {
+			if reports[ag._index].Cause.State == NoneByUncommitted {
+				reports[ag._index].Cause.State = NoneByCommitted
 			}
-			ag._index = ii
-			if err := mgr.list[i].conn.Rollback(&ag); err.IsNotOk() {
-				ag.addErr(ag._index, err)
-			} else {
-				reports[ii].Rollback.State = NoneByRolledBack
-			}
-			ii++
+			continue
+		}
+		if mgr.committed {
+			continue
+		}
+		if err := mgr.list[i].conn.Rollback(&ag); err.IsNotOk() {
+			ag.addErr(ag._index, err)
+		} else {
+			reports[ag._index].Rollback.State = NoneByRolledBack
 		}
 	}
 	indexed_errors := ag.join()
