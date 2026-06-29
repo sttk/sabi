@@ -15,7 +15,7 @@ type /* error reasons */ (
 	// which connections encountered issues and what the underlying errors were before
 	// the actual commit was attempted.
 	FailToPreCommitDataConn struct {
-		Errors []DataConnErr
+		Errors []ErrEntry
 	}
 
 	// FailToCommitDataConn represents an error reason indicating that one or more
@@ -23,7 +23,7 @@ type /* error reasons */ (
 	// errors from the failed connections, which is useful for diagnosing failures that
 	// happened while finalizing the transactions on those connections.
 	FailToCommitDataConn struct {
-		Errors []DataConnErr
+		Errors []ErrEntry
 	}
 
 	// FailToPostCommitDataConn represents an error reason indicating that one or more
@@ -32,19 +32,9 @@ type /* error reasons */ (
 	// successfully, subsequent cleanup or follow-up operations on the connections failed.
 	// It contains a list of individual connection errors for diagnosis.
 	FailToPostCommitDataConn struct {
-		Errors []DataConnErr
+		Errors []ErrEntry
 	}
 )
-
-// DataConnErr represents a pair of a data connection's name and the error it encountered.
-// It is used to report failures associated with specific connections during transaction
-// phases such as pre-commit, commit, post-commit, or rollback.
-type DataConnErr struct {
-	// Name is the identifier of the data connection that failed.
-	Name string
-	// Err is the error returned by the data connection.
-	Err errs.Err
-}
 
 // DataConn is an interface representing a database or external resource connection
 // that participates in transaction management. It defines methods for managing the
@@ -165,22 +155,20 @@ func (mgr *dataConnManager) commit(reports []TxnFailureReport) errs.Err {
 		if mgr.list[i].conn == nil {
 			continue
 		}
+		ag._name = mgr.list[i].name
 		ag._index = ii
 		ii++
 		if err := mgr.list[i].conn.PreCommit(&ag); err.IsNotOk() {
-			ag.addErr(ag._index, err)
+			ag.addErr(ag._index, ag._name, err)
 			break
 		}
 	}
-	indexed_errors := ag.join()
+	errors := ag.join()
 
-	if len(indexed_errors) > 0 {
-		errors := make([]DataConnErr, len(indexed_errors))
-		for i := range indexed_errors {
-			idx := indexed_errors[i].Index
-			reports[idx].Cause = TxnFailureCause{State: LogicFailure, Err: indexed_errors[i].Err}
-			errors[i].Name = reports[idx].DataConnName
-			errors[i].Err = indexed_errors[i].Err
+	if len(errors) > 0 {
+		for i := range errors {
+			idx := errors[i].Index
+			reports[idx].Cause = TxnFailureCause{State: LogicFailure, Err: errors[i].Err}
 		}
 		return errs.New(FailToPreCommitDataConn{Errors: errors})
 	}
@@ -191,24 +179,22 @@ func (mgr *dataConnManager) commit(reports []TxnFailureReport) errs.Err {
 		if mgr.list[i].conn == nil {
 			continue
 		}
+		ag._name = mgr.list[i].name
 		ag._index = ii
 		ii++
 		if !mgr.list[i].conn.IsCommitted() {
 			if err := mgr.list[i].conn.Commit(&ag); err.IsNotOk() {
-				ag.addErr(ag._index, err)
+				ag.addErr(ag._index, ag._name, err)
 				break
 			}
 		}
 	}
-	indexed_errors = ag.join()
+	errors = ag.join()
 
-	if len(indexed_errors) > 0 {
-		errors := make([]DataConnErr, len(indexed_errors))
-		for i := range indexed_errors {
-			idx := indexed_errors[i].Index
-			reports[idx].Cause = TxnFailureCause{State: CommitFailure, Err: indexed_errors[i].Err}
-			errors[i].Name = reports[idx].DataConnName
-			errors[i].Err = indexed_errors[i].Err
+	if len(errors) > 0 {
+		for i := range errors {
+			idx := errors[i].Index
+			reports[idx].Cause = TxnFailureCause{State: CommitFailure, Err: errors[i].Err}
 		}
 		return errs.New(FailToCommitDataConn{Errors: errors})
 	}
@@ -221,22 +207,20 @@ func (mgr *dataConnManager) commit(reports []TxnFailureReport) errs.Err {
 		if mgr.list[i].conn == nil {
 			continue
 		}
+		ag._name = mgr.list[i].name
 		ag._index = ii
 		ii++
 		if err := mgr.list[i].conn.PostCommit(&ag); err.IsNotOk() {
-			ag.addErr(ag._index, err)
+			ag.addErr(ag._index, ag._name, err)
 			// don't break
 		}
 	}
-	indexed_errors = ag.join()
+	errors = ag.join()
 
-	if len(indexed_errors) > 0 {
-		errors := make([]DataConnErr, len(indexed_errors))
-		for i := range indexed_errors {
-			idx := indexed_errors[i].Index
-			reports[idx].Cause = TxnFailureCause{State: PostCommitFailure, Err: indexed_errors[i].Err}
-			errors[i].Name = reports[idx].DataConnName
-			errors[i].Err = indexed_errors[i].Err
+	if len(errors) > 0 {
+		for i := range errors {
+			idx := errors[i].Index
+			reports[idx].Cause = TxnFailureCause{State: PostCommitFailure, Err: errors[i].Err}
 		}
 		return errs.New(FailToPostCommitDataConn{Errors: errors})
 	}
@@ -251,6 +235,7 @@ func (mgr *dataConnManager) rollback(reports []TxnFailureReport) {
 		if mgr.list[i].conn == nil {
 			continue
 		}
+		ag._name = mgr.list[i].name
 		ag._index = ii
 		ii++
 		if mgr.list[i].conn.IsCommitted() {
@@ -263,17 +248,17 @@ func (mgr *dataConnManager) rollback(reports []TxnFailureReport) {
 			continue
 		}
 		if err := mgr.list[i].conn.Rollback(&ag); err.IsNotOk() {
-			ag.addErr(ag._index, err)
+			ag.addErr(ag._index, ag._name, err)
 		} else {
 			reports[ag._index].Rollback.State = NoneByRolledBack
 		}
 	}
-	indexed_errors := ag.join()
+	errors := ag.join()
 
-	if len(indexed_errors) > 0 {
-		for i := range indexed_errors {
-			idx := indexed_errors[i].Index
-			reports[idx].Rollback = TxnFailureRollback{State: RollbackFailure, Err: indexed_errors[i].Err}
+	if len(errors) > 0 {
+		for i := range errors {
+			idx := errors[i].Index
+			reports[idx].Rollback = TxnFailureRollback{State: RollbackFailure, Err: errors[i].Err}
 		}
 	}
 
