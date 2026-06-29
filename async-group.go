@@ -10,10 +10,24 @@ import (
 	"github.com/sttk/errs"
 )
 
+// ErrEntry represents an error encountered during a specific task,
+// associated with its identifier and name.
+//
+// This struct is used in concurrent or batch processing to track which
+// specific task generated which error, allowing for precise identification
+// and handling of failures.
 type ErrEntry struct {
+	// Index is the task identifier or sequence number (typically the index
+	// in a slice of tasks) associated with the failed execution.
 	Index int
-	Name  string
-	Err   errs.Err
+
+	// Name is the descriptive identifier or label assigned to the task
+	// or resource that encountered the error.
+	Name string
+
+	// Err is the error value returned by the task. It uses the errs.Err type
+	// from the "github.com/sttk/errs" package to represent the failure details.
+	Err errs.Err
 }
 
 // AsyncGroup coordinates the execution of multiple asynchronous tasks and
