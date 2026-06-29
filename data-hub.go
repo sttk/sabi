@@ -15,14 +15,14 @@ type /* error reasons */ (
 	// global data sources failed to initialize during their setup phase. It wraps the
 	// list of individual errors encountered by the data sources.
 	FailToSetupGlobalDataSrcs struct {
-		Errors []DataSrcErr
+		Errors []ErrEntry
 	}
 
 	// FailToSetupLocalDataSrcs represents an error reason indicating that one or more
 	// local data sources registered to a specific DataHub failed to initialize when the
 	// hub began transaction execution. It wraps the list of individual initialization errors.
 	FailToSetupLocalDataSrcs struct {
-		Errors []DataSrcErr
+		Errors []ErrEntry
 	}
 
 	// NoDataSrcToCreateDataConn represents an error reason indicating that there is no

@@ -8,17 +8,6 @@ import (
 	"github.com/sttk/errs"
 )
 
-// DataSrcErr represents an error that occurred in a data source, associating
-// the name of the data source with the specific error returned during its
-// lifecycle (such as setup or initialization). This allows callers to identify
-// which data source encountered an issue and handle the failure accordingly.
-type DataSrcErr struct {
-	// Name is the identifier of the data source that experienced the error.
-	Name string
-	// Err is the error details returned by the data source.
-	Err errs.Err
-}
-
 // DataSrc is an interface representing a factory or connection pool for data sources
 // (such as databases, external APIs, or files) that need initialization and cleanup.
 // It manages the lifecycle of the data source before connections are created, and
@@ -94,25 +83,30 @@ func (mgr *dataSrcManager) close() {
 	mgr.listUnready = nil
 }
 
-func (mgr *dataSrcManager) setup() []DataSrcErr {
+func (mgr *dataSrcManager) setup() []ErrEntry {
 	if len(mgr.listUnready) == 0 {
 		return nil
 	}
 
 	ag := AsyncGroup{}
+	ii := 0
+	nDone := 0
 	for i := range mgr.listUnready {
-		if mgr.listUnready[i].ds != nil {
-			ag._index = i
-			if err := mgr.listUnready[i].ds.Setup(&ag); err.IsNotOk() {
-				ag.addErr(ag._index, err)
-				break
-			}
+		if mgr.listUnready[i].ds == nil {
+			continue
+		}
+		ag._name = mgr.listUnready[i].name
+		ag._index = ii
+		ii++
+		if err := mgr.listUnready[i].ds.Setup(&ag); err.IsNotOk() {
+			ag.addErr(ag._index, ag._name, err)
+			nDone = i
+			break
 		}
 	}
-	nDone := ag._index
-	indexedErrors := ag.join()
+	errors := ag.join()
 
-	if len(indexedErrors) == 0 {
+	if len(errors) == 0 {
 		for i := range mgr.listUnready {
 			if mgr.listUnready[i].ds != nil {
 				mgr.listReady = append(mgr.listReady, mgr.listUnready[i])
@@ -126,16 +120,11 @@ func (mgr *dataSrcManager) setup() []DataSrcErr {
 				mgr.listUnready[i].ds.Close()
 			}
 		}
-		errors := make([]DataSrcErr, len(indexedErrors))
-		for i, idxErr := range indexedErrors {
-			errors[i].Name = mgr.listUnready[idxErr.Index].name
-			errors[i].Err = idxErr.Err
-		}
 		return errors
 	}
 }
 
-func (mgr *dataSrcManager) setupWithOrder(names []string) []DataSrcErr {
+func (mgr *dataSrcManager) setupWithOrder(names []string) []ErrEntry {
 	if len(mgr.listUnready) == 0 {
 		return nil
 	}
@@ -163,30 +152,37 @@ func (mgr *dataSrcManager) setupWithOrder(names []string) []DataSrcErr {
 	}
 
 	ag := AsyncGroup{}
+	ii := 0
 	nDone := 0
 	for orderIndex, listIndexPlusOffset := range orderedIndexes {
-		if listIndexPlusOffset > 0 { // Ignore unset
-			listIndex := listIndexPlusOffset - offsetAvoidingUnset
-			if mgr.listUnready[listIndex].ds != nil {
-				ag._index = listIndex
-				if err := mgr.listUnready[listIndex].ds.Setup(&ag); err.IsNotOk() {
-					ag.addErr(ag._index, err)
-					nDone = orderIndex
-					break
-				}
-			}
+		if listIndexPlusOffset <= 0 { // Ignore unset
+			continue
+		}
+		listIndex := listIndexPlusOffset - offsetAvoidingUnset
+		if mgr.listUnready[listIndex].ds == nil {
+			continue
+		}
+		ag._name = mgr.listUnready[listIndex].name
+		ag._index = ii
+		ii++
+		if err := mgr.listUnready[listIndex].ds.Setup(&ag); err.IsNotOk() {
+			ag.addErr(ag._index, ag._name, err)
+			nDone = orderIndex
+			break
 		}
 	}
-	indexedErrors := ag.join()
+	errors := ag.join()
 
-	if len(indexedErrors) == 0 {
+	if len(errors) == 0 {
 		for _, listIndexPlusOffset := range orderedIndexes {
-			if listIndexPlusOffset > 0 { // Ignore unset
-				listIndex := listIndexPlusOffset - offsetAvoidingUnset
-				if mgr.listUnready[listIndex].ds != nil {
-					mgr.listReady = append(mgr.listReady, mgr.listUnready[listIndex])
-				}
+			if listIndexPlusOffset <= 0 { // Ignore unset
+				continue
 			}
+			listIndex := listIndexPlusOffset - offsetAvoidingUnset
+			if mgr.listUnready[listIndex].ds == nil {
+				continue
+			}
+			mgr.listReady = append(mgr.listReady, mgr.listUnready[listIndex])
 		}
 		mgr.listUnready = nil
 		return nil
@@ -199,11 +195,6 @@ func (mgr *dataSrcManager) setupWithOrder(names []string) []DataSrcErr {
 					mgr.listUnready[listIndex].ds.Close()
 				}
 			}
-		}
-		errors := make([]DataSrcErr, len(indexedErrors))
-		for i, idxErr := range indexedErrors {
-			errors[i].Name = mgr.listUnready[idxErr.Index].name
-			errors[i].Err = idxErr.Err
 		}
 		return errors
 	}

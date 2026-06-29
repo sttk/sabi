@@ -10,29 +10,10 @@ import (
 	"github.com/sttk/errs"
 )
 
-// IndexedErr represents an error that occurred during an asynchronous task,
-// paired with the index of the task to identify which execution failed.
-//
-// It is a struct that associates an error value (errs.Err) with an integer index.
-//
-// In concurrent or batch processing, multiple tasks are executed asynchronously.
-// If one or more tasks fail, it is crucial to know which task generated which error.
-// IndexedErr provides a mapping between the task (via its index) and the resulting error,
-// allowing callers to pinpoint the source of failure (e.g., matching the error to a
-// specific data source or connection index).
-//
-// Typically, you receive a slice of IndexedErr created by AsyncGroup. You can
-// iterate over this slice and use the Index field to retrieve the original context
-// or metadata of the failed task, and the Err field to handle the error itself.
-type IndexedErr struct {
-	// Index is the task identifier or sequence number (typically the index in a slice
-	// of tasks or resources) associated with the failed asynchronous execution.
-	// This index is determined by the order in which they were added to AsyncGroup.
+type ErrEntry struct {
 	Index int
-
-	// Err is the error returned by the asynchronous task. It uses the errs.Err type
-	// from the "github.com/sttk/errs" package to represent the failure details.
-	Err errs.Err
+	Name  string
+	Err   errs.Err
 }
 
 // AsyncGroup coordinates the execution of multiple asynchronous tasks and
@@ -47,8 +28,9 @@ type IndexedErr struct {
 // allows executing these operations in separate goroutines while safely aggregating all errors
 // that occur, along with their order or resource index.
 type AsyncGroup struct {
-	ierrs  []IndexedErr
+	errors []ErrEntry
 	_index int
+	_name  string
 	wg     sync.WaitGroup
 	mutex  sync.Mutex
 }
@@ -63,22 +45,22 @@ type AsyncGroup struct {
 // Once fn completes, the WaitGroup counter is decremented.
 func (ag *AsyncGroup) Add(fn func() errs.Err) {
 	ag.wg.Add(1)
-	go func(index int) {
+	go func(index int, name string) {
 		defer ag.wg.Done()
 		err := fn()
 		if err.IsNotOk() {
 			ag.mutex.Lock()
 			defer ag.mutex.Unlock()
-			ag.addErr(index, err)
+			ag.addErr(index, name, err)
 		}
-	}(ag._index)
+	}(ag._index, ag._name)
 }
 
-func (ag *AsyncGroup) addErr(index int, err errs.Err) {
-	ag.ierrs = append(ag.ierrs, IndexedErr{Index: index, Err: err})
+func (ag *AsyncGroup) addErr(index int, name string, err errs.Err) {
+	ag.errors = append(ag.errors, ErrEntry{Index: index, Name: name, Err: err})
 }
 
-func (ag *AsyncGroup) join() []IndexedErr {
+func (ag *AsyncGroup) join() []ErrEntry {
 	ag.wg.Wait()
-	return ag.ierrs
+	return ag.errors
 }
