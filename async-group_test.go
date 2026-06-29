@@ -109,30 +109,32 @@ func TestAsyncGroup(t *testing.T) {
 		assert.True(t, executed1)
 		assert.True(t, executed2)
 
-    /*
-		assert.Equal(t, errors[0].Index, 56)
-		assert.Equal(t, errors[0].Name, "baz")
-		switch errors[0].Err.Reason().(type) {
-		case Reason2:
-		default:
-			assert.Fail(t, errors[0].Err.Error())
-		}
-
-		assert.Equal(t, errors[1].Index, 34)
-		assert.Equal(t, errors[1].Name, "bar")
-		switch errors[1].Err.Reason().(type) {
-		case Reason1:
-		default:
-			assert.Fail(t, errors[0].Err.Error())
-		}
-
-		assert.Equal(t, errors[2].Index, 12)
-		assert.Equal(t, errors[2].Name, "foo")
-		switch errors[2].Err.Reason().(type) {
-		case Reason0:
-		default:
-			assert.Fail(t, errors[2].Err.Error())
-		}
-    */
+		// Note: These assertions are temporarily disabled because goroutine scheduling
+		// is non-deterministic. Relying on time.Sleep does not ensure the order of
+		// execution, leading to flaky tests.
+		//
+		//assert.Equal(t, errors[0].Index, 56)
+		//assert.Equal(t, errors[0].Name, "baz")
+		//switch errors[0].Err.Reason().(type) {
+		//case Reason2:
+		//default:
+		//	assert.Fail(t, errors[0].Err.Error())
+		//}
+		//
+		//assert.Equal(t, errors[1].Index, 34)
+		//assert.Equal(t, errors[1].Name, "bar")
+		//switch errors[1].Err.Reason().(type) {
+		//case Reason1:
+		//default:
+		//	assert.Fail(t, errors[0].Err.Error())
+		//}
+		//
+		//assert.Equal(t, errors[2].Index, 12)
+		//assert.Equal(t, errors[2].Name, "foo")
+		//switch errors[2].Err.Reason().(type) {
+		//case Reason0:
+		//default:
+		//	assert.Fail(t, errors[2].Err.Error())
+		//}
 	})
 }
