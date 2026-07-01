@@ -334,6 +334,46 @@ func TestDataConn(t *testing.T) {
 		assert.False(t, ok)
 	})
 
+	t.Run("find by name of ordered DataConn", func(t *testing.T) {
+		logger := list.New()
+
+		manager := newDataConnManagerWithCommitOrder([]string{"baz", "qux", "foo"})
+
+		conn1 := NewSyncDataConn(1, logger, Fail_Not)
+		manager.add(dataConnContainer{name: "foo", conn: &conn1})
+
+		conn2 := NewSyncDataConn(2, logger, Fail_Not)
+		manager.add(dataConnContainer{name: "bar", conn: &conn2})
+
+		conn3 := NewSyncDataConn(3, logger, Fail_Not)
+		manager.add(dataConnContainer{name: "baz", conn: &conn3})
+
+		assert.Len(t, manager.indexMap, 4)
+		assert.Equal(t, manager.indexMap["foo"], 2)
+		assert.Equal(t, manager.list[2].conn, &conn1)
+		assert.Equal(t, manager.indexMap["bar"], 3)
+		assert.Equal(t, manager.list[3].conn, &conn2)
+		assert.Equal(t, manager.indexMap["qux"], 1)
+		assert.Nil(t, manager.list[1].conn)
+		assert.Equal(t, manager.indexMap["baz"], 0)
+		assert.Equal(t, manager.list[0].conn, &conn3)
+
+		cont, ok := manager.findByName("foo")
+		assert.True(t, ok)
+		assert.Equal(t, cont.conn, &conn1)
+
+		cont, ok = manager.findByName("bar")
+		assert.True(t, ok)
+		assert.Equal(t, cont.conn, &conn2)
+
+		cont, ok = manager.findByName("baz")
+		assert.True(t, ok)
+		assert.Equal(t, cont.conn, &conn3)
+
+		_, ok = manager.findByName("qux")
+		assert.False(t, ok)
+	})
+
 	t.Run("new failure reports", func(t *testing.T) {
 		logger := list.New()
 
