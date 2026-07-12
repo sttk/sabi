@@ -120,15 +120,6 @@ func (mgr *dataConnManager) add(cont dataConnContainer) {
 	}
 }
 
-func (mgr *dataConnManager) findByName(name string) (*dataConnContainer, bool) {
-	if idx, ok := mgr.indexMap[name]; ok {
-		if mgr.list[idx].conn != nil {
-			return &mgr.list[idx], true
-		}
-	}
-	return nil, false
-}
-
 func (mgr *dataConnManager) commitOrRollback(err errs.Err) errs.Err {
 	reports := mgr.newFailureReports()
 	if err.IsOk() {
