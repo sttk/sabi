@@ -15,6 +15,8 @@ func TestTxnFailureReport(t *testing.T) {
 		assert.Equal(t, report.DataConnType, "FooDataConn")
 		assert.Equal(t, report.Cause.State, NoneByUncommitted)
 		assert.Equal(t, report.Cause.Err, errs.Ok())
+		assert.Equal(t, report.Rollback.State, NoneByNotRolledBack)
+		assert.Equal(t, report.Rollback.Err, errs.Ok())
 	})
 
 	t.Run("IsCauseOfFailure", func(t *testing.T) {
