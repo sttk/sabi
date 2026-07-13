@@ -4,7 +4,7 @@
   </a>
 
   <h2>
-  "sabi" - A small framework to separate logics and data accesses
+  "sabi" - A small framework to separate logic and data access
   </h2>
   <br>
 
