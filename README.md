@@ -17,7 +17,7 @@
 
 What elevates **sabi** to an advanced framework in particular are the following two key techniques: introducing a data-access interface optimized for each individual piece of logic, and routing input/output from the controller layer directly to the data access layer via `DataSrc`, completely bypassing the logic layer.
 
-### Introducing Data-Access Traits Optimized Per Logic Unit
+### Introducing Data-Access Interfaces Optimized Per Logic Unit
 
 The former approach thoroughly embodies the Interface Segregation Principle (ISP)—one of the SOLID principles that has often ended up more nominal than real in practice. Each piece of logic (use case) defines, on the logic side, its own dedicated interface that specifies only the operations it truly needs. Meanwhile, the data access side implements interfaces based on its responsibility as a data provider. The `DataHub` then mediates and maps between the two, so that the logic side never needs to be aware of the data access side's structure, and the data access side never needs to depend on the structure of individual pieces of logic—each maintains its own independent responsibility.
 
