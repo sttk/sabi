@@ -43,7 +43,7 @@ Moreover, this structure is also well-suited to AI-driven automated programming.
 **sabi** satisfies all of these conditions at the structural level by defining a dedicated data access interface for each piece of logic and making that logic depend only on that narrow interface—so that adding functionality to a particular `DataAcc` never affects existing logic, and swapping implementations can be done safely as long as the interface's contract is satisfied. In this way, **sabi** is not merely a DI framework, but an AI-friendly, capability-oriented framework suited to the modern AI era.
 
 
-## Installation
+## Install
 
 ```sh
 go get github.com/sttk/sabi
