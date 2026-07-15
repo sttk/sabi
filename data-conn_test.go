@@ -451,6 +451,7 @@ func TestDataConn(t *testing.T) {
 			switch r := err.Reason().(type) {
 			case FailToPreCommitDataConn:
 				assert.Len(t, r.Errors, 1)
+				assert.Equal(t, r.Errors[0].Index, 0)
 				assert.Equal(t, r.Errors[0].Name, "foo")
 				assert.Equal(t, r.Errors[0].Err.Reason(), "zzz")
 			default:
@@ -502,8 +503,10 @@ func TestDataConn(t *testing.T) {
 			switch r := err.Reason().(type) {
 			case FailToPreCommitDataConn:
 				assert.Len(t, r.Errors, 2)
+				assert.Equal(t, r.Errors[0].Index, 1)
 				assert.Equal(t, r.Errors[0].Name, "bar")
 				assert.Equal(t, r.Errors[0].Err.Reason(), "zzz")
+				assert.Equal(t, r.Errors[1].Index, 0)
 				assert.Equal(t, r.Errors[1].Name, "foo")
 				assert.Equal(t, r.Errors[1].Err.Reason(), "yyy")
 			default:
@@ -557,6 +560,7 @@ func TestDataConn(t *testing.T) {
 			switch r := err.Reason().(type) {
 			case FailToPreCommitDataConn:
 				assert.Len(t, r.Errors, 1)
+				assert.Equal(t, r.Errors[0].Index, 1)
 				assert.Equal(t, r.Errors[0].Name, "bar")
 				assert.Equal(t, r.Errors[0].Err.Reason(), "yyy")
 			default:
@@ -610,6 +614,7 @@ func TestDataConn(t *testing.T) {
 			switch r := err.Reason().(type) {
 			case FailToCommitDataConn:
 				assert.Len(t, r.Errors, 1)
+				assert.Equal(t, r.Errors[0].Index, 0)
 				assert.Equal(t, r.Errors[0].Name, "foo")
 				assert.Equal(t, r.Errors[0].Err.Reason(), "ZZZ")
 			default:
@@ -665,8 +670,10 @@ func TestDataConn(t *testing.T) {
 			switch r := err.Reason().(type) {
 			case FailToCommitDataConn:
 				assert.Len(t, r.Errors, 2)
+				assert.Equal(t, r.Errors[0].Index, 1)
 				assert.Equal(t, r.Errors[0].Name, "bar")
 				assert.Equal(t, r.Errors[0].Err.Reason(), "ZZZ")
+				assert.Equal(t, r.Errors[1].Index, 0)
 				assert.Equal(t, r.Errors[1].Name, "foo")
 				assert.Equal(t, r.Errors[1].Err.Reason(), "YYY")
 			default:
@@ -724,6 +731,7 @@ func TestDataConn(t *testing.T) {
 			switch r := err.Reason().(type) {
 			case FailToCommitDataConn:
 				assert.Len(t, r.Errors, 1)
+				assert.Equal(t, r.Errors[0].Index, 1)
 				assert.Equal(t, r.Errors[0].Name, "bar")
 				assert.Equal(t, r.Errors[0].Err.Reason(), "YYY")
 			default:
@@ -779,8 +787,10 @@ func TestDataConn(t *testing.T) {
 			switch r := err.Reason().(type) {
 			case FailToPostCommitDataConn:
 				assert.Len(t, r.Errors, 2)
+				assert.Equal(t, r.Errors[0].Index, 0)
 				assert.Equal(t, r.Errors[0].Name, "foo")
 				assert.Equal(t, r.Errors[0].Err.Reason(), "!!!")
+				assert.Equal(t, r.Errors[1].Index, 1)
 				assert.Equal(t, r.Errors[1].Name, "bar")
 				assert.Equal(t, r.Errors[1].Err.Reason(), "!!!")
 			default:
@@ -838,8 +848,10 @@ func TestDataConn(t *testing.T) {
 			switch r := err.Reason().(type) {
 			case FailToPostCommitDataConn:
 				assert.Len(t, r.Errors, 2)
+				assert.Equal(t, r.Errors[0].Index, 1)
 				assert.Equal(t, r.Errors[0].Name, "foo")
 				assert.Equal(t, r.Errors[0].Err.Reason(), "!!!")
+				assert.Equal(t, r.Errors[1].Index, 0)
 				assert.Equal(t, r.Errors[1].Name, "bar")
 				assert.Equal(t, r.Errors[1].Err.Reason(), "!!!")
 			default:
@@ -897,6 +909,7 @@ func TestDataConn(t *testing.T) {
 			switch r := err.Reason().(type) {
 			case FailToPostCommitDataConn:
 				assert.Len(t, r.Errors, 1)
+				assert.Equal(t, r.Errors[0].Index, 1)
 				assert.Equal(t, r.Errors[0].Name, "bar")
 				assert.Equal(t, r.Errors[0].Err.Reason(), "!!!")
 			default:
@@ -1106,6 +1119,7 @@ func TestDataConn(t *testing.T) {
 			switch r := err.Reason().(type) {
 			case FailToCommitDataConn:
 				assert.Len(t, r.Errors, 1)
+				assert.Equal(t, r.Errors[0].Index, 0)
 				assert.Equal(t, r.Errors[0].Name, "foo")
 				assert.Equal(t, r.Errors[0].Err.Reason(), "ZZZ")
 			default:
@@ -1161,6 +1175,7 @@ func TestDataConn(t *testing.T) {
 			switch r := err.Reason().(type) {
 			case FailToCommitDataConn:
 				assert.Len(t, r.Errors, 1)
+				assert.Equal(t, r.Errors[0].Index, 1)
 				assert.Equal(t, r.Errors[0].Name, "bar")
 				assert.Equal(t, r.Errors[0].Err.Reason(), "YYY")
 			default:
@@ -1262,6 +1277,7 @@ func TestDataConn(t *testing.T) {
 			switch r := err.Reason().(type) {
 			case FailToCommitDataConn:
 				assert.Len(t, r.Errors, 1)
+				assert.Equal(t, r.Errors[0].Index, 1)
 				assert.Equal(t, r.Errors[0].Name, "bar")
 				assert.Equal(t, r.Errors[0].Err.Reason(), "YYY")
 			default:
