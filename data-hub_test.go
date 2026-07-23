@@ -2,7 +2,6 @@ package sabi
 
 import (
 	"container/list"
-	"context"
 	"fmt"
 	"testing"
 
@@ -171,9 +170,6 @@ func TestDataHub(t *testing.T) {
 		assert.Empty(t, hubImpl.dataConnManager.indexMap)
 		assert.Empty(t, hubImpl.dataConnMap)
 		assert.False(t, hubImpl.fixed)
-		assert.Nil(t, hubImpl.origCtx)
-		assert.Nil(t, hubImpl.ctx)
-		assert.Nil(t, hubImpl.cancel)
 	})
 
 	t.Run("NewDataHubWithCommitOrder", func(t *testing.T) {
@@ -189,9 +185,6 @@ func TestDataHub(t *testing.T) {
 		assert.Len(t, hubImpl.dataConnManager.indexMap, 3)
 		assert.Empty(t, hubImpl.dataConnMap)
 		assert.False(t, hubImpl.fixed)
-		assert.Nil(t, hubImpl.origCtx)
-		assert.Nil(t, hubImpl.ctx)
-		assert.Nil(t, hubImpl.cancel)
 	})
 
 	t.Run("Uses and ok", func(t *testing.T) {
@@ -212,9 +205,6 @@ func TestDataHub(t *testing.T) {
 		assert.Empty(t, hubImpl.dataConnManager.indexMap)
 		assert.Empty(t, hubImpl.dataConnMap)
 		assert.False(t, hubImpl.fixed)
-		assert.Nil(t, hubImpl.origCtx)
-		assert.Nil(t, hubImpl.ctx)
-		assert.Nil(t, hubImpl.cancel)
 
 		assert.True(t, hub.begin().IsOk())
 
@@ -226,9 +216,6 @@ func TestDataHub(t *testing.T) {
 		assert.Empty(t, hubImpl.dataConnManager.indexMap)
 		assert.Empty(t, hubImpl.dataConnMap)
 		assert.True(t, hubImpl.fixed)
-		assert.Nil(t, hubImpl.origCtx)
-		assert.Nil(t, hubImpl.ctx)
-		assert.Nil(t, hubImpl.cancel)
 	})
 
 	t.Run("Uses but already fixed", func(t *testing.T) {
@@ -248,9 +235,6 @@ func TestDataHub(t *testing.T) {
 		assert.Empty(t, hubImpl.dataConnManager.indexMap)
 		assert.Empty(t, hubImpl.dataConnMap)
 		assert.False(t, hubImpl.fixed)
-		assert.Nil(t, hubImpl.origCtx)
-		assert.Nil(t, hubImpl.ctx)
-		assert.Nil(t, hubImpl.cancel)
 
 		assert.True(t, hub.begin().IsOk())
 
@@ -262,9 +246,6 @@ func TestDataHub(t *testing.T) {
 		assert.Empty(t, hubImpl.dataConnManager.indexMap)
 		assert.Empty(t, hubImpl.dataConnMap)
 		assert.True(t, hubImpl.fixed)
-		assert.Nil(t, hubImpl.origCtx)
-		assert.Nil(t, hubImpl.ctx)
-		assert.Nil(t, hubImpl.cancel)
 
 		hub.Uses("bar", NewMyDataSrc(2, Failure_None, logger))
 
@@ -276,9 +257,6 @@ func TestDataHub(t *testing.T) {
 		assert.Empty(t, hubImpl.dataConnManager.indexMap)
 		assert.Empty(t, hubImpl.dataConnMap)
 		assert.True(t, hubImpl.fixed)
-		assert.Nil(t, hubImpl.origCtx)
-		assert.Nil(t, hubImpl.ctx)
-		assert.Nil(t, hubImpl.cancel)
 	})
 
 	t.Run("Disuses and ok", func(t *testing.T) {
@@ -299,9 +277,6 @@ func TestDataHub(t *testing.T) {
 		assert.Empty(t, hubImpl.dataConnManager.indexMap)
 		assert.Empty(t, hubImpl.dataConnMap)
 		assert.False(t, hubImpl.fixed)
-		assert.Nil(t, hubImpl.origCtx)
-		assert.Nil(t, hubImpl.ctx)
-		assert.Nil(t, hubImpl.cancel)
 
 		hub.Disuses("foo")
 
@@ -313,9 +288,6 @@ func TestDataHub(t *testing.T) {
 		assert.Empty(t, hubImpl.dataConnManager.indexMap)
 		assert.Empty(t, hubImpl.dataConnMap)
 		assert.False(t, hubImpl.fixed)
-		assert.Nil(t, hubImpl.origCtx)
-		assert.Nil(t, hubImpl.ctx)
-		assert.Nil(t, hubImpl.cancel)
 
 		hub.Disuses("bar")
 
@@ -327,9 +299,6 @@ func TestDataHub(t *testing.T) {
 		assert.Empty(t, hubImpl.dataConnManager.indexMap)
 		assert.Empty(t, hubImpl.dataConnMap)
 		assert.False(t, hubImpl.fixed)
-		assert.Nil(t, hubImpl.origCtx)
-		assert.Nil(t, hubImpl.ctx)
-		assert.Nil(t, hubImpl.cancel)
 	})
 
 	t.Run("Disuses and fix", func(t *testing.T) {
@@ -350,9 +319,6 @@ func TestDataHub(t *testing.T) {
 		assert.Empty(t, hubImpl.dataConnManager.indexMap)
 		assert.Empty(t, hubImpl.dataConnMap)
 		assert.False(t, hubImpl.fixed)
-		assert.Nil(t, hubImpl.origCtx)
-		assert.Nil(t, hubImpl.ctx)
-		assert.Nil(t, hubImpl.cancel)
 
 		hub.Disuses("foo")
 
@@ -364,9 +330,6 @@ func TestDataHub(t *testing.T) {
 		assert.Empty(t, hubImpl.dataConnManager.indexMap)
 		assert.Empty(t, hubImpl.dataConnMap)
 		assert.False(t, hubImpl.fixed)
-		assert.Nil(t, hubImpl.origCtx)
-		assert.Nil(t, hubImpl.ctx)
-		assert.Nil(t, hubImpl.cancel)
 
 		hub.Disuses("bar")
 
@@ -378,9 +341,6 @@ func TestDataHub(t *testing.T) {
 		assert.Empty(t, hubImpl.dataConnManager.indexMap)
 		assert.Empty(t, hubImpl.dataConnMap)
 		assert.False(t, hubImpl.fixed)
-		assert.Nil(t, hubImpl.origCtx)
-		assert.Nil(t, hubImpl.ctx)
-		assert.Nil(t, hubImpl.cancel)
 
 		hub.Uses("foo", NewMyDataSrc(1, Failure_None, logger))
 		hub.Uses("bar", NewMyDataSrc(2, Failure_None, logger))
@@ -395,9 +355,6 @@ func TestDataHub(t *testing.T) {
 		assert.Empty(t, hubImpl.dataConnManager.indexMap)
 		assert.Empty(t, hubImpl.dataConnMap)
 		assert.True(t, hubImpl.fixed)
-		assert.Nil(t, hubImpl.origCtx)
-		assert.Nil(t, hubImpl.ctx)
-		assert.Nil(t, hubImpl.cancel)
 
 		hub.Disuses("foo")
 
@@ -409,9 +366,6 @@ func TestDataHub(t *testing.T) {
 		assert.Empty(t, hubImpl.dataConnManager.indexMap)
 		assert.Empty(t, hubImpl.dataConnMap)
 		assert.True(t, hubImpl.fixed)
-		assert.Nil(t, hubImpl.origCtx)
-		assert.Nil(t, hubImpl.ctx)
-		assert.Nil(t, hubImpl.cancel)
 
 		hub.Disuses("bar")
 
@@ -423,9 +377,6 @@ func TestDataHub(t *testing.T) {
 		assert.Empty(t, hubImpl.dataConnManager.indexMap)
 		assert.Empty(t, hubImpl.dataConnMap)
 		assert.True(t, hubImpl.fixed)
-		assert.Nil(t, hubImpl.origCtx)
-		assert.Nil(t, hubImpl.ctx)
-		assert.Nil(t, hubImpl.cancel)
 
 		hub.end()
 
@@ -437,9 +388,6 @@ func TestDataHub(t *testing.T) {
 		assert.Empty(t, hubImpl.dataConnManager.indexMap)
 		assert.Empty(t, hubImpl.dataConnMap)
 		assert.False(t, hubImpl.fixed)
-		assert.Nil(t, hubImpl.origCtx)
-		assert.Nil(t, hubImpl.ctx)
-		assert.Nil(t, hubImpl.cancel)
 
 		hub.Disuses("foo")
 
@@ -451,9 +399,6 @@ func TestDataHub(t *testing.T) {
 		assert.Empty(t, hubImpl.dataConnManager.indexMap)
 		assert.Empty(t, hubImpl.dataConnMap)
 		assert.False(t, hubImpl.fixed)
-		assert.Nil(t, hubImpl.origCtx)
-		assert.Nil(t, hubImpl.ctx)
-		assert.Nil(t, hubImpl.cancel)
 
 		hub.Disuses("bar")
 
@@ -465,9 +410,6 @@ func TestDataHub(t *testing.T) {
 		assert.Empty(t, hubImpl.dataConnManager.indexMap)
 		assert.Empty(t, hubImpl.dataConnMap)
 		assert.False(t, hubImpl.fixed)
-		assert.Nil(t, hubImpl.origCtx)
-		assert.Nil(t, hubImpl.ctx)
-		assert.Nil(t, hubImpl.cancel)
 	})
 
 	t.Run("begin if empty", func(t *testing.T) {
@@ -485,9 +427,6 @@ func TestDataHub(t *testing.T) {
 		assert.Empty(t, hubImpl.dataConnManager.indexMap)
 		assert.Empty(t, hubImpl.dataConnMap)
 		assert.True(t, hubImpl.fixed)
-		assert.Nil(t, hubImpl.origCtx)
-		assert.Nil(t, hubImpl.ctx)
-		assert.Nil(t, hubImpl.cancel)
 
 		hub.end()
 
@@ -499,9 +438,6 @@ func TestDataHub(t *testing.T) {
 		assert.Empty(t, hubImpl.dataConnManager.indexMap)
 		assert.Empty(t, hubImpl.dataConnMap)
 		assert.False(t, hubImpl.fixed)
-		assert.Nil(t, hubImpl.origCtx)
-		assert.Nil(t, hubImpl.ctx)
-		assert.Nil(t, hubImpl.cancel)
 	})
 
 	t.Run("begin and ok", func(t *testing.T) {
@@ -523,9 +459,6 @@ func TestDataHub(t *testing.T) {
 			assert.Empty(t, hubImpl.dataConnManager.indexMap)
 			assert.Empty(t, hubImpl.dataConnMap)
 			assert.False(t, hubImpl.fixed)
-			assert.Nil(t, hubImpl.origCtx)
-			assert.Nil(t, hubImpl.ctx)
-			assert.Nil(t, hubImpl.cancel)
 
 			assert.True(t, hub.begin().IsOk())
 
@@ -537,9 +470,6 @@ func TestDataHub(t *testing.T) {
 			assert.Empty(t, hubImpl.dataConnManager.indexMap)
 			assert.Empty(t, hubImpl.dataConnMap)
 			assert.True(t, hubImpl.fixed)
-			assert.Nil(t, hubImpl.origCtx)
-			assert.Nil(t, hubImpl.ctx)
-			assert.Nil(t, hubImpl.cancel)
 
 			hub.end()
 
@@ -551,9 +481,6 @@ func TestDataHub(t *testing.T) {
 			assert.Empty(t, hubImpl.dataConnManager.indexMap)
 			assert.Empty(t, hubImpl.dataConnMap)
 			assert.False(t, hubImpl.fixed)
-			assert.Nil(t, hubImpl.origCtx)
-			assert.Nil(t, hubImpl.ctx)
-			assert.Nil(t, hubImpl.cancel)
 		}()
 
 		log := logger.Front()
@@ -588,9 +515,6 @@ func TestDataHub(t *testing.T) {
 			assert.Empty(t, hubImpl.dataConnManager.indexMap)
 			assert.Empty(t, hubImpl.dataConnMap)
 			assert.False(t, hubImpl.fixed)
-			assert.Nil(t, hubImpl.origCtx)
-			assert.Nil(t, hubImpl.ctx)
-			assert.Nil(t, hubImpl.cancel)
 
 			err := hub.begin()
 			defer hub.end()
@@ -1445,46 +1369,6 @@ func TestDataHub(t *testing.T) {
 		assert.Equal(t, log.Value, "MyDataSrc#Close 1")
 		log = log.Next()
 		assert.Nil(t, log)
-	})
-
-	t.Run("use context.Context", func(t *testing.T) {
-		logger := list.New()
-
-		hub := NewDataHub()
-		defer hub.Close()
-
-		hub.Uses("foo", NewMyDataSrc(1, Failure_None, logger))
-
-		err := Run(hub, func(data DataAcc) errs.Err {
-			logger.PushBack("execute logic")
-			assert.Nil(t, data.Context())
-			return errs.Ok()
-		})
-		assert.True(t, err.IsOk())
-
-		err = Txn(hub, func(data DataAcc) errs.Err {
-			logger.PushBack("execute logic")
-			assert.Nil(t, data.Context())
-			return errs.Ok()
-		})
-		assert.True(t, err.IsOk())
-
-		ctx := context.Background()
-		hub.(*dataHubImpl).SetContext(ctx)
-
-		err = Run(hub, func(data DataAcc) errs.Err {
-			logger.PushBack("execute logic")
-			assert.NotNil(t, data.Context())
-			return errs.Ok()
-		})
-		assert.True(t, err.IsOk())
-
-		err = Txn(hub, func(data DataAcc) errs.Err {
-			logger.PushBack("execute logic")
-			assert.NotNil(t, data.Context())
-			return errs.Ok()
-		})
-		assert.True(t, err.IsOk())
 	})
 }
 
