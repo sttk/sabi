@@ -598,6 +598,7 @@ func TestDataHub(t *testing.T) {
 			switch rsn := err.Reason().(type) {
 			case FailToSetupLocalDataSrcs:
 				assert.Len(t, rsn.Errors, 1)
+				assert.Equal(t, rsn.Errors[0].Index, 1)
 				assert.Equal(t, rsn.Errors[0].Name, "bar")
 				assert.Equal(t, rsn.Errors[0].Err.Reason(), "setup error")
 			default:
@@ -723,6 +724,7 @@ func TestDataHub(t *testing.T) {
 			switch rsn := err.Reason().(type) {
 			case FailToSetupLocalDataSrcs:
 				assert.Len(t, rsn.Errors, 1)
+				assert.Equal(t, rsn.Errors[0].Index, 0)
 				assert.Equal(t, rsn.Errors[0].Name, "foo")
 				assert.Equal(t, rsn.Errors[0].Err.Reason(), "setup error")
 			default:
@@ -899,6 +901,7 @@ func TestDataHub(t *testing.T) {
 			switch rsn := err.Reason().(type) {
 			case FailToPreCommitDataConn:
 				assert.Len(t, rsn.Errors, 1)
+				assert.Equal(t, rsn.Errors[0].Index, 0)
 				assert.Equal(t, rsn.Errors[0].Name, "foo")
 				assert.Equal(t, rsn.Errors[0].Err.Reason(), "pre commit error")
 			default:
@@ -959,6 +962,7 @@ func TestDataHub(t *testing.T) {
 			switch rsn := err.Reason().(type) {
 			case FailToCommitDataConn:
 				assert.Len(t, rsn.Errors, 1)
+				assert.Equal(t, rsn.Errors[0].Index, 0)
 				assert.Equal(t, rsn.Errors[0].Name, "foo")
 				assert.Equal(t, rsn.Errors[0].Err.Reason(), "commit error")
 			default:
@@ -1023,8 +1027,10 @@ func TestDataHub(t *testing.T) {
 			switch rsn := err.Reason().(type) {
 			case FailToPostCommitDataConn:
 				assert.Len(t, rsn.Errors, 2)
+				assert.Equal(t, rsn.Errors[0].Index, 0)
 				assert.Equal(t, rsn.Errors[0].Name, "foo")
 				assert.Equal(t, rsn.Errors[0].Err.Reason(), "post commit error")
+				assert.Equal(t, rsn.Errors[1].Index, 1)
 				assert.Equal(t, rsn.Errors[1].Name, "bar")
 				assert.Equal(t, rsn.Errors[1].Err.Reason(), "post commit error")
 			default:
@@ -1221,6 +1227,7 @@ func TestDataHub(t *testing.T) {
 			switch rsn := err.Reason().(type) {
 			case FailToSetupLocalDataSrcs:
 				assert.Len(t, rsn.Errors, 1)
+				assert.Equal(t, rsn.Errors[0].Index, 0)
 				assert.Equal(t, rsn.Errors[0].Name, "foo")
 				assert.Equal(t, rsn.Errors[0].Err.Reason(), "setup error")
 			default:
@@ -1550,6 +1557,7 @@ func TestGlobals(t *testing.T) {
 			switch rsn := err.Reason().(type) {
 			case FailToSetupGlobalDataSrcs:
 				assert.Len(t, rsn.Errors, 1)
+				assert.Equal(t, rsn.Errors[0].Index, 0)
 				assert.Equal(t, rsn.Errors[0].Name, "foo")
 				assert.Equal(t, rsn.Errors[0].Err.Reason(), "setup error")
 			default:
@@ -1669,6 +1677,7 @@ func TestGlobals(t *testing.T) {
 			switch rsn := err.Reason().(type) {
 			case FailToSetupGlobalDataSrcs:
 				assert.Len(t, rsn.Errors, 1)
+				assert.Equal(t, rsn.Errors[0].Index, 0)
 				assert.Equal(t, rsn.Errors[0].Name, "bar")
 				assert.Equal(t, rsn.Errors[0].Err.Reason(), "setup error")
 			default:
