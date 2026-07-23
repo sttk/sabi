@@ -1393,6 +1393,7 @@ func TestDataHub(t *testing.T) {
 				switch rsn := err.Reason().(type) {
 				case FailToCastDataConn:
 					assert.Equal(t, rsn.Name, "bar")
+					assert.Equal(t, rsn.FromDataConnType, "*sabi.MyDataConn")
 					assert.Equal(t, rsn.ToDataConnType, "*sabi.BadDataConn")
 				default:
 					assert.Fail(t, err.Error())
