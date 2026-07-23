@@ -51,8 +51,9 @@ type /* error reasons */ (
 	// successfully retrieved, but could not be type-cast to the specific implementation expected by
 	// the caller.
 	FailToCastDataConn struct {
-		Name           string
-		ToDataConnType string
+		Name             string
+		FromDataConnType string
+		ToDataConnType   string
 	}
 
 	// FailToCastDataHub represents an error reason indicating that the provided DataHub instance
@@ -309,7 +310,8 @@ func GetDataConn[C DataConn](data any, name string) (C, errs.Err) {
 
 	c, ok := dc.(C)
 	if !ok {
-		return *new(C), errs.New(FailToCastDataConn{Name: name, ToDataConnType: toType})
+		return *new(C), errs.New(FailToCastDataConn{
+			Name: name, FromDataConnType: typeNameOf(dc), ToDataConnType: toType})
 	}
 
 	return c, errs.Ok()
