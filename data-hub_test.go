@@ -1546,7 +1546,7 @@ func TestGlobals(t *testing.T) {
 		assert.Len(t, globalDataSrcManager.listReady, 0)
 
 		Uses("foo", NewMyDataSrc(1, Failure_Setup, logger))
-		Uses("bar", NewMyDataSrc(1, Failure_Setup, logger))
+		Uses("bar", NewMyDataSrc(2, Failure_Setup, logger))
 
 		assert.False(t, globalDataSrcsFixed)
 		assert.False(t, globalDataSrcManager.local)
@@ -1575,7 +1575,7 @@ func TestGlobals(t *testing.T) {
 		}()
 
 		log := logger.Front()
-		assert.Equal(t, log.Value, "MyDataSrc#Setup 1 failed")
+		assert.Equal(t, log.Value, "MyDataSrc#Setup 2 failed")
 		log = log.Next()
 		assert.Nil(t, log)
 	})
