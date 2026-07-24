@@ -101,7 +101,8 @@ type SettingDataAcc struct {
   sabi.DataAcc
 }
 func (da *SettingDataAcc) SetText(text string) errs.Err {
-  ctx := da.Context()
+  ctx = context.Background()
+
   dc, err := sabi.GetDataConn[*sabi_redis.RedisDataConn](da, "redis")
   if err.IsNotOk() {
     return err
@@ -201,8 +202,6 @@ func run() errs.Err {
 
     // Register session-local DataSrc with DataHub.
     data.Uses("bar", &BarDataSrc{})
-
-    data.SetContext(context.Background())
 
     // Execute application logic without a transaction control.
     return sabi.Run(data, MyLogic)
