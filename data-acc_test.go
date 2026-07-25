@@ -294,4 +294,73 @@ func TestRun(t *testing.T) {
 }
 
 func TestTxn(t *testing.T) {
+	sabi.ResetGlobals()
+	defer sabi.ResetGlobals()
+
+	logger := list.New()
+
+	func() {
+		sabi.Uses("foo", NewFooDataSrc(1, "hello", logger, false))
+
+		err := sabi.Setup()
+		defer sabi.Shutdown()
+		assert.True(t, err.IsOk())
+
+		func() {
+			data := NewSampleDataHub()
+			defer data.Close()
+
+			data.Uses("bar", NewBarDataSrc(2, logger, false))
+
+			err = sabi.Txn(data, sampleLogic)
+			assert.True(t, err.IsOk())
+		}()
+	}()
+
+	log := logger.Front()
+	assert.Equal(t, log.Value, "NewFooDataSrc 1")
+	log = log.Next()
+	assert.Equal(t, log.Value, "FooDataSrc#Setup 1")
+	log = log.Next()
+	assert.Equal(t, log.Value, "NewBarDataSrc 2")
+	log = log.Next()
+	assert.Equal(t, log.Value, "BarDataSrc#Setup 2")
+	log = log.Next()
+	assert.Equal(t, log.Value, "FooDataSrc#CreateDataConn 1")
+	log = log.Next()
+	assert.Equal(t, log.Value, "NewFooDataConn 1")
+	log = log.Next()
+	assert.Equal(t, log.Value, "FooDataConn#GetText 1")
+	log = log.Next()
+	assert.Equal(t, log.Value, "BarDataSrc#CreateDataConn 2")
+	log = log.Next()
+	assert.Equal(t, log.Value, "NewBarDataConn 2")
+	log = log.Next()
+	assert.Equal(t, log.Value, "BarDataConn#SetText 2")
+	log = log.Next()
+	assert.Equal(t, log.Value, "FooDataConn#GetText 1")
+	log = log.Next()
+	assert.Equal(t, log.Value, "BarDataConn#SetText 2")
+	log = log.Next()
+	assert.Equal(t, log.Value, "FooDataConn#PreCommit 1")
+	log = log.Next()
+	assert.Equal(t, log.Value, "BarDataConn#PreCommit 2")
+	log = log.Next()
+	assert.Equal(t, log.Value, "FooDataConn#Commit 1")
+	log = log.Next()
+	assert.Equal(t, log.Value, "BarDataConn#Commit 2")
+	log = log.Next()
+	assert.Equal(t, log.Value, "FooDataConn#PostCommit 1")
+	log = log.Next()
+	assert.Equal(t, log.Value, "BarDataConn#PostCommit 2")
+	log = log.Next()
+	assert.Equal(t, log.Value, "BarDataConn#Close 2")
+	log = log.Next()
+	assert.Equal(t, log.Value, "FooDataConn#Close 1")
+	log = log.Next()
+	assert.Equal(t, log.Value, "BarDataSrc#Close 2")
+	log = log.Next()
+	assert.Equal(t, log.Value, "FooDataSrc#Close 1")
+	log = log.Next()
+	assert.Nil(t, log)
 }
