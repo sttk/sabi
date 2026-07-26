@@ -103,26 +103,26 @@ type SettingDataAcc struct {
 func (da *SettingDataAcc) SetText(text string) errs.Err {
   ctx = context.Background()
 
-  dc, err := sabi.GetDataConn[*sabi_redis.RedisDataConn](da, "redis")
+  redisDc, err := sabi.GetDataConn[*sabi_redis.RedisDataConn](da, "redis")
   if err.IsNotOk() {
     return err
   }
 
-  redisConn := dc.GetConnection()
+  redisConn := redisDc.GetConnection()
   e := redisConn.Set(ctx, "key", text, 0).Err()
   if e != nil {
     return errs.New("fail to set text to key", e)
   }
-  dc.AddRollback(func(rConn *redis.Conn) errs.Err {
+  redisDc.AddRollback(func(rConn *redis.Conn) errs.Err {
     e := rConn.Del(ctx, "key").Err()
     return errs.New("fail to delete key for rollback", e)
   })
 
-  stdioConn, err := sabi.GetDataConn[*sabi_stdio.StdioDataConn](da, "stdio")
+  stdioDc, err := sabi.GetDataConn[*sabi_stdio.StdioDataConn](da, "stdio")
   if err.IsNotOk() {
     return err
   }
-  stdioConn.AddPostCommit(func(_ *os.File, stdout *os.File, _ *os.File) errs.Err {
+  stdioDc.AddPostCommit(func(_ *os.File, stdout *os.File, _ *os.File) errs.Err {
     fmt.Fprintf(stdout, "%s", text)
     return errs.Ok()
   })
@@ -173,6 +173,8 @@ function (`MyLogic`) without or within a transaction.
 ```go
 import (
   "context"
+  "fmt"
+  "os"
 
   "github.com/sttk/errs"
   "github.com/sttk/sabi"
@@ -184,7 +186,8 @@ func init() {
 }
 
 func main() {
-    if run().IsNotOk() {
+    if err := run(); err.IsNotOk() {
+        fmt.Fprintln(os.Stderr, err.Error());
         os.Exit(1)
     }
 }
@@ -197,7 +200,7 @@ func run() errs.Err {
     defer sabi.Shutdown()
 
     // Creates a new instance of DataHub.
-    data := sabi.NewMyDataHub()
+    data := NewMyDataHub()
     defer data.Close()
 
     // Register session-local DataSrc with DataHub.
