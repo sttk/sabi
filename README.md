@@ -8,7 +8,7 @@
   </h2>
   <br>
 
-  [![Go Reference][pkg-dev-img]][pkg-dev-url] [![CI Status][ci-img]][ci-url] [![MIT License][mit-img]][mit-url]
+  [![Release][release-img]][release-url] [![Go Reference][pkg-dev-img]][pkg-dev-url] [![CI Status][ci-img]][ci-url] [![MIT License][mit-img]][mit-url]
 </div>
 
 ## Overview
@@ -45,8 +45,16 @@ Moreover, this structure is also well-suited to AI-driven automated programming.
 
 ## Install
 
-```sh
+To get the latest version of this package, run the following command:
+
+```bash
 go get github.com/sttk/sabi
+```
+
+To get a specific version of this package, run the following command:
+
+```bash
+go get github.com/sttk/sabi@v1.0.0
 ```
 
 ## Usage
@@ -231,25 +239,18 @@ This framework supports Go 1.23 or later.
 ### Actual test results for each Go version:
 
 ```sh
-% gvm-fav
-Now using version go1.23.12
-go version go1.23.12 darwin/amd64
-ok  	github.com/sttk/sabi	8.564s	coverage: 97.0% of statements
+% go-fav 1.26.2 1.25.9 1.24.13 1.23.12
+go version go1.26.2 darwin/amd64
+ok  	github.com/sttk/sabi	0.371s	coverage: 99.5% of statements
 
-Now using version go1.24.13
+go version go1.25.9 darwin/amd64
+ok  	github.com/sttk/sabi	0.328s	coverage: 99.5% of statements
+
 go version go1.24.13 darwin/amd64
-ok  	github.com/sttk/sabi	8.572s	coverage: 97.0% of statements
+ok  	github.com/sttk/sabi	0.498s	coverage: 99.5% of statements
 
-Now using version go1.25.8
-go version go1.25.8 darwin/amd64
-ok  	github.com/sttk/sabi	8.778s	coverage: 97.0% of statements
-
-Now using version go1.26.1
-go version go1.26.1 darwin/amd64
-ok  	github.com/sttk/sabi	8.739s	coverage: 97.0% of statements
-
-Back to go1.26.1
-Now using version go1.26.1
+go version go1.23.12 darwin/amd64
+ok  	github.com/sttk/sabi	0.317s	coverage: 99.5% of statements
 ```
 
 ## License
@@ -261,6 +262,8 @@ See the file LICENSE in this distribution for more details.
 
 
 [repo-url]: https://github.com/sttk/sabi
+[release-img]: https://img.shields.io/badge/release-0.9.0-0f9999.svg
+[release-url]: https://github.com/sttk/sabi/releases
 [pkg-dev-img]: https://pkg.go.dev/badge/github.com/sttk/sabi.svg
 [pkg-dev-url]: https://pkg.go.dev/github.com/sttk/sabi
 [ci-img]: https://github.com/sttk/sabi/actions/workflows/go.yml/badge.svg?branch=main
