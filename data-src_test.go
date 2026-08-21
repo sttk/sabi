@@ -535,7 +535,7 @@ func TestDataSrc(t *testing.T) {
 		assert.Nil(t, log)
 	})
 
-	t.Run("setupWithOrder containing duplicated name and ok 2", func(t *testing.T) {
+	t.Run("setupWithOrder containing duplicated name and ok (2)", func(t *testing.T) {
 		logger := list.New()
 
 		func() {
@@ -646,6 +646,33 @@ func TestDataSrc(t *testing.T) {
 		assert.Equal(t, log.Value, "SyncDataSrc.Close 3")
 		log = log.Next()
 		assert.Nil(t, log)
+	})
+
+	t.Run("setupWithOrder but one of names is not used (2)", func(t *testing.T) {
+		logger := list.New()
+
+		func() {
+			manager := newDataSrcManager(true)
+			defer manager.close()
+
+			ds1 := NewSyncDataSrc(1, logger, Fail2_Not)
+			manager.add("foo", &ds1)
+
+			ds2 := NewSyncDataSrc(2, logger, Fail2_Not)
+			manager.add("bar", &ds2)
+
+			assert.True(t, manager.local)
+			assert.Len(t, manager.listUnready, 2)
+			assert.Len(t, manager.listReady, 0)
+
+			errors := manager.setupWithOrder([]string{"bar", "xxx", "foo"})
+
+			assert.True(t, manager.local)
+			assert.Len(t, manager.listUnready, 0)
+			assert.Len(t, manager.listReady, 2)
+
+			assert.Len(t, errors, 0)
+		}()
 	})
 
 	t.Run("copyDsReadyToMap", func(t *testing.T) {

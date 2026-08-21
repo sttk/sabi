@@ -137,7 +137,7 @@ func (mgr *dataSrcManager) setupWithOrder(names []string) []ErrEntry {
 
 	const offsetAvoidingUnset = 1 // To distinguish from the unset value 0.
 
-	orderedIndexes := make([]int, len(names), len(mgr.listUnready))
+	orderedIndexes := make([]int, len(names), max(len(names), len(mgr.listUnready)))
 
 	for listIndex := range mgr.listUnready {
 		if mgr.listUnready[listIndex].ds != nil {
@@ -159,9 +159,9 @@ func (mgr *dataSrcManager) setupWithOrder(names []string) []ErrEntry {
 			continue
 		}
 		listIndex := listIndexPlusOffset - offsetAvoidingUnset
-		if mgr.listUnready[listIndex].ds == nil {
-			continue
-		}
+		//if mgr.listUnready[listIndex].ds == nil { // impossible
+		//	continue
+		//}
 		ag._name = mgr.listUnready[listIndex].name
 		ag._index = ii
 		ii++
@@ -179,9 +179,9 @@ func (mgr *dataSrcManager) setupWithOrder(names []string) []ErrEntry {
 				continue
 			}
 			listIndex := listIndexPlusOffset - offsetAvoidingUnset
-			if mgr.listUnready[listIndex].ds == nil {
-				continue
-			}
+			//if mgr.listUnready[listIndex].ds == nil { // impossible
+			//	continue
+			//}
 			mgr.listReady = append(mgr.listReady, mgr.listUnready[listIndex])
 		}
 		mgr.listUnready = nil
