@@ -15,6 +15,7 @@ type /* error reasons */ (
 	// which connections encountered issues and what the underlying errors were before
 	// the actual commit was attempted.
 	FailToPreCommitDataConn struct {
+		// Errors is a slice of ErrEntry containing connection errors that occurred during pre-commit.
 		Errors []ErrEntry
 	}
 
@@ -23,6 +24,7 @@ type /* error reasons */ (
 	// errors from the failed connections, which is useful for diagnosing failures that
 	// happened while finalizing the transactions on those connections.
 	FailToCommitDataConn struct {
+		// Errors is a slice of ErrEntry containing connection errors that occurred during commit.
 		Errors []ErrEntry
 	}
 
@@ -32,6 +34,7 @@ type /* error reasons */ (
 	// successfully, subsequent cleanup or follow-up operations on the connections failed.
 	// It contains a list of individual connection errors for diagnosis.
 	FailToPostCommitDataConn struct {
+		// Errors is a slice of ErrEntry containing connection errors that occurred during post-commit.
 		Errors []ErrEntry
 	}
 )
@@ -118,17 +121,6 @@ func (mgr *dataConnManager) add(cont dataConnContainer) {
 		mgr.indexMap[cont.name] = len(mgr.list)
 		mgr.list = append(mgr.list, cont)
 	}
-}
-
-func (mgr *dataConnManager) commitOrRollback(err errs.Err) errs.Err {
-	reports := mgr.newFailureReports()
-	if err.IsOk() {
-		err = mgr.commit(reports)
-	}
-	if err.IsNotOk() {
-		mgr.rollback(reports)
-	}
-	return err
 }
 
 func (mgr *dataConnManager) newFailureReports() []TxnFailureReport {

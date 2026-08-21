@@ -161,6 +161,46 @@ func (conn *AsyncDataConn) Close() {
 	conn.logger.PushBack(fmt.Sprintf("AsyncDataConn#Close %d", conn.id))
 }
 
+type NoCommitDataConn struct {
+	id     int8
+	fail   Fail
+	logger *list.List
+}
+
+func NewNoCommitDataConn(id int8, logger *list.List, fail Fail) NoCommitDataConn {
+	return NoCommitDataConn{
+		id:     id,
+		fail:   fail,
+		logger: logger,
+	}
+}
+func (conn *NoCommitDataConn) Commit(ag *AsyncGroup) errs.Err {
+	conn.logger.PushBack(fmt.Sprintf("NoCommitDataConn#Commit %d", conn.id))
+	return errs.Ok()
+}
+func (conn *NoCommitDataConn) PreCommit(ag *AsyncGroup) errs.Err {
+	conn.logger.PushBack(fmt.Sprintf("NoCommitDataConn#PreCommit %d", conn.id))
+	return errs.Ok()
+}
+func (conn *NoCommitDataConn) PostCommit(ag *AsyncGroup) errs.Err {
+	conn.logger.PushBack(fmt.Sprintf("NoCommitDataConn#PostCommit %d", conn.id))
+	return errs.Ok()
+}
+func (conn *NoCommitDataConn) IsCommitted() bool {
+	return false
+}
+func (conn *NoCommitDataConn) Rollback(ag *AsyncGroup) errs.Err {
+	conn.logger.PushBack(fmt.Sprintf("NoCommitDataConn#Rollback %d", conn.id))
+	return errs.Ok()
+}
+func (conn *NoCommitDataConn) OnTxnFailure(ag *AsyncGroup, reports []TxnFailureReport) {
+	conn.logger.PushBack(fmt.Sprintf("NoCommitDataConn#OnTxnFailure %d", conn.id))
+	conn.logger.PushBack(fmt.Sprintf("TxnFailureReport=%+v", reports))
+}
+func (conn *NoCommitDataConn) Close() {
+	conn.logger.PushBack(fmt.Sprintf("NoCommitDataConn#Close %d", conn.id))
+}
+
 func TestDataConn(t *testing.T) {
 	t.Run("new", func(t *testing.T) {
 		manager := newDataConnManager()
@@ -940,6 +980,79 @@ func TestDataConn(t *testing.T) {
 		assert.Equal(t, log.Value, "AsyncDataConn#OnTxnFailure 2")
 		log = log.Next()
 		assert.Equal(t, log.Value, "TxnFailureReport=[{DataConnName:foo DataConnType:*sabi.SyncDataConn Cause:{State:NoneByCommitted Err:github.com/sttk/errs.Err {}} Rollback:{State:NoneByNotRolledBack Err:github.com/sttk/errs.Err {}}} {DataConnName:bar DataConnType:*sabi.AsyncDataConn Cause:{State:PostCommitFailure Err:github.com/sttk/errs.Err {reason:!!! file:data-conn_test.go line:131}} Rollback:{State:NoneByNotRolledBack Err:github.com/sttk/errs.Err {}}}]")
+		log = log.Next()
+		assert.Equal(t, log.Value, "AsyncDataConn#Close 2")
+		log = log.Next()
+		assert.Equal(t, log.Value, "SyncDataConn#Close 1")
+		log = log.Next()
+		assert.Nil(t, log)
+	})
+
+	t.Run("commit and rollback but fail second post-commit and contains no-commit", func(t *testing.T) {
+		logger := list.New()
+
+		func() {
+			manager := newDataConnManager()
+			defer manager.close()
+
+			conn1 := NewSyncDataConn(1, logger, Fail_Not)
+			manager.add(dataConnContainer{name: "foo", conn: &conn1})
+
+			conn2 := NewAsyncDataConn(2, logger, Fail_PostCommit)
+			manager.add(dataConnContainer{name: "bar", conn: &conn2})
+
+			conn3 := NewNoCommitDataConn(3, logger, Fail_Not)
+			manager.add(dataConnContainer{name: "baz", conn: &conn3})
+
+			reports := manager.newFailureReports()
+
+			err := manager.commit(reports)
+			switch r := err.Reason().(type) {
+			case FailToPostCommitDataConn:
+				assert.Len(t, r.Errors, 1)
+				assert.Equal(t, r.Errors[0].Index, 1)
+				assert.Equal(t, r.Errors[0].Name, "bar")
+				assert.Equal(t, r.Errors[0].Err.Reason(), "!!!")
+			default:
+				assert.Fail(t, err.Error())
+			}
+
+			manager.rollback(reports)
+		}()
+
+		assert.Equal(t, logger.Len(), 18)
+		log := logger.Front()
+		assert.Equal(t, log.Value, "SyncDataConn#PreCommit 1")
+		log = log.Next()
+		assert.Equal(t, log.Value, "NoCommitDataConn#PreCommit 3")
+		log = log.Next()
+		assert.Equal(t, log.Value, "AsyncDataConn#PreCommit 2")
+		log = log.Next()
+		assert.Equal(t, log.Value, "SyncDataConn#Commit 1")
+		log = log.Next()
+		assert.Equal(t, log.Value, "NoCommitDataConn#Commit 3")
+		log = log.Next()
+		assert.Equal(t, log.Value, "AsyncDataConn#Commit 2")
+		log = log.Next()
+		assert.Equal(t, log.Value, "SyncDataConn#PostCommit 1")
+		log = log.Next()
+		assert.Equal(t, log.Value, "NoCommitDataConn#PostCommit 3")
+		log = log.Next()
+		assert.Equal(t, log.Value, "AsyncDataConn#PostCommit 2 failed")
+		log = log.Next()
+		assert.Equal(t, log.Value, "SyncDataConn#OnTxnFailure 1")
+		log = log.Next()
+		assert.Equal(t, log.Value, "TxnFailureReport=[{DataConnName:foo DataConnType:*sabi.SyncDataConn Cause:{State:NoneByCommitted Err:github.com/sttk/errs.Err {}} Rollback:{State:NoneByNotRolledBack Err:github.com/sttk/errs.Err {}}} {DataConnName:bar DataConnType:*sabi.AsyncDataConn Cause:{State:PostCommitFailure Err:github.com/sttk/errs.Err {reason:!!! file:data-conn_test.go line:131}} Rollback:{State:NoneByNotRolledBack Err:github.com/sttk/errs.Err {}}} {DataConnName:baz DataConnType:*sabi.NoCommitDataConn Cause:{State:NoneByUncommitted Err:github.com/sttk/errs.Err {}} Rollback:{State:NoneByNotRolledBack Err:github.com/sttk/errs.Err {}}}]")
+		log = log.Next()
+		assert.Equal(t, log.Value, "NoCommitDataConn#OnTxnFailure 3")
+		log = log.Next()
+		assert.Equal(t, log.Value, "TxnFailureReport=[{DataConnName:foo DataConnType:*sabi.SyncDataConn Cause:{State:NoneByCommitted Err:github.com/sttk/errs.Err {}} Rollback:{State:NoneByNotRolledBack Err:github.com/sttk/errs.Err {}}} {DataConnName:bar DataConnType:*sabi.AsyncDataConn Cause:{State:PostCommitFailure Err:github.com/sttk/errs.Err {reason:!!! file:data-conn_test.go line:131}} Rollback:{State:NoneByNotRolledBack Err:github.com/sttk/errs.Err {}}} {DataConnName:baz DataConnType:*sabi.NoCommitDataConn Cause:{State:NoneByUncommitted Err:github.com/sttk/errs.Err {}} Rollback:{State:NoneByNotRolledBack Err:github.com/sttk/errs.Err {}}}]")
+		log = log.Next()
+		assert.Equal(t, log.Value, "AsyncDataConn#OnTxnFailure 2")
+		log = log.Next()
+		assert.Equal(t, log.Value, "TxnFailureReport=[{DataConnName:foo DataConnType:*sabi.SyncDataConn Cause:{State:NoneByCommitted Err:github.com/sttk/errs.Err {}} Rollback:{State:NoneByNotRolledBack Err:github.com/sttk/errs.Err {}}} {DataConnName:bar DataConnType:*sabi.AsyncDataConn Cause:{State:PostCommitFailure Err:github.com/sttk/errs.Err {reason:!!! file:data-conn_test.go line:131}} Rollback:{State:NoneByNotRolledBack Err:github.com/sttk/errs.Err {}}} {DataConnName:baz DataConnType:*sabi.NoCommitDataConn Cause:{State:NoneByUncommitted Err:github.com/sttk/errs.Err {}} Rollback:{State:NoneByNotRolledBack Err:github.com/sttk/errs.Err {}}}]")
+		log = log.Next()
+		assert.Equal(t, log.Value, "NoCommitDataConn#Close 3")
 		log = log.Next()
 		assert.Equal(t, log.Value, "AsyncDataConn#Close 2")
 		log = log.Next()
