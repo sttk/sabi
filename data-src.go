@@ -5,6 +5,8 @@
 package sabi
 
 import (
+	"slices"
+
 	"github.com/sttk/errs"
 )
 
@@ -37,8 +39,8 @@ type dataSrcContainer struct {
 
 type dataSrcManager struct {
 	local       bool
-	listUnready []dataSrcContainer
-	listReady   []dataSrcContainer
+	listUnready []dataSrcContainer // Elements whose .ds is nil are possible.
+	listReady   []dataSrcContainer // Elements whose .ds is nil are impossible.
 }
 
 func newDataSrcManager(local bool) dataSrcManager {
@@ -54,30 +56,22 @@ func (mgr *dataSrcManager) add(name string, ds DataSrc) {
 }
 
 func (mgr *dataSrcManager) remove(name string) {
-	for i := range mgr.listReady {
-		if mgr.listReady[i].name == name && mgr.listReady[i].ds != nil {
-			mgr.listReady[i].ds.Close()
-			mgr.listReady[i].ds = nil
+	mgr.listReady = slices.DeleteFunc(mgr.listReady, func(cont dataSrcContainer) bool {
+		if cont.name == name {
+			cont.ds.Close()
+			return true
+		} else {
+			return false
 		}
-	}
-	for i := range mgr.listUnready {
-		if mgr.listUnready[i].name == name && mgr.listUnready[i].ds != nil {
-			mgr.listUnready[i].ds = nil
-		}
-	}
+	})
+	mgr.listUnready = slices.DeleteFunc(mgr.listUnready, func(cont dataSrcContainer) bool {
+		return (cont.name == name || cont.ds == nil)
+	})
 }
 
 func (mgr *dataSrcManager) close() {
 	for i := len(mgr.listReady) - 1; i >= 0; i-- {
-		if mgr.listReady[i].ds != nil {
-			mgr.listReady[i].ds.Close()
-			mgr.listReady[i].ds = nil
-		}
-	}
-	for i := range mgr.listUnready {
-		if mgr.listUnready[i].ds != nil {
-			mgr.listUnready[i].ds = nil
-		}
+		mgr.listReady[i].ds.Close()
 	}
 	mgr.listReady = nil
 	mgr.listUnready = nil
@@ -191,9 +185,10 @@ func (mgr *dataSrcManager) setupWithOrder(names []string) []ErrEntry {
 			listIndexPlusOffset := orderedIndexes[orderIndex]
 			if listIndexPlusOffset > 0 { // Ignore unset
 				listIndex := listIndexPlusOffset - offsetAvoidingUnset
-				if mgr.listUnready[listIndex].ds != nil {
-					mgr.listUnready[listIndex].ds.Close()
-				}
+				//if mgr.listUnready[listIndex].ds == nil { // impossible
+				//  continue
+				//}
+				mgr.listUnready[listIndex].ds.Close()
 			}
 		}
 		return errors
