@@ -54,7 +54,7 @@ go get github.com/sttk/sabi
 To get a specific version of this package, run the following command:
 
 ```bash
-go get github.com/sttk/sabi@v1.0.0
+go get github.com/sttk/sabi@v0.9.0
 ```
 
 ## Usage
@@ -239,18 +239,23 @@ This framework supports Go 1.23 or later.
 ### Actual test results for each Go version:
 
 ```sh
-% go-fav 1.26.2 1.25.9 1.24.13 1.23.12
+% go-fav 1.27.0 1.26.2 1.25.9 1.24.13 1.23.12
+go version go1.27.0 darwin/amd64
+ok  	github.com/sttk/sabi	0.555s	coverage: 99.8% of statements
+
 go version go1.26.2 darwin/amd64
-ok  	github.com/sttk/sabi	0.371s	coverage: 99.5% of statements
+ok  	github.com/sttk/sabi	0.535s	coverage: 99.7% of statements
 
 go version go1.25.9 darwin/amd64
-ok  	github.com/sttk/sabi	0.328s	coverage: 99.5% of statements
+ok  	github.com/sttk/sabi	0.554s	coverage: 99.7% of statements
 
 go version go1.24.13 darwin/amd64
-ok  	github.com/sttk/sabi	0.498s	coverage: 99.5% of statements
+ok  	github.com/sttk/sabi	0.424s	coverage: 99.7% of statements
 
 go version go1.23.12 darwin/amd64
-ok  	github.com/sttk/sabi	0.317s	coverage: 99.5% of statements
+ok  	github.com/sttk/sabi	0.659s	coverage: 99.7% of statements
+
+%
 ```
 
 ## License
