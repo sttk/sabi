@@ -710,4 +710,41 @@ func TestDataSrc(t *testing.T) {
 		assert.False(t, contMap["baz"].local)
 		assert.Equal(t, contMap["baz"].name, "baz")
 	})
+
+	t.Run("add -> copyDsReadyToMap -> remove -> copyDsReadyToMap", func(t *testing.T) {
+		logger := list.New()
+
+		manager := newDataSrcManager(true)
+
+		ds1 := NewSyncDataSrc(1, logger, Fail2_Not)
+		manager.add("foo", &ds1)
+
+		ds2 := NewSyncDataSrc(2, logger, Fail2_Not)
+		manager.add("bar", &ds2)
+
+		errors := manager.setup()
+		assert.Len(t, errors, 0)
+
+		contMap := make(map[string]dataSrcContainer)
+		manager.copyDsReadyToMap(contMap)
+		assert.Equal(t, len(contMap), 2)
+		assert.True(t, contMap["foo"].local)
+		assert.Equal(t, contMap["foo"].name, "foo")
+		assert.NotNil(t, contMap["foo"].ds)
+		assert.True(t, contMap["bar"].local)
+		assert.Equal(t, contMap["bar"].name, "bar")
+		assert.NotNil(t, contMap["bar"].ds)
+
+		manager.remove("foo")
+
+		errors = manager.setup()
+		assert.Len(t, errors, 0)
+
+		contMap = make(map[string]dataSrcContainer)
+		manager.copyDsReadyToMap(contMap)
+		assert.Equal(t, len(contMap), 1)
+		assert.True(t, contMap["bar"].local)
+		assert.Equal(t, contMap["bar"].name, "bar")
+		assert.NotNil(t, contMap["bar"].ds)
+	})
 }

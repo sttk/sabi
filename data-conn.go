@@ -272,5 +272,5 @@ func (mgr *dataConnManager) close() {
 			mgr.list[i].conn.Close()
 		}
 	}
-	clear(mgr.list)
+	mgr.list = nil
 }
