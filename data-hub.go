@@ -9,324 +9,110 @@ import (
 )
 
 type /* error reasons */ (
-	// FailToSetupGlobalDataSrcs represents an error reason indicating that one or more
-	// global data sources failed to initialize during their setup phase. It wraps the
-	// list of individual errors encountered by the data sources.
-	FailToSetupGlobalDataSrcs struct {
-		Errors []ErrEntry
-	}
-
-	// FailToSetupLocalDataSrcs represents an error reason indicating that one or more
-	// local data sources registered to a specific DataHub failed to initialize when the
-	// hub began transaction execution. It wraps the list of individual initialization errors.
-	FailToSetupLocalDataSrcs struct {
-		Errors []ErrEntry
-	}
-
-	// NoDataSrcToCreateDataConn represents an error reason indicating that there is no
-	// registered data source matching the requested name, making it impossible to create
-	// the requested data connection.
-	NoDataSrcToCreateDataConn struct {
-		Name         string
-		DataConnType string
-	}
-
-	// FailToCreateDataConn represents an error reason indicating that a registered data source
-	// encountered an error while attempting to establish or instantiate a new data connection.
-	FailToCreateDataConn struct {
-		Name         string
-		DataConnType string
-	}
-
-	// CreatedDataConnIsNil represents an error reason indicating that the data source's connection
-	// instantiation completed without returning an error, but the returned connection object was nil.
-	CreatedDataConnIsNil struct {
-		Name         string
-		DataConnType string
-	}
-
-	// FailToCastDataConn represents an error reason indicating that a data connection was
-	// successfully retrieved, but could not be type-cast to the specific implementation expected by
-	// the caller.
-	FailToCastDataConn struct {
-		Name             string
-		FromDataConnType string
-		ToDataConnType   string
-	}
-
-	// FailToCastDataHub represents an error reason indicating that the provided DataHub instance
+	// FailToCastDataAcc represents an error reason indicating that the provided DataAcc instance
 	// could not be type-cast to the generic data access interface type required by the run or
 	// transaction logic.
-	FailToCastDataHub struct {
+	FailToCastDataAcc struct {
+		// FromType is the type name of the DataAcc instance being cast.
 		FromType string
-		ToType   string
+		// ToType is the expected data access interface type name that the cast failed to match.
+		ToType string
 	}
 )
 
-var (
-	globalDataSrcManager dataSrcManager = newDataSrcManager(false)
-	globalDataSrcsFixed  bool           = false
-)
+// DataHub is the central coordinator for executing business logic with data access capabilities.
+//
+// It bridges user-defined data access implementations (which implement IDataAcc and domain-specific
+// interfaces) with the underlying DataAcc instance. DataHub provides methods to register local data
+// sources, release resources, and execute logic functions either without transaction management (Run)
+// or within an atomic transaction boundary (Txn).
+type DataHub struct {
+	da  *DataAcc
+	ida IDataAcc
+}
 
-// Uses registers a global data source with a unique identifier. This registration must occur
-// before Setup is called, as global data sources are initialized during the Setup phase and
-// shared across DataHub instances.
-func Uses(name string, ds DataSrc) {
-	if !globalDataSrcsFixed {
-		globalDataSrcManager.add(name, ds)
+// IDataAcc is an interface that exposes the underlying DataAcc instance.
+//
+// Structs representing customized data access hubs embed DataAcc or DataHub and implement
+// this interface to allow DataHub to manage data sources and connections during execution.
+type IDataAcc interface {
+	getDataAcc() *DataAcc
+}
+
+// NewDataHub creates a new DataHub instance associated with the specified IDataAcc implementation.
+//
+// The provided ida instance is retained to allow casting to domain-specific data access interfaces
+// when executing logic with Run or Txn.
+func NewDataHub(ida IDataAcc) DataHub {
+	return DataHub{
+		da:  ida.getDataAcc(),
+		ida: ida,
 	}
 }
 
-// Setup initializes all registered global data sources. It locks the global data sources to
-// prevent further registrations. If any data source setup fails, it shuts down all successfully
-// initialized data sources and returns an error wrapper.
-func Setup() errs.Err {
-	if !globalDataSrcsFixed {
-		globalDataSrcsFixed = true
-
-		errors := globalDataSrcManager.setup()
-		if len(errors) > 0 {
-			globalDataSrcManager.close()
-			return errs.New(FailToSetupGlobalDataSrcs{Errors: errors})
-		}
-	}
-
-	return errs.Ok()
+// Uses registers a local data source with a unique identifier to the DataHub's underlying DataAcc.
+//
+// Local data sources are specific to this DataHub instance (e.g., for a session or request) and
+// are initialized when Run or Txn begins execution.
+func (hub DataHub) Uses(name string, ds DataSrc) {
+	hub.da.uses(name, ds)
 }
 
-// SetupWithOrder initializes all registered global data sources in the specific order defined by
-// the provided names. Data sources not specified in the list are initialized after the ordered
-// ones.
-// If initialization fails, it shuts down all successfully initialized data sources and returns an error.
-func SetupWithOrder(names ...string) errs.Err {
-	if !globalDataSrcsFixed {
-		globalDataSrcsFixed = true
-
-		errors := globalDataSrcManager.setupWithOrder(names)
-		if len(errors) > 0 {
-			globalDataSrcManager.close()
-			return errs.New(FailToSetupGlobalDataSrcs{Errors: errors})
-		}
-	}
-
-	return errs.Ok()
+// Disuses unregisters and closes a local data source by name from the DataHub's underlying DataAcc.
+//
+// If a data source with the specified name exists and is local, it is closed and removed.
+func (hub DataHub) Disuses(name string) {
+	hub.da.disuses(name)
 }
 
-// Shutdown cleans up and closes all global data sources that were successfully initialized,
-// releasing resources like connection pools.
-func Shutdown() {
-	globalDataSrcManager.close()
+// Close releases all resources associated with the DataHub, closing any active data connections
+// and registered local data sources.
+func (hub DataHub) Close() {
+	hub.da.close()
 }
 
-// DataHub defines the interface for a coordinator that manages the lifecycle of local data sources,
-// manages active data connections, and facilitates the execution of transactional logic. It extends
-// the DataAcc interface to allow querying and retrieving active data connections.
-type DataHub interface {
-	DataAcc
-
-	// Uses registers a local data source with a unique identifier specifically for this DataHub
-	// instance.
-	// This local data source is only visible within this hub's execution scope.
-	Uses(name string, ds DataSrc)
-	// Disuses removes a registered local data source from this DataHub instance, or marks a global
-	// data source as ignored in this hub's context.
-	Disuses(name string)
-	// Close releases all local resources, connections, and data sources managed by this DataHub.
-	Close()
-
-	begin() errs.Err
-	commitOrRollback(errs.Err) errs.Err
-	end()
-}
-
-type dataHubImpl struct {
-	DataHub
-
-	localDataSrcManager dataSrcManager
-	dataSrcMap          map[string]dataSrcContainer
-	dataConnManager     dataConnManager
-	dataConnMap         map[string]dataConnContainer
-	fixed               bool
-}
-
-// NewDataHub creates and initializes a new DataHub instance populated with the currently
-// ready global data sources. The returned hub can be configured with additional local data sources
-// prior to executing logic.
-func NewDataHub() DataHub {
-	globalDataSrcsFixed = true
-
-	dsMap := make(map[string]dataSrcContainer, len(globalDataSrcManager.listReady))
-	globalDataSrcManager.copyDsReadyToMap(dsMap)
-
-	return &dataHubImpl{
-		localDataSrcManager: newDataSrcManager(true),
-		dataSrcMap:          dsMap,
-		dataConnManager:     newDataConnManager(),
-		dataConnMap:         make(map[string]dataConnContainer),
-		fixed:               false,
-	}
-}
-
-// NewDataHubWithCommitOrder creates and initializes a new DataHub instance, specifying a sequence
-// in which its data connections should be committed. This helps ensure multi-resource consistency
-// when certain connections depend on the successful commit of others.
-func NewDataHubWithCommitOrder(names ...string) DataHub {
-	globalDataSrcsFixed = true
-
-	dsMap := make(map[string]dataSrcContainer, len(globalDataSrcManager.listReady))
-	globalDataSrcManager.copyDsReadyToMap(dsMap)
-
-	return &dataHubImpl{
-		localDataSrcManager: newDataSrcManager(true),
-		dataSrcMap:          dsMap,
-		dataConnManager:     newDataConnManagerWithCommitOrder(names),
-		dataConnMap:         make(map[string]dataConnContainer),
-		fixed:               false,
-	}
-}
-
-func (hub *dataHubImpl) Uses(name string, ds DataSrc) {
-	if hub.fixed {
-		return
-	}
-
-	hub.localDataSrcManager.add(name, ds)
-}
-
-func (hub *dataHubImpl) Disuses(name string) {
-	if hub.fixed {
-		return
-	}
-
-	if cont, ok := hub.dataSrcMap[name]; ok {
-		if cont.local {
-			delete(hub.dataSrcMap, name)
-		}
-	}
-
-	hub.localDataSrcManager.remove(name)
-}
-
-func (hub *dataHubImpl) Close() {
-	if hub.fixed {
-		return
-	}
-	clear(hub.dataConnMap)
-	hub.dataConnManager.close()
-	clear(hub.dataSrcMap)
-	hub.localDataSrcManager.close()
-}
-
-func (hub *dataHubImpl) begin() errs.Err {
-	hub.fixed = true
-
-	errors := hub.localDataSrcManager.setup()
-	if len(errors) > 0 {
-		return errs.New(FailToSetupLocalDataSrcs{Errors: errors})
-	}
-
-	hub.localDataSrcManager.copyDsReadyToMap(hub.dataSrcMap)
-	return errs.Ok()
-}
-
-func (hub *dataHubImpl) commitOrRollback(err errs.Err) errs.Err {
-	return hub.dataConnManager.commitOrRollback(err)
-}
-
-func (hub *dataHubImpl) end() {
-	clear(hub.dataConnMap)
-	hub.dataConnManager.close()
-
-	hub.fixed = false
-}
-
-func (hub *dataHubImpl) getDataConn(name string, dataConnType string) (DataConn, errs.Err) {
-	dcCont, ok := hub.dataConnMap[name]
-	if ok {
-		return dcCont.conn, errs.Ok()
-	}
-
-	dsCont, ok := hub.dataSrcMap[name]
+// Run executes the provided business logic function without transaction management.
+//
+// It type-casts the embedded data access instance to the generic type D (the data access interface
+// expected by the logic function), initializes local data sources, and invokes the logic function.
+// If the type-cast fails or initialization encounters an error, an error is returned.
+func (hub DataHub) Run[D any](logic func(D) errs.Err) errs.Err {
+	data, ok := hub.ida.(D)
 	if !ok {
-		return nil, errs.New(NoDataSrcToCreateDataConn{Name: name, DataConnType: dataConnType})
-	}
-
-	dc, err := dsCont.ds.CreateDataConn()
-	if err.IsNotOk() {
-		return nil, errs.New(FailToCreateDataConn{Name: name, DataConnType: dataConnType}, err)
-	}
-	if dc == nil {
-		return nil, errs.New(CreatedDataConnIsNil{Name: name, DataConnType: dataConnType})
-	}
-
-	dcCont = dataConnContainer{name: name, conn: dc}
-	hub.dataConnMap[name] = dcCont
-	hub.dataConnManager.add(dcCont)
-
-	return dc, errs.Ok()
-}
-
-// GetDataConn retrieves an active connection of the specified type from the provided data
-// container.
-// It searches the container's DataHub, instantiating the connection from the registered data source
-// if it does not yet exist, and casts it to the expected interface type.
-func GetDataConn[C DataConn](data any, name string) (C, errs.Err) {
-	hub := data.(DataAcc)
-
-	toType := typeNameOfTypeParam[C]()
-
-	dc, err := hub.getDataConn(name, toType)
-	if err.IsNotOk() {
-		return *new(C), err
-	}
-
-	c, ok := dc.(C)
-	if !ok {
-		return *new(C), errs.New(FailToCastDataConn{
-			Name: name, FromDataConnType: typeNameOf(dc), ToDataConnType: toType})
-	}
-
-	return c, errs.Ok()
-}
-
-// Run executes a non-transactional business logic function using the provided DataHub.
-// It manages the hub's lifecycle by starting its local data sources before running the logic,
-// and ensures proper resource cleanup upon completion. It returns an error if setup or the logic
-// fails.
-func Run[D any](hub DataHub, logic func(D) errs.Err) errs.Err {
-	data, ok := hub.(D)
-	if !ok {
-		fromType := typeNameOf(&hub)[1:]
+		fromType := typeNameOf(hub.da)
 		toType := typeNameOfTypeParam[D]()
-		return errs.New(FailToCastDataHub{FromType: fromType, ToType: toType})
+		return errs.New(FailToCastDataAcc{FromType: fromType, ToType: toType})
 	}
 
-	err := hub.begin()
+	err := hub.da.begin()
 	if err.IsNotOk() {
 		return err
 	}
-	defer hub.end()
+	defer hub.da.end()
 
 	return logic(data)
 }
 
-// Txn executes a transactional business logic function using the provided DataHub.
-// It manages the hub's lifecycle, starting data sources, running the logic, and automatically
-// committing the changes if the logic succeeds, or rolling back if an error occurs.
-func Txn[D any](hub DataHub, logic func(D) errs.Err) errs.Err {
-	data, ok := hub.(D)
+// Txn executes the provided business logic function within a managed transaction.
+//
+// It type-casts the embedded data access instance to the generic type D, initializes local data sources,
+// and invokes the logic function. If the logic succeeds (returns errs.Ok()), all participating data
+// connections are committed (with pre-commit, commit, and post-commit phases). If any error occurs
+// during logic execution or commit phases, all connections are rolled back and OnTxnFailure is invoked.
+func (hub DataHub) Txn[D any](logic func(D) errs.Err) errs.Err {
+	data, ok := hub.ida.(D)
 	if !ok {
-		fromType := typeNameOf(&hub)[1:]
+		fromType := typeNameOf(hub.da)
 		toType := typeNameOfTypeParam[D]()
-		return errs.New(FailToCastDataHub{FromType: fromType, ToType: toType})
+		return errs.New(FailToCastDataAcc{FromType: fromType, ToType: toType})
 	}
 
-	err := hub.begin()
+	err := hub.da.begin()
 	if err.IsNotOk() {
 		return err
 	}
-	defer hub.end()
+	defer hub.da.end()
 
 	err = logic(data)
-	return hub.commitOrRollback(err)
+	return hub.da.commitOrRollback(err)
 }
