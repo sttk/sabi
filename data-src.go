@@ -124,7 +124,7 @@ func (mgr *dataSrcManager) setupWithOrder(names []string) []ErrEntry {
 	}
 
 	indexedMap := make(map[string]int, len(names))
-	// Becuase earlier ones take precedence when names overlap
+	// Because earlier ones take precedence when names overlap
 	for i := len(names) - 1; i >= 0; i-- {
 		indexedMap[names[i]] = i
 	}

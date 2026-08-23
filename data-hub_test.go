@@ -321,7 +321,7 @@ func TestRun(t *testing.T) {
 				assert.True(t, err.IsNotOk())
 
 				switch r := err.Reason().(type) {
-				case sabi.FailToCastDataHub:
+				case sabi.FailToCastDataAcc:
 					assert.Equal(t, r.FromType, "*sabi.DataAcc")
 					assert.Equal(t, r.ToType, "sabi_test.BadData")
 				default:
@@ -490,7 +490,7 @@ func TestTxn(t *testing.T) {
 				assert.True(t, err.IsNotOk())
 
 				switch r := err.Reason().(type) {
-				case sabi.FailToCastDataHub:
+				case sabi.FailToCastDataAcc:
 					assert.Equal(t, r.FromType, "*sabi.DataAcc")
 					assert.Equal(t, r.ToType, "sabi_test.BadData")
 				default:

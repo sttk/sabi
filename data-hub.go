@@ -9,11 +9,11 @@ import (
 )
 
 type /* error reasons */ (
-	// FailToCastDataHub represents an error reason indicating that the provided DataHub instance
+	// FailToCastDataAcc represents an error reason indicating that the provided DataAcc instance
 	// could not be type-cast to the generic data access interface type required by the run or
 	// transaction logic.
-	FailToCastDataHub struct {
-		// FromType is the type name of the DataHub or DataAcc instance being cast.
+	FailToCastDataAcc struct {
+		// FromType is the type name of the DataAcc instance being cast.
 		FromType string
 		// ToType is the expected data access interface type name that the cast failed to match.
 		ToType string
@@ -76,12 +76,12 @@ func (hub DataHub) Close() {
 // It type-casts the embedded data access instance to the generic type D (the data access interface
 // expected by the logic function), initializes local data sources, and invokes the logic function.
 // If the type-cast fails or initialization encounters an error, an error is returned.
-func (hub *DataHub) Run[D any](logic func(D) errs.Err) errs.Err {
+func (hub DataHub) Run[D any](logic func(D) errs.Err) errs.Err {
 	data, ok := hub.ida.(D)
 	if !ok {
 		fromType := typeNameOf(hub.da)
 		toType := typeNameOfTypeParam[D]()
-		return errs.New(FailToCastDataHub{FromType: fromType, ToType: toType})
+		return errs.New(FailToCastDataAcc{FromType: fromType, ToType: toType})
 	}
 
 	err := hub.da.begin()
@@ -104,7 +104,7 @@ func (hub DataHub) Txn[D any](logic func(D) errs.Err) errs.Err {
 	if !ok {
 		fromType := typeNameOf(hub.da)
 		toType := typeNameOfTypeParam[D]()
-		return errs.New(FailToCastDataHub{FromType: fromType, ToType: toType})
+		return errs.New(FailToCastDataAcc{FromType: fromType, ToType: toType})
 	}
 
 	err := hub.da.begin()

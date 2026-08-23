@@ -588,7 +588,7 @@ func TestDataAcc(t *testing.T) {
 		assert.Nil(t, log)
 	})
 
-	t.Run("get data conn cached but unmacthed type", func(t *testing.T) {
+	t.Run("get data conn cached but unmatched type", func(t *testing.T) {
 		logger := list.New()
 
 		func() {
