@@ -13,6 +13,7 @@ type /* error reasons */ (
 	// global data sources failed to initialize during their setup phase. It wraps the
 	// list of individual errors encountered by the data sources.
 	FailToSetupGlobalDataSrcs struct {
+		// Errors is a slice of ErrEntry containing errors encountered during setup.
 		Errors []ErrEntry
 	}
 
@@ -20,6 +21,7 @@ type /* error reasons */ (
 	// local data sources registered to a specific DataHub failed to initialize when the
 	// hub began transaction execution. It wraps the list of individual initialization errors.
 	FailToSetupLocalDataSrcs struct {
+		// Errors is a slice of ErrEntry containing errors encountered during setup.
 		Errors []ErrEntry
 	}
 
@@ -27,21 +29,27 @@ type /* error reasons */ (
 	// registered data source matching the requested name, making it impossible to create
 	// the requested data connection.
 	NoDataSrcToCreateDataConn struct {
-		Name         string
+		// Name is the registered name of the requested data source.
+		Name string
+		// DataConnType is the type name of the requested data connection.
 		DataConnType string
 	}
 
 	// FailToCreateDataConn represents an error reason indicating that a registered data source
 	// encountered an error while attempting to establish or instantiate a new data connection.
 	FailToCreateDataConn struct {
-		Name         string
+		// Name is the registered name of the data source.
+		Name string
+		// DataConnType is the type name of the data connection being created.
 		DataConnType string
 	}
 
 	// CreatedDataConnIsNil represents an error reason indicating that the data source's connection
 	// instantiation completed without returning an error, but the returned connection object was nil.
 	CreatedDataConnIsNil struct {
-		Name         string
+		// Name is the registered name of the data source.
+		Name string
+		// DataConnType is the type name of the expected data connection.
 		DataConnType string
 	}
 
@@ -49,17 +57,22 @@ type /* error reasons */ (
 	// successfully retrieved, but could not be type-cast to the specific implementation expected by
 	// the caller.
 	FailToCastDataConn struct {
-		Name             string
+		// Name is the registered name of the data connection.
+		Name string
+		// FromDataConnType is the actual type name of the retrieved connection.
 		FromDataConnType string
-		ToDataConnType   string
+		// ToDataConnType is the expected type name that the connection failed to cast to.
+		ToDataConnType string
 	}
 
 	// FailToCastDataHub represents an error reason indicating that the provided DataHub instance
 	// could not be type-cast to the generic data access interface type required by the run or
 	// transaction logic.
 	FailToCastDataHub struct {
+		// FromType is the type name of the DataAcc instance being cast.
 		FromType string
-		ToType   string
+		// ToType is the expected data access interface type name that the cast failed to match.
+		ToType string
 	}
 )
 
@@ -97,7 +110,8 @@ func Setup() errs.Err {
 // SetupWithOrder initializes all registered global data sources in the specific order defined by
 // the provided names. Data sources not specified in the list are initialized after the ordered
 // ones.
-// If initialization fails, it shuts down all successfully initialized data sources and returns an error.
+// If initialization fails, it shuts down all successfully initialized data sources and returns an
+// error.
 func SetupWithOrder(names ...string) errs.Err {
 	if !globalDataSrcsFixed {
 		globalDataSrcsFixed = true
