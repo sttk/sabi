@@ -348,6 +348,30 @@ func TestDataSrc(t *testing.T) {
 		assert.Nil(t, log)
 	})
 
+	t.Run("setup but ds is nil", func(t *testing.T) {
+		logger := list.New()
+
+		func() {
+			manager := newDataSrcManager(true)
+			defer manager.close()
+
+			manager.add("foo", nil)
+
+			assert.True(t, manager.local)
+			assert.Len(t, manager.listUnready, 1)
+			assert.Len(t, manager.listReady, 0)
+
+			errors := manager.setup()
+			assert.Len(t, errors, 0)
+
+			assert.True(t, manager.local)
+			assert.Len(t, manager.listUnready, 0)
+			assert.Len(t, manager.listReady, 0)
+		}()
+
+		assert.Equal(t, logger.Len(), 0)
+	})
+
 	t.Run("setupWithOrder no data src", func(t *testing.T) {
 		logger := list.New()
 
