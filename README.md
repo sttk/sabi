@@ -54,7 +54,7 @@ go get github.com/sttk/sabi
 To get a specific version of this package, run the following command:
 
 ```bash
-go get github.com/sttk/sabi@v0.9.0
+go get github.com/sttk/sabi@v0.9.1
 ```
 
 ## Usage
@@ -267,7 +267,7 @@ See the file LICENSE in this distribution for more details.
 
 
 [repo-url]: https://github.com/sttk/sabi
-[release-img]: https://img.shields.io/badge/release-0.9.0-0f9999.svg
+[release-img]: https://img.shields.io/badge/release-0.9.1-0f9999.svg
 [release-url]: https://github.com/sttk/sabi/releases
 [pkg-dev-img]: https://pkg.go.dev/badge/github.com/sttk/sabi.svg
 [pkg-dev-url]: https://pkg.go.dev/github.com/sttk/sabi
