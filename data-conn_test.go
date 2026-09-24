@@ -1213,7 +1213,7 @@ func TestDataConn(t *testing.T) {
 		assert.Nil(t, log)
 	})
 
-	t.Run("commit and rollback and first rollback failed then second rollback failed", func(t *testing.T) {
+	t.Run("commit and rollback and first commit failed then second rollback failed", func(t *testing.T) {
 		logger := list.New()
 
 		func() {
