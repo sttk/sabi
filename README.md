@@ -234,26 +234,14 @@ func run() errs.Err {
 
 ## Supporting Go versions
 
-This framework supports Go 1.23 or later.
+This framework supports Go 1.27 or later.
 
 ### Actual test results for each Go version:
 
 ```sh
-% go-fav 1.27.0 1.26.2 1.25.9 1.24.13 1.23.12
-go version go1.27.0 darwin/amd64
-ok  	github.com/sttk/sabi	0.555s	coverage: 99.8% of statements
-
-go version go1.26.2 darwin/amd64
-ok  	github.com/sttk/sabi	0.535s	coverage: 99.7% of statements
-
-go version go1.25.9 darwin/amd64
-ok  	github.com/sttk/sabi	0.554s	coverage: 99.7% of statements
-
-go version go1.24.13 darwin/amd64
-ok  	github.com/sttk/sabi	0.424s	coverage: 99.7% of statements
-
-go version go1.23.12 darwin/amd64
-ok  	github.com/sttk/sabi	0.659s	coverage: 99.7% of statements
+% go-fav 1.27.1
+go version go1.27.1 darwin/amd64
+ok  	github.com/sttk/sabi	0.343s	coverage: 100.0% of statements
 
 %
 ```
