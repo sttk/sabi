@@ -10,37 +10,14 @@ import (
 	"github.com/sttk/errs"
 )
 
-// ErrEntry represents an error encountered during a specific task,
-// associated with its identifier and name.
-//
-// This struct is used in concurrent or batch processing to track which
-// specific task generated which error, allowing for precise identification
-// and handling of failures.
 type ErrEntry struct {
-	// Index is the task identifier or sequence number (typically the index
-	// in a slice of tasks) associated with the failed execution.
 	Index int
 
-	// Name is the descriptive identifier or label assigned to the task
-	// or resource that encountered the error.
 	Name string
 
-	// Err is the error value returned by the task. It uses the errs.Err type
-	// from the "github.com/sttk/errs" package to represent the failure details.
 	Err errs.Err
 }
 
-// AsyncGroup coordinates the execution of multiple asynchronous tasks and
-// collects any errors they return, associating each error with the index of the task.
-//
-// It is a synchronization structure similar to sync.WaitGroup but specialized for
-// tracking errors returned by asynchronous functions. It manages a wait group, a mutex
-// for thread safety, and an internal list of indexed errors.
-//
-// When initializing or operating multiple independent resources concurrently (such as setting up
-// multiple data sources or committing transactions across multiple connections), AsyncGroup
-// allows executing these operations in separate goroutines while safely aggregating all errors
-// that occur, along with their order or resource index.
 type AsyncGroup struct {
 	errors []ErrEntry
 	_index int
@@ -49,14 +26,6 @@ type AsyncGroup struct {
 	mutex  sync.Mutex
 }
 
-// Add starts the execution of the given function in a new goroutine and
-// registers it with the AsyncGroup.
-//
-// It increments the internal WaitGroup counter and spawns a new goroutine that runs
-// the provided function fn. If the function completes and returns a non-OK error,
-// the error is safely recorded along with the current index which indicates the order
-// in the AsyncGroup.
-// Once fn completes, the WaitGroup counter is decremented.
 func (ag *AsyncGroup) Add(fn func() errs.Err) {
 	ag.wg.Add(1)
 	go func(index int, name string) {
