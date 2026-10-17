@@ -60,8 +60,9 @@ type SyncDataConn struct {
 	logger    *Logger
 }
 
-func NewSyncDataConn(id int8, logger *Logger, fail Fail) SyncDataConn {
-	return SyncDataConn{
+func NewSyncDataConn(id int8, logger *Logger, fail Fail) *SyncDataConn {
+	logger.PushBack(fmt.Sprintf("SyncDataConn#New %d", id))
+	return &SyncDataConn{
 		id:        id,
 		committed: false,
 		fail:      fail,
@@ -131,8 +132,9 @@ type AsyncDataConn struct {
 	logger    *Logger
 }
 
-func NewAsyncDataConn(id int8, logger *Logger, fail Fail) AsyncDataConn {
-	return AsyncDataConn{
+func NewAsyncDataConn(id int8, logger *Logger, fail Fail) *AsyncDataConn {
+	logger.PushBack(fmt.Sprintf("AsyncDataConn#New %d", id))
+	return &AsyncDataConn{
 		id:        id,
 		committed: false,
 		fail:      fail,
@@ -221,8 +223,8 @@ type NoCommitDataConn struct {
 	logger *Logger
 }
 
-func NewNoCommitDataConn(id int8, logger *Logger, fail Fail) NoCommitDataConn {
-	return NoCommitDataConn{
+func NewNoCommitDataConn(id int8, logger *Logger, fail Fail) *NoCommitDataConn {
+	return &NoCommitDataConn{
 		id:     id,
 		fail:   fail,
 		logger: logger,
@@ -268,9 +270,9 @@ type SyncDataSrc struct {
 	logger *Logger
 }
 
-func NewSyncDataSrc(id int8, logger *Logger, fail Fail) SyncDataSrc {
+func NewSyncDataSrc(id int8, logger *Logger, fail Fail) *SyncDataSrc {
 	logger.PushBack(fmt.Sprintf("SyncDataSrc#New %d", id))
-	return SyncDataSrc{id: id, logger: logger, fail: fail}
+	return &SyncDataSrc{id: id, logger: logger, fail: fail}
 }
 
 func (ds *SyncDataSrc) Setup(ag *AsyncGroup) errs.Err {
@@ -292,7 +294,7 @@ func (ds *SyncDataSrc) CreateDataConn() (DataConn, errs.Err) {
 		return nil, errs.New("eeee")
 	}
 	ds.logger.PushBack(fmt.Sprintf("SyncDataSrc#CreateDataConn %d", ds.id))
-	return &SyncDataConn{}, errs.Ok()
+	return NewSyncDataConn(ds.id, ds.logger, ds.fail), errs.Ok()
 }
 
 type AsyncDataSrc struct {
@@ -302,9 +304,9 @@ type AsyncDataSrc struct {
 	wait   time.Duration
 }
 
-func NewAsyncDataSrc(id int8, logger *Logger, fail Fail) AsyncDataSrc {
+func NewAsyncDataSrc(id int8, logger *Logger, fail Fail) *AsyncDataSrc {
 	logger.PushBack(fmt.Sprintf("AsyncDataSrc#New %d", id))
-	return AsyncDataSrc{id: id, logger: logger, fail: fail}
+	return &AsyncDataSrc{id: id, logger: logger, fail: fail}
 }
 
 func (ds *AsyncDataSrc) Setup(ag *AsyncGroup) errs.Err {
@@ -330,5 +332,120 @@ func (ds *AsyncDataSrc) CreateDataConn() (DataConn, errs.Err) {
 		return nil, errs.New("eeee")
 	}
 	ds.logger.PushBack(fmt.Sprintf("AsyncDataSrc#CreateDataConn %d", ds.id))
-	return &AsyncDataConn{}, errs.Ok()
+	return NewAsyncDataConn(ds.id, ds.logger, ds.fail), errs.Ok()
+}
+
+type NilConnDataSrc struct {
+	id     int8
+	logger *Logger
+}
+
+func NewNilConnDataSrc(id int8, logger *Logger) *NilConnDataSrc {
+	logger.PushBack(fmt.Sprintf("NilConnDataSrc#New %d", id))
+	return &NilConnDataSrc{id: id, logger: logger}
+}
+
+func (ds *NilConnDataSrc) Setup(ag *AsyncGroup) errs.Err {
+	ds.logger.PushBack(fmt.Sprintf("NilConnDataSrc#Setup %d", ds.id))
+	return errs.Ok()
+}
+
+func (ds *NilConnDataSrc) Close() {
+	ds.logger.PushBack(fmt.Sprintf("NilConnDataSrc#Close %d", ds.id))
+}
+
+func (ds *NilConnDataSrc) CreateDataConn() (DataConn, errs.Err) {
+	ds.logger.PushBack(fmt.Sprintf("NilConnDataSrc#CreateDataConn %d", ds.id))
+	return nil, errs.Ok()
+}
+
+type GettingDataAcc struct {
+	*DataAcc
+}
+
+func (da *GettingDataAcc) GetText() (string, errs.Err) {
+	_, err := da.GetDataConn[*SyncDataConn]("foo")
+	if err.IsNotOk() {
+		return "", err
+	}
+	// getting a text
+	return "hello", errs.Ok()
+}
+
+type SettingDataAcc struct {
+	*DataAcc
+}
+
+func (da *SettingDataAcc) SetText(s string) errs.Err {
+	_, err := da.GetDataConn[*SyncDataConn]("bar")
+	if err.IsNotOk() {
+		return err
+	}
+	// setting a text
+	return errs.Ok()
+}
+
+type NestingDataAcc struct {
+	*DataAcc
+}
+
+func (da *NestingDataAcc) RunNest() errs.Err {
+	return da.Run(HogeLogic)
+}
+
+func (da *NestingDataAcc) StartRunEndNest() errs.Err {
+	return da.Start().Run(HogeLogic).End()
+}
+
+func (da *NestingDataAcc) FailToCastNest() errs.Err {
+	return da.Run(func(data FailToCastData) errs.Err {
+		return errs.Ok()
+	})
+}
+
+var NewHogeDataHub = NewDataHub(func(da *DataAcc) any {
+	return &struct {
+		GettingDataAcc
+		SettingDataAcc
+		NestingDataAcc
+	}{
+		GettingDataAcc: GettingDataAcc{DataAcc: da},
+		SettingDataAcc: SettingDataAcc{DataAcc: da},
+		NestingDataAcc: NestingDataAcc{DataAcc: da},
+	}
+})
+
+type HogeData interface {
+	GetText() (string, errs.Err)
+	SetText(s string) errs.Err
+}
+
+func HogeLogic(data HogeData) errs.Err {
+	text, err := data.GetText()
+	if err.IsNotOk() {
+		return err
+	}
+	return data.SetText(text)
+}
+
+type FailToCastData interface {
+	GetData() (string, errs.Err)
+}
+
+type FugaData interface {
+	RunNest() errs.Err
+	StartRunEndNest() errs.Err
+	FailToCastNest() errs.Err
+}
+
+func FugaLogic(data FugaData) errs.Err {
+	return data.RunNest()
+}
+
+func FugaFugaLogic(data FugaData) errs.Err {
+	return data.StartRunEndNest()
+}
+
+func FugaFugaFugaLogic(data FugaData) errs.Err {
+	return data.FailToCastNest()
 }

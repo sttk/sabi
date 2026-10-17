@@ -1,12 +1,9 @@
 package sabi
 
 import (
-	_ "fmt"
 	"testing"
-	_ "time"
 
 	"github.com/stretchr/testify/assert"
-	_ "github.com/sttk/errs"
 )
 
 func TestDataSrc(t *testing.T) {
@@ -30,7 +27,7 @@ func TestDataSrc(t *testing.T) {
 			defer manager.close()
 
 			ds1 := NewSyncDataSrc(1, logger, Fail_None)
-			manager.add("foo", &ds1)
+			manager.add("foo", ds1)
 
 			assert.True(t, manager.local)
 			assert.Len(t, manager.listUnready, 1)
@@ -39,7 +36,7 @@ func TestDataSrc(t *testing.T) {
 			assert.Equal(t, manager.listUnready[0].name, "foo")
 
 			ds2 := NewAsyncDataSrc(2, logger, Fail_None)
-			manager.add("bar", &ds2)
+			manager.add("bar", ds2)
 
 			assert.True(t, manager.local)
 			assert.Len(t, manager.listUnready, 2)
@@ -63,19 +60,19 @@ func TestDataSrc(t *testing.T) {
 			//defer manager.close()  // to see Close logs by remove
 
 			ds1 := NewSyncDataSrc(1, logger, Fail_None)
-			manager.add("foo", &ds1)
+			manager.add("foo", ds1)
 
 			ds2 := NewAsyncDataSrc(2, logger, Fail_None)
-			manager.add("bar", &ds2)
+			manager.add("bar", ds2)
 
 			errors := manager.setup()
 			assert.Len(t, errors, 0)
 
 			ds3 := NewSyncDataSrc(3, logger, Fail_None)
-			manager.add("baz", &ds3)
+			manager.add("baz", ds3)
 
 			ds4 := NewAsyncDataSrc(4, logger, Fail_None)
-			manager.add("qux", &ds4)
+			manager.add("qux", ds4)
 
 			assert.True(t, manager.local)
 			assert.Len(t, manager.listUnready, 2)
@@ -107,19 +104,19 @@ func TestDataSrc(t *testing.T) {
 			defer manager.close()
 
 			ds1 := NewSyncDataSrc(1, logger, Fail_None)
-			manager.add("foo", &ds1)
+			manager.add("foo", ds1)
 
 			ds2 := NewAsyncDataSrc(2, logger, Fail_None)
-			manager.add("bar", &ds2)
+			manager.add("bar", ds2)
 
 			errors := manager.setup()
 			assert.Len(t, errors, 0)
 
 			ds3 := NewSyncDataSrc(3, logger, Fail_None)
-			manager.add("baz", &ds3)
+			manager.add("baz", ds3)
 
 			ds4 := NewAsyncDataSrc(4, logger, Fail_None)
-			manager.add("qux", &ds4)
+			manager.add("qux", ds4)
 
 			assert.True(t, manager.local)
 			assert.Len(t, manager.listUnready, 2)
@@ -168,10 +165,10 @@ func TestDataSrc(t *testing.T) {
 			defer manager.close()
 
 			ds1 := NewSyncDataSrc(1, logger, Fail_None)
-			manager.add("foo", &ds1)
+			manager.add("foo", ds1)
 
 			ds2 := NewAsyncDataSrc(2, logger, Fail_None)
-			manager.add("bar", &ds2)
+			manager.add("bar", ds2)
 
 			assert.True(t, manager.local)
 			assert.Len(t, manager.listUnready, 2)
@@ -203,13 +200,13 @@ func TestDataSrc(t *testing.T) {
 			defer manager.close()
 
 			ds1 := NewSyncDataSrc(1, logger, Fail_None)
-			manager.add("foo", &ds1)
+			manager.add("foo", ds1)
 
 			ds2 := NewSyncDataSrc(2, logger, Fail_Setup)
-			manager.add("bar", &ds2)
+			manager.add("bar", ds2)
 
 			ds3 := NewSyncDataSrc(3, logger, Fail_Setup)
-			manager.add("bar", &ds3)
+			manager.add("bar", ds3)
 
 			assert.True(t, manager.local)
 			assert.Len(t, manager.listUnready, 3)
@@ -224,7 +221,7 @@ func TestDataSrc(t *testing.T) {
 			assert.Len(t, errors, 1)
 			assert.Equal(t, errors[0].Index, 1)
 			assert.Equal(t, errors[0].Name, "bar")
-			assert.Equal(t, errors[0].Err.Error(), "github.com/sttk/errs.Err {reason:XXX file:test-commons_test.go line:279}")
+			assert.Equal(t, errors[0].Err.Error(), "github.com/sttk/errs.Err {reason:XXX file:test-commons_test.go line:281}")
 		}()
 
 		assert.Equal(t, logger.Logs(), []string{
@@ -291,13 +288,13 @@ func TestDataSrc(t *testing.T) {
 			defer manager.close()
 
 			ds1 := NewSyncDataSrc(1, logger, Fail_None)
-			manager.add("foo", &ds1)
+			manager.add("foo", ds1)
 
 			ds2 := NewSyncDataSrc(2, logger, Fail_None)
-			manager.add("bar", &ds2)
+			manager.add("bar", ds2)
 
 			ds3 := NewSyncDataSrc(3, logger, Fail_None)
-			manager.add("baz", &ds3)
+			manager.add("baz", ds3)
 
 			assert.True(t, manager.local)
 			assert.Len(t, manager.listUnready, 3)
@@ -334,16 +331,16 @@ func TestDataSrc(t *testing.T) {
 			defer manager.close()
 
 			ds1 := NewSyncDataSrc(1, logger, Fail_Setup)
-			manager.add("foo", &ds1)
+			manager.add("foo", ds1)
 
 			ds2 := NewSyncDataSrc(2, logger, Fail_Setup)
-			manager.add("bar", &ds2)
+			manager.add("bar", ds2)
 
 			ds3 := NewSyncDataSrc(3, logger, Fail_None)
-			manager.add("baz", &ds3)
+			manager.add("baz", ds3)
 
 			ds4 := NewSyncDataSrc(4, logger, Fail_None)
-			manager.add("qux", &ds4)
+			manager.add("qux", ds4)
 
 			assert.True(t, manager.local)
 			assert.Len(t, manager.listUnready, 4)
@@ -358,7 +355,7 @@ func TestDataSrc(t *testing.T) {
 			assert.Len(t, errors, 1)
 			assert.Equal(t, errors[0].Index, 2)
 			assert.Equal(t, errors[0].Name, "foo")
-			assert.Equal(t, errors[0].Err.Error(), "github.com/sttk/errs.Err {reason:XXX file:test-commons_test.go line:279}")
+			assert.Equal(t, errors[0].Err.Error(), "github.com/sttk/errs.Err {reason:XXX file:test-commons_test.go line:281}")
 		}()
 
 		assert.Equal(t, logger.Logs(), []string{
@@ -382,13 +379,13 @@ func TestDataSrc(t *testing.T) {
 			defer manager.close()
 
 			ds1 := NewSyncDataSrc(1, logger, Fail_None)
-			manager.add("foo", &ds1)
+			manager.add("foo", ds1)
 
 			ds2 := NewSyncDataSrc(2, logger, Fail_None)
-			manager.add("bar", &ds2)
+			manager.add("bar", ds2)
 
 			ds3 := NewSyncDataSrc(3, logger, Fail_None)
-			manager.add("baz", &ds3)
+			manager.add("baz", ds3)
 
 			assert.True(t, manager.local)
 			assert.Len(t, manager.listUnready, 3)
@@ -424,16 +421,16 @@ func TestDataSrc(t *testing.T) {
 			defer manager.close()
 
 			ds1 := NewSyncDataSrc(1, logger, Fail_None)
-			manager.add("foo", &ds1)
+			manager.add("foo", ds1)
 
 			ds2 := NewSyncDataSrc(2, logger, Fail_None)
-			manager.add("bar", &ds2)
+			manager.add("bar", ds2)
 
 			ds3 := NewSyncDataSrc(3, logger, Fail_None)
-			manager.add("baz", &ds3)
+			manager.add("baz", ds3)
 
 			ds4 := NewSyncDataSrc(4, logger, Fail_None)
-			manager.add("qux", &ds4)
+			manager.add("qux", ds4)
 
 			assert.True(t, manager.local)
 			assert.Len(t, manager.listUnready, 4)
@@ -472,13 +469,13 @@ func TestDataSrc(t *testing.T) {
 			defer manager.close()
 
 			ds1 := NewSyncDataSrc(1, logger, Fail_None)
-			manager.add("foo", &ds1)
+			manager.add("foo", ds1)
 
 			ds2 := NewSyncDataSrc(2, logger, Fail_None)
-			manager.add("bar", &ds2)
+			manager.add("bar", ds2)
 
 			ds3 := NewSyncDataSrc(3, logger, Fail_None)
-			manager.add("baz", &ds3)
+			manager.add("baz", ds3)
 
 			assert.True(t, manager.local)
 			assert.Len(t, manager.listUnready, 3)
@@ -514,10 +511,10 @@ func TestDataSrc(t *testing.T) {
 			defer manager.close()
 
 			ds1 := NewSyncDataSrc(1, logger, Fail_None)
-			manager.add("foo", &ds1)
+			manager.add("foo", ds1)
 
 			ds2 := NewSyncDataSrc(2, logger, Fail_None)
-			manager.add("bar", &ds2)
+			manager.add("bar", ds2)
 
 			assert.True(t, manager.local)
 			assert.Len(t, manager.listUnready, 2)
@@ -544,7 +541,7 @@ func TestDataSrc(t *testing.T) {
 
 		manager = newDataSrcManager(true)
 		ds1 := NewSyncDataSrc(1, logger, Fail_None)
-		manager.add("foo", &ds1)
+		manager.add("foo", ds1)
 		errors := manager.setup()
 		assert.Len(t, errors, 0)
 		manager.copyDsReadyToMap(contMap)
@@ -555,8 +552,8 @@ func TestDataSrc(t *testing.T) {
 		manager = newDataSrcManager(false)
 		ds2 := NewAsyncDataSrc(2, logger, Fail_None)
 		ds3 := NewSyncDataSrc(3, logger, Fail_None)
-		manager.add("bar", &ds2)
-		manager.add("baz", &ds3)
+		manager.add("bar", ds2)
+		manager.add("baz", ds3)
 		errors = manager.setup()
 		assert.Len(t, errors, 0)
 		manager.copyDsReadyToMap(contMap)
@@ -575,10 +572,10 @@ func TestDataSrc(t *testing.T) {
 		manager := newDataSrcManager(true)
 
 		ds1 := NewSyncDataSrc(1, logger, Fail_None)
-		manager.add("foo", &ds1)
+		manager.add("foo", ds1)
 
 		ds2 := NewSyncDataSrc(2, logger, Fail_None)
-		manager.add("bar", &ds2)
+		manager.add("bar", ds2)
 
 		errors := manager.setup()
 		assert.Len(t, errors, 0)

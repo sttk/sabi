@@ -123,17 +123,6 @@ func (mgr *dataConnManager) add(cont dataConnContainer) {
 	}
 }
 
-func (mgr *dataConnManager) commitOrRollback(err errs.Err) errs.Err {
-	reports := mgr.newFailureReports()
-	if err.IsOk() {
-		err = mgr.commit(reports)
-	}
-	if err.IsNotOk() {
-		mgr.rollback(reports)
-	}
-	return err
-}
-
 func (mgr *dataConnManager) newFailureReports() []TxnFailureReport {
 	reps := make([]TxnFailureReport, 0, len(mgr.indexMap))
 	for i := range mgr.list {
