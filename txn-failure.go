@@ -150,14 +150,16 @@ const (
 	// but a post-commit task failed. The underlying cause should be resolved, and only the
 	// post-commit logic should be re-executed.
 	ResolveCauseThenRerunPostCommit
-	// ResolveCauseAndInconsistency indicates that both the cause of the failure and the resulting
-	// data inconsistency (due to a rollback failure) must be resolved before proceeding.
+	// ResolveCauseAndInconsistency indicates that both the cause of the failure and the
+	// resulting data inconsistency (due to a rollback failure) must be resolved before
+	// proceeding.
 	ResolveCauseAndInconsistency
-	// InvestigateBecauseImpossible indicates an unexpected or logically impossible state transition
-	// has occurred, requiring manual developer investigation.
+	// InvestigateBecauseImpossible indicates an unexpected or logically impossible state
+	// transition has occurred, requiring manual developer investigation.
 	InvestigateBecauseImpossible
-	// ManualRollbackRequired indicates that the transaction succeeded/committed on some resources
-	// but failed on others, requiring manual intervention to roll back or reconcile the committed data.
+	// ManualRollbackRequired indicates that the transaction succeeded/committed on some
+	// resources but failed on others, requiring manual intervention to roll back or reconcile
+	// the committed data.
 	ManualRollbackRequired
 )
 
