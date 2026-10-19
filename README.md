@@ -83,14 +83,20 @@ func MyLogic(data MyData) errs.Err {
 
 ### 2. Implementing DataAcc derived structs
 
-The `DataAcc` interface provides a simple mechanism to retrieve `DataConn` objects.
-However, it's the derived structs (like `GettingDataAcc` and `SettingDataAcc` in this example) that define the application-specific methods for accessing data.
-These methods then use `GetDataConn` to obtain the appropriate `DataConn` and perform the actual data operations.
+The `DataAcc` struct provides a simple mechanism to retrieve `DataConn` objects via its
+`GetDataConn` method.
+However, it's the derived structs (like `GettingDataAcc` and `SettingDataAcc` in this example)
+that define the application-specific methods for accessing data.
+These methods embed `*sabi.DataAcc` as a pointer and call `da.GetDataConn` to obtain the
+appropriate `DataConn` and perform the actual data operations.
 
 ```go
 import (
+  "context"
   "fmt"
   "os"
+
+  "github.com/redis/go-redis/v9"
 
   "github.com/sttk/errs"
   "github.com/sttk/sabi"
@@ -99,19 +105,19 @@ import (
 )
 
 type GettingDataAcc struct {
-  sabi.DataAcc
+  *sabi.DataAcc
 }
 func (da *GettingDataAcc) GetText() (string, errs.Err) {
     return "output text", errs.Ok()
 }
 
 type SettingDataAcc struct {
-  sabi.DataAcc
+  *sabi.DataAcc
 }
 func (da *SettingDataAcc) SetText(text string) errs.Err {
-  ctx = context.Background()
+  ctx := context.Background()
 
-  redisDc, err := sabi.GetDataConn[*sabi_redis.RedisDataConn](da, "redis")
+  redisDc, err := da.GetDataConn[*sabi_redis.RedisDataConn]("redis")
   if err.IsNotOk() {
     return err
   }
@@ -126,7 +132,7 @@ func (da *SettingDataAcc) SetText(text string) errs.Err {
     return errs.New("fail to delete key for rollback", e)
   })
 
-  stdioDc, err := sabi.GetDataConn[*sabi_stdio.StdioDataConn](da, "stdio")
+  stdioDc, err := da.GetDataConn[*sabi_stdio.StdioDataConn]("stdio")
   if err.IsNotOk() {
     return err
   }
@@ -139,28 +145,25 @@ func (da *SettingDataAcc) SetText(text string) errs.Err {
 }
 ```
 
-### 3. Integrating data interfaces and DataAcc derived structs into DataHub
+### 3. Integrating data interfaces and DataAcc derived structs into a DataHub object
 
-The `DataHub` is the central component that manages all `DataSrc` and `DataConn`,
-providing access to them for your application logic.
-By implementing the data interface (`MyData`) from step 1. and the `DataAcc` structs
-from step 2. on `DataHub`, you integrate them.
+The user-defined DataHub object is a plain struct that embeds the `DataAcc`-derived structs
+and implements the application data interface (`MyData`) from step 1 by composing those structs.
+You define a constructor function of type `sabi.NewDataHub` — `func(acc *sabi.DataAcc) any` —
+that builds and returns your DataHub object.
 
 ```go
 import "github.com/sttk/sabi"
 
 type MyDataHub struct {
-    sabi.DataHub
     *GettingDataAcc
     *SettingDataAcc
 }
 
-func NewMyDataHub() sabi.DataHub {
-    hub := sabi.NewDataHub()
-    return MyDataHub {
-        DataHub: hub,
-        GettingDataAcc: &GettingDataAcc{DataAcc: hub},
-        SettingDataAcc: &SettingDataAcc{DataAcc: hub},
+func NewMyDataHub(acc *sabi.DataAcc) any {
+    return &MyDataHub{
+        GettingDataAcc: &GettingDataAcc{DataAcc: acc},
+        SettingDataAcc: &SettingDataAcc{DataAcc: acc},
     }
 }
 
@@ -169,18 +172,17 @@ func NewMyDataHub() sabi.DataHub {
 var _ MyData = (*MyDataHub)(nil)
 ```
 
-### 4. Using logic functions and DataHub
+### 4. Using logic functions with LogicRunner
 
 Inside your `init` function, register your global `DataSrc`.
 Next, `main` function calls `run` function, and inside `run` function, set up the `sabi` framework.
-Then, create an instance of `DataHub` and register the necessary local `DataSrc` using
-the `Uses` method.
-Finally, use the `Run` function or `Txn` function to execute your defined application logic
-function (`MyLogic`) without or within a transaction.
+Then, create a `LogicRunner` by passing your `NewDataHub` constructor, and register any
+session-local `DataSrc` using the `Uses` method.
+Finally, use the `Run` method or `Txn` method on the runner to execute your defined application
+logic function (`MyLogic`) without or within a transaction.
 
 ```go
 import (
-  "context"
   "fmt"
   "os"
 
@@ -195,30 +197,30 @@ func init() {
 
 func main() {
     if err := run(); err.IsNotOk() {
-        fmt.Fprintln(os.Stderr, err.Error());
+        fmt.Fprintln(os.Stderr, err.Error())
         os.Exit(1)
     }
 }
 
 func run() errs.Err {
     // Set up the sabi framework.
-    if err := sabi.Setup(); err != nil {
+    if err := sabi.Setup(); err.IsNotOk() {
       return err
     }
     defer sabi.Shutdown()
 
-    // Creates a new instance of DataHub.
-    data := NewMyDataHub()
-    defer data.Close()
+    // Creates a new LogicRunner with the DataHub constructor.
+    runner := sabi.NewLogicRunner(NewMyDataHub)
+    defer runner.Close()
 
-    // Register session-local DataSrc with DataHub.
-    data.Uses("bar", &BarDataSrc{})
+    // Register session-local DataSrc with the runner.
+    runner.Uses("bar", &BarDataSrc{})
 
     // Execute application logic without a transaction control.
-    return sabi.Run(data, MyLogic)
+    return runner.Run(MyLogic)
 
-    // If you need to execute logic within a transaction, use the `Txn` function instead of `Run`
-    // return sabi.Txn(data, MyLogic)
+    // If you need to execute logic within a transaction, use the `Txn` method instead of `Run`
+    // return runner.Txn(MyLogic)
 }
 ```
 
