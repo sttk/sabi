@@ -9,43 +9,80 @@ import (
 )
 
 type /* error reasons */ (
+	// FailToSetupLocalDataSrcs represents an error reason indicating that one or more
+	// local data sources registered to a DataAcc (or LogicRunner) failed to initialize during
+	// their setup phase. It wraps the list of individual initialization errors.
 	FailToSetupLocalDataSrcs struct {
+		// Errors is a slice of ErrEntry containing errors encountered during setup.
 		Errors []ErrEntry
 	}
 
+	// NoDataSrcToCreateDataConn represents an error reason indicating that there is no
+	// registered data source matching the requested name, making it impossible to create
+	// the requested data connection.
 	NoDataSrcToCreateDataConn struct {
-		Name         string
+		// Name is the registered name of the requested data source.
+		Name string
+		// DataConnType is the type name of the requested data connection.
 		DataConnType string
 	}
 
+	// CreatedDataConnIsNil represents an error reason indicating that the data source's
+	// connection instantiation completed without returning an error, but the returned
+	// connection object was nil.
 	CreatedDataConnIsNil struct {
-		Name         string
+		// Name is the registered name of the data source.
+		Name string
+		// DataConnType is the type name of the expected data connection.
 		DataConnType string
 	}
 
+	// FailToCreateDataConn represents an error reason indicating that a registered data source
+	// encountered an error while attempting to establish or instantiate a new data connection.
 	FailToCreateDataConn struct {
-		Name         string
+		// Name is the registered name of the data source.
+		Name string
+		// DataConnType is the type name of the data connection being created.
 		DataConnType string
 	}
 
+	// CreatedDataConn represents an error reason indicating that a data connection has already
+	// been created for the specified name.
 	CreatedDataConn struct {
-		Name         string
+		// Name is the registered name of the data connection.
+		Name string
+		// DataConnType is the type name of the created data connection.
 		DataConnType string
 	}
 
+	// FailToCastDataConn represents an error reason indicating that a data connection was
+	// successfully retrieved, but could not be type-cast to the specific implementation
+	// expected by the caller.
 	FailToCastDataConn struct {
-		Name             string
+		// Name is the registered name of the data connection.
+		Name string
+		// FromDataConnType is the actual type name of the retrieved connection.
 		FromDataConnType string
-		ToDataConnType   string
+		// ToDataConnType is the expected type name that the connection failed to cast to.
+		ToDataConnType string
 	}
 
+	// FailToCastDataHub represents an error reason indicating that the DataHub instance
+	// could not be type-cast to the generic data access interface type required by the logic.
 	FailToCastDataHub struct {
-		Name     string
+		// Name is an optional identifier or label for the data hub or logic.
+		Name string
+		// FromType is the actual type name of the DataHub instance being cast.
 		FromType string
-		ToType   string
+		// ToType is the expected data access interface type name that the cast failed to
+		// match.
+		ToType string
 	}
 )
 
+// DataAcc provides access to data connections and coordinates data sources within a logic
+// execution scope. It manages the creation, caching, and retrieval of DataConn instances
+// by name and type, and supports executing nested logic blocks.
 type DataAcc struct {
 	localDataSrcManager dataSrcManager
 	dataSrcMap          map[string]dataSrcContainer
@@ -145,6 +182,11 @@ func (acc *DataAcc) end() {
 	acc.fixed = false
 }
 
+// GetDataConn retrieves an active connection of the specified type C from the DataAcc.
+// If the connection already exists in this scope, it is returned. Otherwise, it instantiates
+// a new connection from the registered data source and caches it.
+// It returns the connection and an error if no matching data source is found, connection
+// creation fails, or the connection cannot be cast to type C.
 func (acc *DataAcc) GetDataConn[C DataConn](name string) (C, errs.Err) {
 	dcCont, ok := acc.dataConnMap[name]
 	if ok {
@@ -197,6 +239,10 @@ func (acc *DataAcc) GetDataConn[C DataConn](name string) (C, errs.Err) {
 	return dc, errs.Ok()
 }
 
+// Run executes a nested business logic function using the DataHub instance associated with
+// this DataAcc. It type-casts the DataHub to type D and passes it to the provided logic
+// function.
+// It returns an error if the DataHub cannot be cast to type D or if the logic function fails.
 func (acc *DataAcc) Run[D any](logic func(D) errs.Err) errs.Err {
 	data, ok := acc.dataHub.(D)
 	if !ok {
@@ -208,6 +254,8 @@ func (acc *DataAcc) Run[D any](logic func(D) errs.Err) errs.Err {
 	return logic(data)
 }
 
+// Start begins a method chain for executing nested non-transactional business logic functions
+// using LogicRun.
 func (acc *DataAcc) Start() LogicRun {
 	return newLogicRun(acc, true)
 }

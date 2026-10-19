@@ -10,6 +10,8 @@ import (
 	"github.com/sttk/errs"
 )
 
+// LogicTxn coordinates the execution of multiple business logic functions within a transaction
+// in a sequential method chain.
 type LogicTxn struct {
 	dataAcc *DataAcc
 	errAt   logicErrAt
@@ -35,6 +37,10 @@ func newLogicTxn(da *DataAcc) LogicTxn {
 	}
 }
 
+// Run executes the given business logic function if no errors have occurred so far in the
+// transaction chain. If an error has already occurred in a preceding step, this logic is
+// skipped.
+// It returns the LogicTxn instance for method chaining.
 func (run LogicTxn) Run[D any](logic func(D) errs.Err) LogicTxn {
 	index := run.index
 	run.index = index + 1
@@ -66,6 +72,9 @@ func (run LogicTxn) Run[D any](logic func(D) errs.Err) LogicTxn {
 	return run
 }
 
+// RunForce executes the given business logic function regardless of whether errors occurred
+// in preceding steps, unless execution was blocked by RunOrBlock.
+// It returns the LogicTxn instance for method chaining.
 func (run LogicTxn) RunForce[D any](logic func(D) errs.Err) LogicTxn {
 	index := run.index
 	run.index = index + 1
@@ -95,6 +104,10 @@ func (run LogicTxn) RunForce[D any](logic func(D) errs.Err) LogicTxn {
 	return run
 }
 
+// RunOrBlock executes the given business logic function if no errors have occurred so far in
+// the transaction chain. If this logic function fails (or type casting fails), it blocks
+// subsequent steps in the chain from running (even RunForce steps).
+// It returns the LogicTxn instance for method chaining.
 func (run LogicTxn) RunOrBlock[D any](logic func(D) errs.Err) LogicTxn {
 	index := run.index
 	run.index = index + 1
@@ -127,6 +140,11 @@ func (run LogicTxn) RunOrBlock[D any](logic func(D) errs.Err) LogicTxn {
 	return run
 }
 
+// EndTxn concludes the transaction chain. If all logic steps succeeded, it commits all data
+// connections; if commit fails or if any logic step failed, it rolls back all data
+// connections.
+// It releases active connection resources and returns an error if any logic or commit step
+// failed.
 func (run LogicTxn) EndTxn() errs.Err {
 	switch run.errAt {
 	case logicErrAtBegin:

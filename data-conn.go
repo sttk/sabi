@@ -15,7 +15,8 @@ type /* error reasons */ (
 	// which connections encountered issues and what the underlying errors were before
 	// the actual commit was attempted.
 	FailToPreCommitDataConn struct {
-		// Errors is a slice of ErrEntry containing connection errors that occurred during pre-commit.
+		// Errors is a slice of ErrEntry containing connection errors that occurred
+		// during pre-commit.
 		Errors []ErrEntry
 	}
 
@@ -24,7 +25,8 @@ type /* error reasons */ (
 	// errors from the failed connections, which is useful for diagnosing failures that
 	// happened while finalizing the transactions on those connections.
 	FailToCommitDataConn struct {
-		// Errors is a slice of ErrEntry containing connection errors that occurred during commit.
+		// Errors is a slice of ErrEntry containing connection errors that occurred
+		// during commit.
 		Errors []ErrEntry
 	}
 
@@ -34,7 +36,8 @@ type /* error reasons */ (
 	// successfully, subsequent cleanup or follow-up operations on the connections failed.
 	// It contains a list of individual connection errors for diagnosis.
 	FailToPostCommitDataConn struct {
-		// Errors is a slice of ErrEntry containing connection errors that occurred during post-commit.
+		// Errors is a slice of ErrEntry containing connection errors that occurred
+		// during post-commit.
 		Errors []ErrEntry
 	}
 )
