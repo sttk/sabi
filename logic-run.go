@@ -117,7 +117,7 @@ func (run LogicRun) RunForce[D any](logic func(D) errs.Err) LogicRun {
 }
 
 // RunOrBlock executes the given business logic function if no errors have occurred so far in
-// the chain. If this logic function fails (or type casting fails), it blocks subsequent steps
+// the chain. If this logic function fails (or type-casting fails), it blocks subsequent steps
 // in the chain from running (even RunForce steps).
 // It returns the LogicRun instance for method chaining.
 func (run LogicRun) RunOrBlock[D any](logic func(D) errs.Err) LogicRun {

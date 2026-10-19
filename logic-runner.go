@@ -64,7 +64,7 @@ func (runner *LogicRunner) Disuses(name string) {
 
 // Run executes a non-transactional business logic function using this LogicRunner.
 // It initializes local data sources before running the logic and cleans up connections upon
-// completion. It returns an error if initialization, type casting to D, or the logic function
+// completion. It returns an error if initialization, type-casting to D, or the logic function
 // fails.
 func (runner *LogicRunner) Run[D any](logic func(D) errs.Err) errs.Err {
 	data, ok := runner.dataAcc.dataHub.(D)
@@ -92,7 +92,7 @@ func (runner *LogicRunner) Start() LogicRun {
 // Txn executes a transactional business logic function using this LogicRunner.
 // It initializes local data sources, executes the logic function, and automatically commits all
 // participating connections if the logic succeeds, or rolls them back if an error occurs.
-// It returns an error if initialization, type casting to D, the logic function, or commit
+// It returns an error if initialization, type-casting to D, the logic function, or commit
 // fails.
 func (runner *LogicRunner) Txn[D any](logic func(D) errs.Err) errs.Err {
 	data, ok := runner.dataAcc.dataHub.(D)

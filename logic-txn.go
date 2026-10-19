@@ -105,7 +105,7 @@ func (run LogicTxn) RunForce[D any](logic func(D) errs.Err) LogicTxn {
 }
 
 // RunOrBlock executes the given business logic function if no errors have occurred so far in
-// the transaction chain. If this logic function fails (or type casting fails), it blocks
+// the transaction chain. If this logic function fails (or type-casting fails), it blocks
 // subsequent steps in the chain from running (even RunForce steps).
 // It returns the LogicTxn instance for method chaining.
 func (run LogicTxn) RunOrBlock[D any](logic func(D) errs.Err) LogicTxn {
