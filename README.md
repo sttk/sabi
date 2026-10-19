@@ -96,6 +96,8 @@ import (
   "fmt"
   "os"
 
+  "github.com/redis/go-redis/v9"
+
   "github.com/sttk/errs"
   "github.com/sttk/sabi"
   "github.com/sttk/sabi_redis"
@@ -196,7 +198,7 @@ func init() {
 
 func main() {
     if err := run(); err.IsNotOk() {
-        fmt.Fprintln(os.Stderr, err.Error());
+        fmt.Fprintln(os.Stderr, err.Error())
         os.Exit(1)
     }
 }
