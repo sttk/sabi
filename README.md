@@ -148,10 +148,9 @@ func (da *SettingDataAcc) SetText(text string) errs.Err {
 ### 3. Integrating data interfaces and DataAcc derived structs into a DataHub object
 
 The user-defined DataHub object is a plain struct that embeds the `DataAcc`-derived structs
-and implements the data interface (`MyData`) from step 1 by composing the `DataAcc`-derived
-structs from step 2.
-Instead of implementing a `sabi.DataHub` interface, you define a constructor function of type
-`sabi.NewDataHub` — `func(acc *sabi.DataAcc) any` — that builds and returns your DataHub object.
+and implements the application data interface (`MyData`) from step 1 by composing those structs.
+You define a constructor function of type `sabi.NewDataHub` — `func(acc *sabi.DataAcc) any` —
+that builds and returns your DataHub object.
 
 ```go
 import "github.com/sttk/sabi"
