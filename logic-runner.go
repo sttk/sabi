@@ -20,7 +20,7 @@ type /* error reasons */ (
 )
 
 // LogicRunner coordinates the execution of business logic and transactions. It holds a DataAcc
-// and its associated DataHub instance, manages local data sources, and executes logic functions
+// and its associated DataHub object, manages local data sources, and executes logic functions
 // either non-transactionally or within transactions.
 type LogicRunner struct {
 	dataAcc *DataAcc

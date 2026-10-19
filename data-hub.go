@@ -5,8 +5,8 @@
 package sabi
 
 // NewDataHub is a constructor function type that creates and initializes a user-defined
-// DataHub instance using the provided DataAcc.
+// DataHub object using the provided DataAcc.
 //
-// A DataHub typically embeds or wraps DataAcc and provides methods required by application
-// logic functions.
+// A DataHub is typically a user-defined struct that embeds or wraps DataAcc and provides
+// methods required by application logic functions.
 type NewDataHub func(acc *DataAcc) any

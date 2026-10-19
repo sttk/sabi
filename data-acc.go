@@ -67,15 +67,14 @@ type /* error reasons */ (
 		ToDataConnType string
 	}
 
-	// FailToCastDataHub represents an error reason indicating that the DataHub instance
-	// could not be type-cast to the generic data access interface type required by the logic.
+	// FailToCastDataHub represents an error reason indicating that the user-defined DataHub
+	// object could not be type-cast to the data interface type required by the logic function.
 	FailToCastDataHub struct {
 		// Name is an optional identifier or label for the data hub or logic.
 		Name string
-		// FromType is the actual type name of the DataHub instance being cast.
+		// FromType is the actual type name of the DataHub object being cast.
 		FromType string
-		// ToType is the expected data access interface type name that the cast failed to
-		// match.
+		// ToType is the expected data interface type name that the cast failed to match.
 		ToType string
 	}
 )
@@ -239,9 +238,9 @@ func (acc *DataAcc) GetDataConn[C DataConn](name string) (C, errs.Err) {
 	return dc, errs.Ok()
 }
 
-// Run executes a nested business logic function using the DataHub instance associated with
-// this DataAcc. It type-casts the DataHub to type D and passes it to the provided logic
-// function.
+// Run executes a nested business logic function using the DataHub object associated with
+// this DataAcc. It type-casts the DataHub object to type D and passes it to the provided
+// logic function.
 // It returns an error if the DataHub cannot be cast to type D or if the logic function fails.
 func (acc *DataAcc) Run[D any](logic func(D) errs.Err) errs.Err {
 	data, ok := acc.dataHub.(D)
