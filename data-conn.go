@@ -89,9 +89,10 @@ type dataConnContainer struct {
 }
 
 type dataConnManager struct {
-	list      []dataConnContainer
-	indexMap  map[string]int
-	committed bool
+	list         []dataConnContainer
+	indexMap     map[string]int
+	orderedCount int
+	committed    bool
 }
 
 func newDataConnManager() dataConnManager {
@@ -103,8 +104,9 @@ func newDataConnManager() dataConnManager {
 
 func newDataConnManagerWithCommitOrder(names []string) dataConnManager {
 	mgr := dataConnManager{
-		list:     make([]dataConnContainer, len(names)),
-		indexMap: make(map[string]int, len(names)),
+		list:         make([]dataConnContainer, len(names)),
+		indexMap:     make(map[string]int, len(names)),
+		orderedCount: len(names),
 	}
 	// Because earlier ones take precedence when names overlap
 	for i := len(names) - 1; i >= 0; i-- {
@@ -261,11 +263,15 @@ func (mgr *dataConnManager) rollback(reports []TxnFailureReport) {
 
 func (mgr *dataConnManager) close() {
 	clear(mgr.indexMap)
+	for i := 0; i < mgr.orderedCount; i++ {
+		mgr.indexMap[mgr.list[i].name] = i
+	}
 
 	for i := len(mgr.list) - 1; i >= 0; i-- {
 		if mgr.list[i].conn != nil {
 			mgr.list[i].conn.Close()
+			mgr.list[i].conn = nil
 		}
 	}
-	mgr.list = nil
+	mgr.list = mgr.list[0:mgr.orderedCount]
 }
