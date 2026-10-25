@@ -1,6 +1,7 @@
 package sabi
 
 import (
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -19,21 +20,21 @@ func TestAsyncGroup(t *testing.T) {
 	t.Run("ok", func(t *testing.T) {
 		var ag AsyncGroup
 
-		executed := false
+		var executed atomic.Bool
 		fn := func() errs.Err {
 			time.Sleep(50)
-			executed = true
+			executed.Store(true)
 			return errs.Ok()
 		}
 
 		ag._index = 123
 		ag._name = "foo"
 		ag.Add(fn)
-		assert.False(t, executed)
+		assert.False(t, executed.Load())
 
 		errors := ag.join()
 		assert.Len(t, errors, 0)
-		assert.True(t, executed)
+		assert.True(t, executed.Load())
 	})
 
 	t.Run("error", func(t *testing.T) {
@@ -41,21 +42,21 @@ func TestAsyncGroup(t *testing.T) {
 
 		type FailToDoSomething struct{}
 
-		executed := false
+		var executed atomic.Bool
 		fn := func() errs.Err {
 			time.Sleep(50)
-			executed = true
+			executed.Store(true)
 			return errs.New(FailToDoSomething{})
 		}
 
 		ag._index = 123
 		ag._name = "foo"
 		ag.Add(fn)
-		assert.False(t, executed)
+		assert.False(t, executed.Load())
 
 		errors := ag.join()
 		assert.Len(t, errors, 1)
-		assert.True(t, executed)
+		assert.True(t, executed.Load())
 
 		assert.Equal(t, errors[0].Index, 123)
 		assert.Equal(t, errors[0].Name, "foo")
@@ -73,23 +74,21 @@ func TestAsyncGroup(t *testing.T) {
 		type Reason1 struct{}
 		type Reason2 struct{}
 
-		executed0 := false
-		executed1 := false
-		executed2 := false
+		var executed0, executed1, executed2 atomic.Bool
 
 		fn0 := func() errs.Err {
 			time.Sleep(800)
-			executed0 = true
+			executed0.Store(true)
 			return errs.New(Reason0{})
 		}
 		fn1 := func() errs.Err {
 			time.Sleep(400)
-			executed1 = true
+			executed1.Store(true)
 			return errs.New(Reason1{})
 		}
 		fn2 := func() errs.Err {
 			time.Sleep(100)
-			executed2 = true
+			executed2.Store(true)
 			return errs.New(Reason2{})
 		}
 
@@ -105,9 +104,9 @@ func TestAsyncGroup(t *testing.T) {
 
 		errors := ag.join()
 		assert.Len(t, errors, 3)
-		assert.True(t, executed0)
-		assert.True(t, executed1)
-		assert.True(t, executed2)
+		assert.True(t, executed0.Load())
+		assert.True(t, executed1.Load())
+		assert.True(t, executed2.Load())
 
 		// Note: These assertions are temporarily disabled because goroutine scheduling
 		// is non-deterministic. Relying on time.Sleep does not ensure the order of
