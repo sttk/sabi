@@ -5,6 +5,8 @@
 package sabi
 
 import (
+	"sync/atomic"
+
 	"github.com/sttk/errs"
 )
 
@@ -20,14 +22,14 @@ type /* error reasons */ (
 
 var (
 	globalDataSrcManager dataSrcManager = newDataSrcManager(false)
-	globalDataSrcsFixed  bool           = false
+	globalDataSrcsFixed  atomic.Bool
 )
 
 // Uses registers a global data source with a unique identifier. This registration must occur
 // before Setup is called, as global data sources are initialized during the Setup phase and
 // shared across LogicRunner and DataAcc instances.
 func Uses(name string, ds DataSrc) {
-	if !globalDataSrcsFixed {
+	if !globalDataSrcsFixed.Load() {
 		globalDataSrcManager.add(name, ds)
 	}
 }
@@ -36,9 +38,7 @@ func Uses(name string, ds DataSrc) {
 // prevent further registrations. If any data source setup fails, it shuts down all successfully
 // initialized data sources and returns an error wrapper.
 func Setup() errs.Err {
-	if !globalDataSrcsFixed {
-		globalDataSrcsFixed = true
-
+	if globalDataSrcsFixed.CompareAndSwap(false, true) {
 		errors := globalDataSrcManager.setup()
 		if len(errors) > 0 {
 			globalDataSrcManager.close()
@@ -55,9 +55,7 @@ func Setup() errs.Err {
 // If initialization fails, it shuts down all successfully initialized data sources and returns
 // an error wrapper.
 func SetupWithOrder(names ...string) errs.Err {
-	if !globalDataSrcsFixed {
-		globalDataSrcsFixed = true
-
+	if globalDataSrcsFixed.CompareAndSwap(false, true) {
 		errors := globalDataSrcManager.setupWithOrder(names)
 		if len(errors) > 0 {
 			globalDataSrcManager.close()
