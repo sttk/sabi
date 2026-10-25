@@ -63,14 +63,14 @@ func (ag *AsyncGroup) Add(fn func() errs.Err) {
 		defer ag.wg.Done()
 		err := fn()
 		if err.IsNotOk() {
-			ag.mutex.Lock()
-			defer ag.mutex.Unlock()
 			ag.addErr(index, name, err)
 		}
 	}(ag._index, ag._name)
 }
 
 func (ag *AsyncGroup) addErr(index int, name string, err errs.Err) {
+	ag.mutex.Lock()
+	defer ag.mutex.Unlock()
 	ag.errors = append(ag.errors, ErrEntry{Index: index, Name: name, Err: err})
 }
 

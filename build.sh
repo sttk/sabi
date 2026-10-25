@@ -16,11 +16,11 @@ compile() {
 }
 
 test() {
-  go test -v $(go list ./... | grep -v /benchmark)
+  go test --race -v $(go list ./... | grep -v /benchmark)
 }
 
 unit() {
-  go test -v -run $1 $(go list ./... | grep -v /benchmark)
+  go test --race -v -run $1 $(go list ./... | grep -v /benchmark)
 }
 
 cover() {
