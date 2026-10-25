@@ -46,15 +46,6 @@ type /* error reasons */ (
 		DataConnType string
 	}
 
-	// CreatedDataConn represents an error reason indicating that a data connection has already
-	// been created for the specified name.
-	CreatedDataConn struct {
-		// Name is the registered name of the data connection.
-		Name string
-		// DataConnType is the type name of the created data connection.
-		DataConnType string
-	}
-
 	// FailToCastDataConn represents an error reason indicating that a data connection was
 	// successfully retrieved, but could not be type-cast to the specific implementation
 	// expected by the caller.
