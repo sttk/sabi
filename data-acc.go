@@ -92,7 +92,9 @@ type DataAcc struct {
 }
 
 func newDataAcc() *DataAcc {
-	globalDataSrcsFixed = true
+	if !globalDataSrcsFixed.Load() { // To avoid cache line contention
+		globalDataSrcsFixed.Store(true)
+	}
 
 	dsMap := make(map[string]dataSrcContainer, len(globalDataSrcManager.listReady))
 	globalDataSrcManager.copyDsReadyToMap(dsMap)
@@ -107,7 +109,9 @@ func newDataAcc() *DataAcc {
 }
 
 func newDataAccWithCommitOrder(names []string) *DataAcc {
-	globalDataSrcsFixed = true
+	if !globalDataSrcsFixed.Load() { // To avoid cache line contention
+		globalDataSrcsFixed.Store(true)
+	}
 
 	dsMap := make(map[string]dataSrcContainer, len(globalDataSrcManager.listReady))
 	globalDataSrcManager.copyDsReadyToMap(dsMap)

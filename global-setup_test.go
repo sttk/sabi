@@ -7,7 +7,7 @@ import (
 )
 
 func ResetGlobals() {
-	globalDataSrcsFixed = false
+	globalDataSrcsFixed.Store(false)
 	globalDataSrcManager.close()
 }
 
@@ -18,7 +18,7 @@ func TestGlobals(t *testing.T) {
 
 		logger := NewLogger()
 
-		assert.False(t, globalDataSrcsFixed)
+		assert.False(t, globalDataSrcsFixed.Load())
 		assert.False(t, globalDataSrcManager.local)
 		assert.Len(t, globalDataSrcManager.listUnready, 0)
 		assert.Len(t, globalDataSrcManager.listReady, 0)
@@ -26,7 +26,7 @@ func TestGlobals(t *testing.T) {
 		ds1 := NewSyncDataSrc(1, logger, Fail_None)
 		Uses("foo", ds1)
 
-		assert.False(t, globalDataSrcsFixed)
+		assert.False(t, globalDataSrcsFixed.Load())
 		assert.False(t, globalDataSrcManager.local)
 		assert.Len(t, globalDataSrcManager.listUnready, 1)
 		assert.Len(t, globalDataSrcManager.listReady, 0)
@@ -36,7 +36,7 @@ func TestGlobals(t *testing.T) {
 			defer Shutdown()
 			assert.True(t, err.IsOk())
 
-			assert.True(t, globalDataSrcsFixed)
+			assert.True(t, globalDataSrcsFixed.Load())
 			assert.False(t, globalDataSrcManager.local)
 			assert.Len(t, globalDataSrcManager.listUnready, 0)
 			assert.Len(t, globalDataSrcManager.listReady, 1)
@@ -55,7 +55,7 @@ func TestGlobals(t *testing.T) {
 
 		logger := NewLogger()
 
-		assert.False(t, globalDataSrcsFixed)
+		assert.False(t, globalDataSrcsFixed.Load())
 		assert.False(t, globalDataSrcManager.local)
 		assert.Len(t, globalDataSrcManager.listUnready, 0)
 		assert.Len(t, globalDataSrcManager.listReady, 0)
@@ -63,7 +63,7 @@ func TestGlobals(t *testing.T) {
 		ds1 := NewSyncDataSrc(1, logger, Fail_Setup)
 		Uses("foo", ds1)
 
-		assert.False(t, globalDataSrcsFixed)
+		assert.False(t, globalDataSrcsFixed.Load())
 		assert.False(t, globalDataSrcManager.local)
 		assert.Len(t, globalDataSrcManager.listUnready, 1)
 		assert.Len(t, globalDataSrcManager.listReady, 0)
@@ -83,7 +83,7 @@ func TestGlobals(t *testing.T) {
 				assert.Fail(t, err.Error())
 			}
 
-			assert.True(t, globalDataSrcsFixed)
+			assert.True(t, globalDataSrcsFixed.Load())
 			assert.False(t, globalDataSrcManager.local)
 			assert.Len(t, globalDataSrcManager.listUnready, 0)
 			assert.Len(t, globalDataSrcManager.listReady, 0)
@@ -101,7 +101,7 @@ func TestGlobals(t *testing.T) {
 
 		logger := NewLogger()
 
-		assert.False(t, globalDataSrcsFixed)
+		assert.False(t, globalDataSrcsFixed.Load())
 		assert.False(t, globalDataSrcManager.local)
 		assert.Len(t, globalDataSrcManager.listUnready, 0)
 		assert.Len(t, globalDataSrcManager.listReady, 0)
@@ -109,7 +109,7 @@ func TestGlobals(t *testing.T) {
 		err := Setup()
 		assert.True(t, err.IsOk())
 
-		assert.True(t, globalDataSrcsFixed)
+		assert.True(t, globalDataSrcsFixed.Load())
 		assert.False(t, globalDataSrcManager.local)
 		assert.Len(t, globalDataSrcManager.listUnready, 0)
 		assert.Len(t, globalDataSrcManager.listReady, 0)
@@ -117,7 +117,7 @@ func TestGlobals(t *testing.T) {
 		ds1 := NewSyncDataSrc(1, logger, Fail_Setup)
 		Uses("foo", ds1)
 
-		assert.True(t, globalDataSrcsFixed)
+		assert.True(t, globalDataSrcsFixed.Load())
 		assert.False(t, globalDataSrcManager.local)
 		assert.Len(t, globalDataSrcManager.listUnready, 0)
 		assert.Len(t, globalDataSrcManager.listReady, 0)
@@ -135,7 +135,7 @@ func TestGlobals(t *testing.T) {
 
 		logger := NewLogger()
 
-		assert.False(t, globalDataSrcsFixed)
+		assert.False(t, globalDataSrcsFixed.Load())
 		assert.False(t, globalDataSrcManager.local)
 		assert.Len(t, globalDataSrcManager.listUnready, 0)
 		assert.Len(t, globalDataSrcManager.listReady, 0)
@@ -145,7 +145,7 @@ func TestGlobals(t *testing.T) {
 		ds2 := NewSyncDataSrc(2, logger, Fail_None)
 		Uses("bar", ds2)
 
-		assert.False(t, globalDataSrcsFixed)
+		assert.False(t, globalDataSrcsFixed.Load())
 		assert.False(t, globalDataSrcManager.local)
 		assert.Len(t, globalDataSrcManager.listUnready, 2)
 		assert.Len(t, globalDataSrcManager.listReady, 0)
@@ -155,7 +155,7 @@ func TestGlobals(t *testing.T) {
 			defer Shutdown()
 			assert.True(t, err.IsOk())
 
-			assert.True(t, globalDataSrcsFixed)
+			assert.True(t, globalDataSrcsFixed.Load())
 			assert.False(t, globalDataSrcManager.local)
 			assert.Len(t, globalDataSrcManager.listUnready, 0)
 			assert.Len(t, globalDataSrcManager.listReady, 2)
@@ -177,7 +177,7 @@ func TestGlobals(t *testing.T) {
 
 		logger := NewLogger()
 
-		assert.False(t, globalDataSrcsFixed)
+		assert.False(t, globalDataSrcsFixed.Load())
 		assert.False(t, globalDataSrcManager.local)
 		assert.Len(t, globalDataSrcManager.listUnready, 0)
 		assert.Len(t, globalDataSrcManager.listReady, 0)
@@ -187,7 +187,7 @@ func TestGlobals(t *testing.T) {
 		ds2 := NewSyncDataSrc(2, logger, Fail_Setup)
 		Uses("bar", ds2)
 
-		assert.False(t, globalDataSrcsFixed)
+		assert.False(t, globalDataSrcsFixed.Load())
 		assert.False(t, globalDataSrcManager.local)
 		assert.Len(t, globalDataSrcManager.listUnready, 2)
 		assert.Len(t, globalDataSrcManager.listReady, 0)
@@ -207,7 +207,7 @@ func TestGlobals(t *testing.T) {
 				assert.Fail(t, err.Error())
 			}
 
-			assert.True(t, globalDataSrcsFixed)
+			assert.True(t, globalDataSrcsFixed.Load())
 			assert.False(t, globalDataSrcManager.local)
 			assert.Len(t, globalDataSrcManager.listUnready, 0)
 			assert.Len(t, globalDataSrcManager.listReady, 0)
@@ -226,7 +226,7 @@ func TestGlobals(t *testing.T) {
 
 		logger := NewLogger()
 
-		assert.False(t, globalDataSrcsFixed)
+		assert.False(t, globalDataSrcsFixed.Load())
 		assert.False(t, globalDataSrcManager.local)
 		assert.Len(t, globalDataSrcManager.listUnready, 0)
 		assert.Len(t, globalDataSrcManager.listReady, 0)
@@ -234,7 +234,7 @@ func TestGlobals(t *testing.T) {
 		err := SetupWithOrder("bar", "foo")
 		assert.True(t, err.IsOk())
 
-		assert.True(t, globalDataSrcsFixed)
+		assert.True(t, globalDataSrcsFixed.Load())
 		assert.False(t, globalDataSrcManager.local)
 		assert.Len(t, globalDataSrcManager.listUnready, 0)
 		assert.Len(t, globalDataSrcManager.listReady, 0)
@@ -242,7 +242,7 @@ func TestGlobals(t *testing.T) {
 		ds1 := NewSyncDataSrc(1, logger, Fail_Setup)
 		Uses("foo", ds1)
 
-		assert.True(t, globalDataSrcsFixed)
+		assert.True(t, globalDataSrcsFixed.Load())
 		assert.False(t, globalDataSrcManager.local)
 		assert.Len(t, globalDataSrcManager.listUnready, 0)
 		assert.Len(t, globalDataSrcManager.listReady, 0)
