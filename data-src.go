@@ -94,10 +94,10 @@ func (mgr *dataSrcManager) setup() []ErrEntry {
 		ii++
 		if err := mgr.listUnready[i].ds.Setup(&ag); err.IsNotOk() {
 			ag.addErr(ag._index, ag._name, err)
-			nDone = i
 			break
 		}
 	}
+	nDone = ag._index
 	errors := ag.join()
 
 	if len(errors) == 0 {
@@ -146,7 +146,6 @@ func (mgr *dataSrcManager) setupWithOrder(names []string) []ErrEntry {
 	}
 
 	ag := AsyncGroup{}
-	ii := 0
 	nDone := 0
 	for orderIndex, listIndexPlusOffset := range orderedIndexes {
 		if listIndexPlusOffset <= 0 { // Ignore unset
@@ -157,11 +156,10 @@ func (mgr *dataSrcManager) setupWithOrder(names []string) []ErrEntry {
 		//	continue
 		//}
 		ag._name = mgr.listUnready[listIndex].name
-		ag._index = ii
-		ii++
+		ag._index = orderIndex
+		nDone = orderIndex
 		if err := mgr.listUnready[listIndex].ds.Setup(&ag); err.IsNotOk() {
 			ag.addErr(ag._index, ag._name, err)
-			nDone = orderIndex
 			break
 		}
 	}

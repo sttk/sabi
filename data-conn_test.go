@@ -827,7 +827,6 @@ func TestDataConn(t *testing.T) {
 	})
 
 	t.Run("only rollback and first rollback failed", func(t *testing.T) {
-		t.Skip()
 		logger := NewLogger()
 
 		func() {
