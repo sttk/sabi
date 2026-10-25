@@ -129,7 +129,10 @@ func (da *SettingDataAcc) SetText(text string) errs.Err {
   }
   redisDc.AddRollback(func(rConn *redis.Conn) errs.Err {
     e := rConn.Del(ctx, "key").Err()
-    return errs.New("fail to delete key for rollback", e)
+    if e != nil {
+      return errs.New("fail to delete key for rollback", e)
+    }
+    return errs.Ok()
   })
 
   stdioDc, err := da.GetDataConn[*sabi_stdio.StdioDataConn]("stdio")
