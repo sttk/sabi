@@ -250,6 +250,6 @@ func (acc *DataAcc) Run[D any](logic func(D) errs.Err) errs.Err {
 
 // Start begins a method chain for executing nested non-transactional business logic functions
 // using LogicRun.
-func (acc *DataAcc) Start() LogicRun {
+func (acc *DataAcc) Start() *LogicRun {
 	return newLogicRun(acc, true)
 }

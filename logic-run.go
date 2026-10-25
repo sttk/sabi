@@ -28,10 +28,10 @@ type LogicRun struct {
 	nested  bool
 }
 
-func newLogicRun(da *DataAcc, nested bool) LogicRun {
+func newLogicRun(da *DataAcc, nested bool) *LogicRun {
 	if !nested {
 		if err := da.begin(); err.IsNotOk() {
-			return LogicRun{
+			return &LogicRun{
 				dataAcc: da,
 				errAt:   logicErrAtBegin,
 				errors:  []ErrEntry{{Err: err}},
@@ -41,7 +41,7 @@ func newLogicRun(da *DataAcc, nested bool) LogicRun {
 		}
 	}
 
-	return LogicRun{
+	return &LogicRun{
 		dataAcc: da,
 		errAt:   logicErrAtRun,
 		errors:  []ErrEntry{},
@@ -53,7 +53,7 @@ func newLogicRun(da *DataAcc, nested bool) LogicRun {
 // Run executes the given business logic function if no errors have occurred so far in the
 // chain. If an error has already occurred in a preceding step, this logic is skipped.
 // It returns the LogicRun instance for method chaining.
-func (run LogicRun) Run[D any](logic func(D) errs.Err) LogicRun {
+func (run *LogicRun) Run[D any](logic func(D) errs.Err) *LogicRun {
 	index := run.index
 	run.index = index + 1
 
@@ -87,7 +87,7 @@ func (run LogicRun) Run[D any](logic func(D) errs.Err) LogicRun {
 // RunForce executes the given business logic function regardless of whether errors occurred
 // in preceding steps, unless execution was blocked by RunOrBlock.
 // It returns the LogicRun instance for method chaining.
-func (run LogicRun) RunForce[D any](logic func(D) errs.Err) LogicRun {
+func (run *LogicRun) RunForce[D any](logic func(D) errs.Err) *LogicRun {
 	index := run.index
 	run.index = index + 1
 
@@ -120,7 +120,7 @@ func (run LogicRun) RunForce[D any](logic func(D) errs.Err) LogicRun {
 // the chain. If this logic function fails (or type-casting fails), it blocks subsequent steps
 // in the chain from running (even RunForce steps).
 // It returns the LogicRun instance for method chaining.
-func (run LogicRun) RunOrBlock[D any](logic func(D) errs.Err) LogicRun {
+func (run *LogicRun) RunOrBlock[D any](logic func(D) errs.Err) *LogicRun {
 	index := run.index
 	run.index = index + 1
 
@@ -154,7 +154,7 @@ func (run LogicRun) RunOrBlock[D any](logic func(D) errs.Err) LogicRun {
 
 // End finishes the execution chain, cleans up resources if not nested, and returns an error
 // indicating any failure that occurred during execution.
-func (run LogicRun) End() errs.Err {
+func (run *LogicRun) End() errs.Err {
 	if !run.nested {
 		run.dataAcc.end()
 	}

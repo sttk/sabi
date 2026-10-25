@@ -85,7 +85,7 @@ func (runner *LogicRunner) Run[D any](logic func(D) errs.Err) errs.Err {
 
 // Start begins a method chain for executing multiple non-transactional business logic functions
 // in sequence using LogicRun.
-func (runner *LogicRunner) Start() LogicRun {
+func (runner *LogicRunner) Start() *LogicRun {
 	return newLogicRun(runner.dataAcc, false)
 }
 
@@ -114,6 +114,6 @@ func (runner *LogicRunner) Txn[D any](logic func(D) errs.Err) errs.Err {
 
 // BeginTxn begins a method chain for executing multiple business logic functions within a
 // transaction using LogicTxn.
-func (runner *LogicRunner) BeginTxn() LogicTxn {
+func (runner *LogicRunner) BeginTxn() *LogicTxn {
 	return newLogicTxn(runner.dataAcc)
 }
