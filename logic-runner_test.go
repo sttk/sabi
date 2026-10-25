@@ -25,6 +25,25 @@ func TestOfLogicRunner(t *testing.T) {
 		assert.NotNil(t, runner.dataAcc.dataHub)
 	})
 
+	t.Run("new if global data srcs are not fixed yet", func(t *testing.T) {
+		ResetGlobals()
+
+		hub := NewDataHub(func(da *DataAcc) any {
+			return da
+		})
+		runner := NewLogicRunner(hub)
+
+		assert.Len(t, runner.dataAcc.localDataSrcManager.listUnready, 0)
+		assert.Len(t, runner.dataAcc.localDataSrcManager.listReady, 0)
+		assert.True(t, runner.dataAcc.localDataSrcManager.local)
+		assert.Len(t, runner.dataAcc.dataSrcMap, 0)
+		assert.Len(t, runner.dataAcc.dataConnManager.list, 0)
+		assert.Len(t, runner.dataAcc.dataConnManager.indexMap, 0)
+		assert.Len(t, runner.dataAcc.dataConnMap, 0)
+		assert.False(t, runner.dataAcc.fixed)
+		assert.NotNil(t, runner.dataAcc.dataHub)
+	})
+
 	t.Run("uses", func(t *testing.T) {
 		logger := NewLogger()
 
@@ -1190,6 +1209,55 @@ func TestOfLogicRunner(t *testing.T) {
 			"SyncDataSrc#Setup 2 failed",
 			"SyncDataSrc#Close 1",
 		})
+	})
+
+	t.Run("new", func(t *testing.T) {
+		logger := NewLogger()
+
+		func() {
+			hub := NewDataHub(func(da *DataAcc) any {
+				return da
+			})
+			runner := NewLogicRunnerWithCommitOrder(hub, "bar", "foo")
+			defer runner.Close()
+
+			assert.Len(t, runner.dataAcc.localDataSrcManager.listUnready, 0)
+			assert.Len(t, runner.dataAcc.localDataSrcManager.listReady, 0)
+			assert.True(t, runner.dataAcc.localDataSrcManager.local)
+			assert.Len(t, runner.dataAcc.dataSrcMap, 0)
+			assert.Len(t, runner.dataAcc.dataConnManager.list, 2)
+			assert.Len(t, runner.dataAcc.dataConnManager.indexMap, 2)
+			assert.Len(t, runner.dataAcc.dataConnMap, 0)
+			assert.False(t, runner.dataAcc.fixed)
+			assert.NotNil(t, runner.dataAcc.dataHub)
+		}()
+
+		assert.Len(t, logger.Logs(), 0)
+	})
+
+	t.Run("new with commit order if global data srcs are not fixed", func(t *testing.T) {
+		logger := NewLogger()
+		ResetGlobals()
+
+		func() {
+			hub := NewDataHub(func(da *DataAcc) any {
+				return da
+			})
+			runner := NewLogicRunnerWithCommitOrder(hub, "bar", "foo")
+			defer runner.Close()
+
+			assert.Len(t, runner.dataAcc.localDataSrcManager.listUnready, 0)
+			assert.Len(t, runner.dataAcc.localDataSrcManager.listReady, 0)
+			assert.True(t, runner.dataAcc.localDataSrcManager.local)
+			assert.Len(t, runner.dataAcc.dataSrcMap, 0)
+			assert.Len(t, runner.dataAcc.dataConnManager.list, 2)
+			assert.Len(t, runner.dataAcc.dataConnManager.indexMap, 2)
+			assert.Len(t, runner.dataAcc.dataConnMap, 0)
+			assert.False(t, runner.dataAcc.fixed)
+			assert.NotNil(t, runner.dataAcc.dataHub)
+		}()
+
+		assert.Len(t, logger.Logs(), 0)
 	})
 
 	t.Run("Txn with commit order", func(t *testing.T) {
