@@ -43,8 +43,8 @@ type ErrEntry struct {
 // that occur, along with their order or resource index.
 type AsyncGroup struct {
 	errors []ErrEntry
-	_index int
-	_name  string
+	index  int
+	name   string
 	wg     sync.WaitGroup
 	mutex  sync.Mutex
 }
@@ -65,7 +65,7 @@ func (ag *AsyncGroup) Add(fn func() errs.Err) {
 		if err.IsNotOk() {
 			ag.addErr(index, name, err)
 		}
-	}(ag._index, ag._name)
+	}(ag.index, ag.name)
 }
 
 func (ag *AsyncGroup) addErr(index int, name string, err errs.Err) {

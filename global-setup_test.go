@@ -92,6 +92,7 @@ func TestGlobals(t *testing.T) {
 		assert.Equal(t, logger.Logs(), []string{
 			"SyncDataSrc#New 1",
 			"SyncDataSrc#Setup 1 failed",
+			"SyncDataSrc#Close 1",
 		})
 	})
 
@@ -217,6 +218,7 @@ func TestGlobals(t *testing.T) {
 			"SyncDataSrc#New 1",
 			"SyncDataSrc#New 2",
 			"SyncDataSrc#Setup 2 failed",
+			"SyncDataSrc#Close 2",
 		})
 	})
 

@@ -27,8 +27,8 @@ func TestAsyncGroup(t *testing.T) {
 			return errs.Ok()
 		}
 
-		ag._index = 123
-		ag._name = "foo"
+		ag.index = 123
+		ag.name = "foo"
 		ag.Add(fn)
 		assert.False(t, executed.Load())
 
@@ -49,8 +49,8 @@ func TestAsyncGroup(t *testing.T) {
 			return errs.New(FailToDoSomething{})
 		}
 
-		ag._index = 123
-		ag._name = "foo"
+		ag.index = 123
+		ag.name = "foo"
 		ag.Add(fn)
 		assert.False(t, executed.Load())
 
@@ -92,14 +92,14 @@ func TestAsyncGroup(t *testing.T) {
 			return errs.New(Reason2{})
 		}
 
-		ag._index = 12
-		ag._name = "foo"
+		ag.index = 12
+		ag.name = "foo"
 		ag.Add(fn0)
-		ag._index = 34
-		ag._name = "bar"
+		ag.index = 34
+		ag.name = "bar"
 		ag.Add(fn1)
-		ag._index = 56
-		ag._name = "baz"
+		ag.index = 56
+		ag.name = "baz"
 		ag.Add(fn2)
 
 		errors := ag.join()

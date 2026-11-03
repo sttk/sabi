@@ -145,11 +145,11 @@ func (mgr *dataConnManager) commit(reports []TxnFailureReport) errs.Err {
 		if mgr.list[i].conn == nil {
 			continue
 		}
-		ag._name = mgr.list[i].name
-		ag._index = ii
+		ag.name = mgr.list[i].name
+		ag.index = ii
 		ii++
 		if err := mgr.list[i].conn.PreCommit(&ag); err.IsNotOk() {
-			ag.addErr(ag._index, ag._name, err)
+			ag.addErr(ag.index, ag.name, err)
 			break
 		}
 	}
@@ -169,12 +169,12 @@ func (mgr *dataConnManager) commit(reports []TxnFailureReport) errs.Err {
 		if mgr.list[i].conn == nil {
 			continue
 		}
-		ag._name = mgr.list[i].name
-		ag._index = ii
+		ag.name = mgr.list[i].name
+		ag.index = ii
 		ii++
 		if !mgr.list[i].conn.IsCommitted() {
 			if err := mgr.list[i].conn.Commit(&ag); err.IsNotOk() {
-				ag.addErr(ag._index, ag._name, err)
+				ag.addErr(ag.index, ag.name, err)
 				break
 			}
 		}
@@ -197,11 +197,11 @@ func (mgr *dataConnManager) commit(reports []TxnFailureReport) errs.Err {
 		if mgr.list[i].conn == nil {
 			continue
 		}
-		ag._name = mgr.list[i].name
-		ag._index = ii
+		ag.name = mgr.list[i].name
+		ag.index = ii
 		ii++
 		if err := mgr.list[i].conn.PostCommit(&ag); err.IsNotOk() {
-			ag.addErr(ag._index, ag._name, err)
+			ag.addErr(ag.index, ag.name, err)
 			// don't break
 		}
 	}
@@ -225,12 +225,12 @@ func (mgr *dataConnManager) rollback(reports []TxnFailureReport) {
 		if mgr.list[i].conn == nil {
 			continue
 		}
-		ag._name = mgr.list[i].name
-		ag._index = ii
+		ag.name = mgr.list[i].name
+		ag.index = ii
 		ii++
 		if mgr.list[i].conn.IsCommitted() {
-			if reports[ag._index].Cause.State == NoneByUncommitted {
-				reports[ag._index].Cause.State = NoneByCommitted
+			if reports[ag.index].Cause.State == NoneByUncommitted {
+				reports[ag.index].Cause.State = NoneByCommitted
 			}
 			continue
 		}
@@ -238,9 +238,9 @@ func (mgr *dataConnManager) rollback(reports []TxnFailureReport) {
 			continue
 		}
 		if err := mgr.list[i].conn.Rollback(&ag); err.IsNotOk() {
-			ag.addErr(ag._index, ag._name, err)
+			ag.addErr(ag.index, ag.name, err)
 		} else {
-			reports[ag._index].Rollback.State = NoneByRolledBack
+			reports[ag.index].Rollback.State = NoneByRolledBack
 		}
 	}
 	errors := ag.join()

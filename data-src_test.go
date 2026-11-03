@@ -230,6 +230,7 @@ func TestDataSrc(t *testing.T) {
 			"SyncDataSrc#New 3",
 			"SyncDataSrc#Setup 1",
 			"SyncDataSrc#Setup 2 failed",
+			"SyncDataSrc#Close 2",
 			"SyncDataSrc#Close 1",
 		})
 	})
@@ -366,6 +367,7 @@ func TestDataSrc(t *testing.T) {
 			"SyncDataSrc#Setup 4",
 			"SyncDataSrc#Setup 3",
 			"SyncDataSrc#Setup 1 failed",
+			"SyncDataSrc#Close 1",
 			"SyncDataSrc#Close 3",
 			"SyncDataSrc#Close 4",
 		})

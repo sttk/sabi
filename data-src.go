@@ -55,10 +55,29 @@ func (mgr *dataSrcManager) add(name string, ds DataSrc) {
 	mgr.listUnready = append(mgr.listUnready, dataSrcContainer{local: mgr.local, name: name, ds: ds})
 }
 
+func closeDataSrcSafely(ds DataSrc) (recovered any) {
+	if ds == nil {
+		return nil
+	}
+
+	defer func() {
+		if r := recover(); r != nil {
+			recovered = r
+		}
+	}()
+
+	ds.Close()
+	return nil
+}
+
 func (mgr *dataSrcManager) remove(name string) {
+	var firstPanic any
+
 	mgr.listReady = slices.DeleteFunc(mgr.listReady, func(cont dataSrcContainer) bool {
 		if cont.name == name {
-			cont.ds.Close()
+			if p := closeDataSrcSafely(cont.ds); p != nil && firstPanic == nil {
+				firstPanic = p
+			}
 			return true
 		} else {
 			return false
@@ -67,58 +86,82 @@ func (mgr *dataSrcManager) remove(name string) {
 	mgr.listUnready = slices.DeleteFunc(mgr.listUnready, func(cont dataSrcContainer) bool {
 		return (cont.name == name || cont.ds == nil)
 	})
+
+	if firstPanic != nil {
+		panic(firstPanic)
+	}
 }
 
 func (mgr *dataSrcManager) close() {
+	var firstPanic any
+
 	for i := len(mgr.listReady) - 1; i >= 0; i-- {
-		mgr.listReady[i].ds.Close()
+		if p := closeDataSrcSafely(mgr.listReady[i].ds); p != nil && firstPanic == nil {
+			firstPanic = p
+		}
 	}
 	mgr.listReady = nil
 	mgr.listUnready = nil
+
+	if firstPanic != nil {
+		panic(firstPanic)
+	}
 }
 
-func (mgr *dataSrcManager) setup() []ErrEntry {
+func (mgr *dataSrcManager) setup() (errors []ErrEntry) {
 	if len(mgr.listUnready) == 0 {
 		return nil
 	}
 
-	ag := AsyncGroup{}
-	ii := 0
 	nDone := 0
+	var firstPanic any
+
+	defer func() {
+		if r := recover(); r != nil && firstPanic == nil {
+			firstPanic = r
+		}
+		if len(errors) > 0 {
+			for i := nDone - 1; i >= 0; i-- {
+				if p := closeDataSrcSafely(mgr.listUnready[i].ds); p != nil && firstPanic == nil {
+					firstPanic = p
+				}
+			}
+		}
+		if firstPanic != nil {
+			panic(firstPanic)
+		}
+	}()
+
+	ag := AsyncGroup{}
+
 	for i := range mgr.listUnready {
 		if mgr.listUnready[i].ds == nil {
 			continue
 		}
-		ag._name = mgr.listUnready[i].name
-		ag._index = ii
-		ii++
+		ag.name = mgr.listUnready[i].name
+		ag.index = i
+		nDone = i + 1
 		if err := mgr.listUnready[i].ds.Setup(&ag); err.IsNotOk() {
-			ag.addErr(ag._index, ag._name, err)
+			ag.addErr(ag.index, ag.name, err)
 			break
 		}
 	}
-	nDone = ag._index
-	errors := ag.join()
 
-	if len(errors) == 0 {
-		for i := range mgr.listUnready {
-			if mgr.listUnready[i].ds != nil {
-				mgr.listReady = append(mgr.listReady, mgr.listUnready[i])
-			}
-		}
-		mgr.listUnready = nil
-		return nil
-	} else {
-		for i := nDone - 1; i >= 0; i-- {
-			if mgr.listUnready[i].ds != nil {
-				mgr.listUnready[i].ds.Close()
-			}
-		}
+	errors = ag.join()
+	if len(errors) > 0 {
 		return errors
 	}
+
+	for i := range mgr.listUnready {
+		if mgr.listUnready[i].ds != nil {
+			mgr.listReady = append(mgr.listReady, mgr.listUnready[i])
+		}
+	}
+	mgr.listUnready = nil
+	return nil
 }
 
-func (mgr *dataSrcManager) setupWithOrder(names []string) []ErrEntry {
+func (mgr *dataSrcManager) setupWithOrder(names []string) (errors []ErrEntry) {
 	if len(mgr.listUnready) == 0 {
 		return nil
 	}
@@ -145,8 +188,33 @@ func (mgr *dataSrcManager) setupWithOrder(names []string) []ErrEntry {
 		}
 	}
 
-	ag := AsyncGroup{}
 	nDone := 0
+	var firstPanic any
+
+	defer func() {
+		if r := recover(); r != nil && firstPanic == nil {
+			firstPanic = r
+		}
+		if len(errors) > 0 {
+			for orderIndex := nDone - 1; orderIndex >= 0; orderIndex-- {
+				listIndexPlusOffset := orderedIndexes[orderIndex]
+				if listIndexPlusOffset > 0 { // Ignore unset
+					listIndex := listIndexPlusOffset - offsetAvoidingUnset
+					//if mgr.listUnready[listIndex].ds == nil { // impossible
+					//  continue
+					//}
+					if p := closeDataSrcSafely(mgr.listUnready[listIndex].ds); p != nil && firstPanic == nil {
+						firstPanic = p
+					}
+				}
+			}
+		}
+		if firstPanic != nil {
+			panic(firstPanic)
+		}
+	}()
+
+	ag := AsyncGroup{}
 	for orderIndex, listIndexPlusOffset := range orderedIndexes {
 		if listIndexPlusOffset <= 0 { // Ignore unset
 			continue
@@ -155,42 +223,32 @@ func (mgr *dataSrcManager) setupWithOrder(names []string) []ErrEntry {
 		//if mgr.listUnready[listIndex].ds == nil { // impossible
 		//	continue
 		//}
-		ag._name = mgr.listUnready[listIndex].name
-		ag._index = orderIndex
-		nDone = orderIndex
+		ag.name = mgr.listUnready[listIndex].name
+		ag.index = orderIndex
+		nDone = orderIndex + 1
 		if err := mgr.listUnready[listIndex].ds.Setup(&ag); err.IsNotOk() {
-			ag.addErr(ag._index, ag._name, err)
+			ag.addErr(ag.index, ag.name, err)
 			break
 		}
 	}
-	errors := ag.join()
+	errors = ag.join()
 
-	if len(errors) == 0 {
-		for _, listIndexPlusOffset := range orderedIndexes {
-			if listIndexPlusOffset <= 0 { // Ignore unset
-				continue
-			}
-			listIndex := listIndexPlusOffset - offsetAvoidingUnset
-			//if mgr.listUnready[listIndex].ds == nil { // impossible
-			//	continue
-			//}
-			mgr.listReady = append(mgr.listReady, mgr.listUnready[listIndex])
-		}
-		mgr.listUnready = nil
-		return nil
-	} else {
-		for orderIndex := nDone - 1; orderIndex >= 0; orderIndex-- {
-			listIndexPlusOffset := orderedIndexes[orderIndex]
-			if listIndexPlusOffset > 0 { // Ignore unset
-				listIndex := listIndexPlusOffset - offsetAvoidingUnset
-				//if mgr.listUnready[listIndex].ds == nil { // impossible
-				//  continue
-				//}
-				mgr.listUnready[listIndex].ds.Close()
-			}
-		}
+	if len(errors) > 0 {
 		return errors
 	}
+
+	for _, listIndexPlusOffset := range orderedIndexes {
+		if listIndexPlusOffset <= 0 { // Ignore unset
+			continue
+		}
+		listIndex := listIndexPlusOffset - offsetAvoidingUnset
+		//if mgr.listUnready[listIndex].ds == nil { // impossible
+		//	continue
+		//}
+		mgr.listReady = append(mgr.listReady, mgr.listUnready[listIndex])
+	}
+	mgr.listUnready = nil
+	return nil
 }
 
 func (mgr *dataSrcManager) copyDsReadyToMap(contMap map[string]dataSrcContainer) {
