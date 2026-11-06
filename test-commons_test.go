@@ -14,12 +14,22 @@ type Fail int
 const (
 	Fail_None = iota
 	Fail_Setup
+	Fail_SetupPanicked
+	Fail_CreateDataConn
+
 	Fail_PreCommit
 	Fail_Commit
 	Fail_PostCommit
 	Fail_Rollback
+
+	Fail_PreCommitPanicked
+	Fail_CommitPanicked
+	Fail_PostCommitPanicked
+	Fail_RollbackPanicked
+	Fail_OnTxnFailurePanicked
+	Fail_ClosePanicked
+
 	Fail_PreCommitBecomeCommitted
-	Fail_CreateDataConn
 )
 
 type Logger struct {
@@ -74,6 +84,9 @@ func (conn *SyncDataConn) Commit(ag *AsyncGroup) errs.Err {
 	if conn.fail == Fail_Commit {
 		conn.logger.PushBack(fmt.Sprintf("SyncDataConn#Commit %d failed", conn.id))
 		return errs.New("ZZZ")
+	} else if conn.fail == Fail_CommitPanicked {
+		conn.logger.PushBack(fmt.Sprintf("SyncDataConn#Commit %d panicked", conn.id))
+		panic("commit panicked")
 	}
 	conn.committed = true
 	conn.logger.PushBack(fmt.Sprintf("SyncDataConn#Commit %d", conn.id))
@@ -84,6 +97,9 @@ func (conn *SyncDataConn) PreCommit(ag *AsyncGroup) errs.Err {
 	if conn.fail == Fail_PreCommit {
 		conn.logger.PushBack(fmt.Sprintf("SyncDataConn#PreCommit %d failed", conn.id))
 		return errs.New("zzz")
+	} else if conn.fail == Fail_PreCommitPanicked {
+		conn.logger.PushBack(fmt.Sprintf("SyncDataConn#PreCommit %d panicked", conn.id))
+		panic("preCommit panicked")
 	}
 	conn.logger.PushBack(fmt.Sprintf("SyncDataConn#PreCommit %d", conn.id))
 	if conn.fail == Fail_PreCommitBecomeCommitted {
@@ -96,6 +112,9 @@ func (conn *SyncDataConn) PostCommit(ag *AsyncGroup) errs.Err {
 	if conn.fail == Fail_PostCommit {
 		conn.logger.PushBack(fmt.Sprintf("SyncDataConn#PostCommit %d failed", conn.id))
 		return errs.New("!!!")
+	} else if conn.fail == Fail_PostCommitPanicked {
+		conn.logger.PushBack(fmt.Sprintf("SyncDataConn#PostCommit %d panicked", conn.id))
+		panic("postCommit panicked")
 	}
 	conn.logger.PushBack(fmt.Sprintf("SyncDataConn#PostCommit %d", conn.id))
 	return errs.Ok()
@@ -109,12 +128,19 @@ func (conn *SyncDataConn) Rollback(ag *AsyncGroup) errs.Err {
 	if conn.fail == Fail_Rollback {
 		conn.logger.PushBack(fmt.Sprintf("SyncDataConn#Rollback %d failed", conn.id))
 		return errs.New("???")
+	} else if conn.fail == Fail_RollbackPanicked {
+		conn.logger.PushBack(fmt.Sprintf("SyncDataConn#Rollback %d panicked", conn.id))
+		panic("rollback panicked")
 	}
 	conn.logger.PushBack(fmt.Sprintf("SyncDataConn#Rollback %d", conn.id))
 	return errs.Ok()
 }
 
 func (conn *SyncDataConn) OnTxnFailure(ag *AsyncGroup, reports []TxnFailureReport) {
+	if conn.fail == Fail_OnTxnFailurePanicked {
+		conn.logger.PushBack(fmt.Sprintf("SyncDataConn#OnTxnFailure %d panicked", conn.id))
+		panic("onTxnFailure panicked")
+	}
 	conn.logger.PushBack(
 		fmt.Sprintf("SyncDataConn#OnTxnFailure %d", conn.id),
 		fmt.Sprintf("TxnFailureReport=%+v", reports),
@@ -122,6 +148,10 @@ func (conn *SyncDataConn) OnTxnFailure(ag *AsyncGroup, reports []TxnFailureRepor
 }
 
 func (conn *SyncDataConn) Close() {
+	if conn.fail == Fail_ClosePanicked {
+		conn.logger.PushBack(fmt.Sprintf("SyncDataConn#OnTxnFailure %d panicked", conn.id))
+		panic("close panicked")
+	}
 	conn.logger.PushBack(fmt.Sprintf("SyncDataConn#Close %d", conn.id))
 }
 
@@ -148,6 +178,9 @@ func (conn *AsyncDataConn) Commit(ag *AsyncGroup) errs.Err {
 		if conn.fail == Fail_Commit {
 			conn.logger.PushBack(fmt.Sprintf("AsyncDataConn#Commit %d failed", conn.id))
 			return errs.New("YYY")
+		} else if conn.fail == Fail_CommitPanicked {
+			conn.logger.PushBack(fmt.Sprintf("AsyncDataConn#Commit %d panicked", conn.id))
+			panic("commit panicked")
 		}
 		conn.committed = true
 		conn.logger.PushBack(fmt.Sprintf("AsyncDataConn#Commit %d", conn.id))
@@ -162,6 +195,9 @@ func (conn *AsyncDataConn) PreCommit(ag *AsyncGroup) errs.Err {
 		if conn.fail == Fail_PreCommit {
 			conn.logger.PushBack(fmt.Sprintf("AsyncDataConn#PreCommit %d failed", conn.id))
 			return errs.New("yyy")
+		} else if conn.fail == Fail_PreCommitPanicked {
+			conn.logger.PushBack(fmt.Sprintf("AsyncDataConn#PreCommit %d panicked", conn.id))
+			panic("preCommit panicked")
 		}
 		conn.logger.PushBack(fmt.Sprintf("AsyncDataConn#PreCommit %d", conn.id))
 		if conn.fail == Fail_PreCommitBecomeCommitted {
@@ -178,6 +214,9 @@ func (conn *AsyncDataConn) PostCommit(ag *AsyncGroup) errs.Err {
 		if conn.fail == Fail_PostCommit {
 			conn.logger.PushBack(fmt.Sprintf("AsyncDataConn#PostCommit %d failed", conn.id))
 			return errs.New("!!!")
+		} else if conn.fail == Fail_PostCommitPanicked {
+			conn.logger.PushBack(fmt.Sprintf("AsyncDataConn#PostCommit %d panicked", conn.id))
+			panic("preCommit panicked")
 		}
 		conn.logger.PushBack(fmt.Sprintf("AsyncDataConn#PostCommit %d", conn.id))
 		return errs.Ok()
@@ -195,6 +234,9 @@ func (conn *AsyncDataConn) Rollback(ag *AsyncGroup) errs.Err {
 		if conn.fail == Fail_Rollback {
 			conn.logger.PushBack(fmt.Sprintf("AsyncDataConn#Rollback %d failed", conn.id))
 			return errs.New("???")
+		} else if conn.fail == Fail_RollbackPanicked {
+			conn.logger.PushBack(fmt.Sprintf("AsyncDataConn#Rollback %d panicked", conn.id))
+			panic("rollback panicked")
 		}
 		conn.logger.PushBack(fmt.Sprintf("AsyncDataConn#Rollback %d", conn.id))
 		return errs.Ok()
@@ -204,6 +246,10 @@ func (conn *AsyncDataConn) Rollback(ag *AsyncGroup) errs.Err {
 
 func (conn *AsyncDataConn) OnTxnFailure(ag *AsyncGroup, reports []TxnFailureReport) {
 	ag.Add(func() errs.Err {
+		if conn.fail == Fail_OnTxnFailurePanicked {
+			conn.logger.PushBack(fmt.Sprintf("AsyncDataConn#OnTxnFailure %d panicked", conn.id))
+			panic("onTxnFailure panicked")
+		}
 		time.Sleep(100)
 		conn.logger.PushBack(
 			fmt.Sprintf("AsyncDataConn#OnTxnFailure %d", conn.id),
@@ -214,6 +260,10 @@ func (conn *AsyncDataConn) OnTxnFailure(ag *AsyncGroup, reports []TxnFailureRepo
 }
 
 func (conn *AsyncDataConn) Close() {
+	if conn.fail == Fail_ClosePanicked {
+		conn.logger.PushBack(fmt.Sprintf("AsyncDataConn#Close %d panicked", conn.id))
+		panic("close panicked")
+	}
 	conn.logger.PushBack(fmt.Sprintf("AsyncDataConn#Close %d", conn.id))
 }
 
@@ -279,6 +329,9 @@ func (ds *SyncDataSrc) Setup(ag *AsyncGroup) errs.Err {
 	if ds.fail == Fail_Setup {
 		ds.logger.PushBack(fmt.Sprintf("SyncDataSrc#Setup %d failed", ds.id))
 		return errs.New("XXX")
+	} else if ds.fail == Fail_SetupPanicked {
+		ds.logger.PushBack(fmt.Sprintf("SyncDataSrc#Setup %d panicked", ds.id))
+		panic("setup panicked")
 	}
 	ds.logger.PushBack(fmt.Sprintf("SyncDataSrc#Setup %d", ds.id))
 	return errs.Ok()
@@ -315,6 +368,9 @@ func (ds *AsyncDataSrc) Setup(ag *AsyncGroup) errs.Err {
 		if ds.fail == Fail_Setup {
 			ds.logger.PushBack(fmt.Sprintf("AsyncDataSrc#Setup %d failed", ds.id))
 			return errs.New("XXX")
+		} else if ds.fail == Fail_SetupPanicked {
+			ds.logger.PushBack(fmt.Sprintf("AsyncDataSrc#Setup %d panicked", ds.id))
+			panic("setup panicked")
 		}
 		ds.logger.PushBack(fmt.Sprintf("AsyncDataSrc#Setup %d", ds.id))
 		return errs.Ok()
