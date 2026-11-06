@@ -431,6 +431,7 @@ func TestOfLogicRunner(t *testing.T) {
 			"SyncDataSrc#New 3",
 			"SyncDataSrc#Setup 1",
 			"SyncDataSrc#Setup 2 failed",
+			"SyncDataSrc#Close 2",
 			"SyncDataSrc#Close 1",
 		})
 	})
@@ -635,6 +636,7 @@ func TestOfLogicRunner(t *testing.T) {
 			"SyncDataSrc#New 3",
 			"SyncDataSrc#Setup 1",
 			"SyncDataSrc#Setup 2 failed",
+			"SyncDataSrc#Close 2",
 			"SyncDataSrc#Close 1",
 		})
 	})
@@ -791,6 +793,7 @@ func TestOfLogicRunner(t *testing.T) {
 			"SyncDataSrc#New 3",
 			"SyncDataSrc#Setup 1",
 			"SyncDataSrc#Setup 2 failed",
+			"SyncDataSrc#Close 2",
 			"SyncDataSrc#Close 1",
 		})
 	})
@@ -1207,6 +1210,7 @@ func TestOfLogicRunner(t *testing.T) {
 			"SyncDataSrc#New 3",
 			"SyncDataSrc#Setup 1",
 			"SyncDataSrc#Setup 2 failed",
+			"SyncDataSrc#Close 2",
 			"SyncDataSrc#Close 1",
 		})
 	})

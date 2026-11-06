@@ -230,6 +230,7 @@ func TestDataSrc(t *testing.T) {
 			"SyncDataSrc#New 3",
 			"SyncDataSrc#Setup 1",
 			"SyncDataSrc#Setup 2 failed",
+			"SyncDataSrc#Close 2",
 			"SyncDataSrc#Close 1",
 		})
 	})
@@ -366,6 +367,7 @@ func TestDataSrc(t *testing.T) {
 			"SyncDataSrc#Setup 4",
 			"SyncDataSrc#Setup 3",
 			"SyncDataSrc#Setup 1 failed",
+			"SyncDataSrc#Close 1",
 			"SyncDataSrc#Close 3",
 			"SyncDataSrc#Close 4",
 		})
@@ -601,5 +603,99 @@ func TestDataSrc(t *testing.T) {
 		assert.True(t, contMap["bar"].local)
 		assert.Equal(t, contMap["bar"].name, "bar")
 		assert.NotNil(t, contMap["bar"].ds)
+	})
+
+	t.Run("panic: setup but error", func(t *testing.T) {
+		logger := NewLogger()
+
+		func() {
+			manager := newDataSrcManager(true)
+
+			ds1 := NewSyncDataSrc(1, logger, Fail_None)
+			manager.add("foo", ds1)
+
+			ds2 := NewSyncDataSrc(2, logger, Fail_SetupPanicked)
+			manager.add("bar", ds2)
+
+			ds3 := NewSyncDataSrc(3, logger, Fail_None)
+			manager.add("baz", ds3)
+
+			assert.True(t, manager.local)
+			assert.Len(t, manager.listUnready, 3)
+			assert.Len(t, manager.listReady, 0)
+
+			defer func() {
+				r := recover()
+				assert.Equal(t, r, "setup panicked")
+
+				assert.True(t, manager.local)
+				assert.Len(t, manager.listUnready, 0)
+				assert.Len(t, manager.listReady, 0)
+			}()
+
+			manager.setup()
+
+			assert.Fail(t, "bad")
+		}()
+
+		assert.Equal(t, logger.Logs(), []string{
+			"SyncDataSrc#New 1",
+			"SyncDataSrc#New 2",
+			"SyncDataSrc#New 3",
+			"SyncDataSrc#Setup 1",
+			"SyncDataSrc#Setup 2 panicked",
+			"SyncDataSrc#Close 2",
+			"SyncDataSrc#Close 1",
+		})
+	})
+
+	t.Run("panic: setupWithOrder but error", func(t *testing.T) {
+		logger := NewLogger()
+
+		func() {
+			manager := newDataSrcManager(true)
+
+			ds1 := NewSyncDataSrc(1, logger, Fail_SetupPanicked)
+			manager.add("foo", ds1)
+
+			ds2 := NewSyncDataSrc(2, logger, Fail_SetupPanicked)
+			manager.add("bar", ds2)
+
+			ds3 := NewSyncDataSrc(3, logger, Fail_None)
+			manager.add("baz", ds3)
+
+			ds4 := NewSyncDataSrc(4, logger, Fail_None)
+			manager.add("qux", ds4)
+
+			assert.True(t, manager.local)
+			assert.Len(t, manager.listUnready, 4)
+			assert.Len(t, manager.listReady, 0)
+
+			defer func() {
+				r := recover()
+				assert.Equal(t, r, "setup panicked")
+
+				assert.True(t, manager.local)
+				assert.Len(t, manager.listUnready, 0)
+				assert.Len(t, manager.listReady, 0)
+			}()
+
+			manager.setupWithOrder([]string{"qux", "baz", "foo"})
+
+			assert.Fail(t, "bad")
+		}()
+
+		assert.Equal(t, logger.Logs(), []string{
+			"SyncDataSrc#New 1",
+			"SyncDataSrc#New 2",
+			"SyncDataSrc#New 3",
+			"SyncDataSrc#New 4",
+			"SyncDataSrc#Setup 4",
+			"SyncDataSrc#Setup 3",
+			"SyncDataSrc#Setup 1 panicked",
+			"SyncDataSrc#Close 1",
+			"SyncDataSrc#Close 3",
+			"SyncDataSrc#Close 4",
+		})
 	})
 }
