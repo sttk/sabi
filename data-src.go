@@ -89,15 +89,15 @@ func (mgr *dataSrcManager) setup() []ErrEntry {
 		if mgr.listUnready[i].ds == nil {
 			continue
 		}
-		ag._name = mgr.listUnready[i].name
-		ag._index = ii
+		ag.name = mgr.listUnready[i].name
+		ag.index = ii
 		ii++
 		if err := mgr.listUnready[i].ds.Setup(&ag); err.IsNotOk() {
-			ag.addErr(ag._index, ag._name, err)
+			ag.addErr(ag.index, ag.name, err)
 			break
 		}
 	}
-	nDone = ag._index
+	nDone = ag.index
 	errors := ag.join()
 
 	if len(errors) == 0 {
@@ -155,11 +155,11 @@ func (mgr *dataSrcManager) setupWithOrder(names []string) []ErrEntry {
 		//if mgr.listUnready[listIndex].ds == nil { // impossible
 		//	continue
 		//}
-		ag._name = mgr.listUnready[listIndex].name
-		ag._index = orderIndex
+		ag.name = mgr.listUnready[listIndex].name
+		ag.index = orderIndex
 		nDone = orderIndex
 		if err := mgr.listUnready[listIndex].ds.Setup(&ag); err.IsNotOk() {
-			ag.addErr(ag._index, ag._name, err)
+			ag.addErr(ag.index, ag.name, err)
 			break
 		}
 	}
