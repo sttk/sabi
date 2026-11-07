@@ -68,6 +68,9 @@ type /* error reasons */ (
 		// ToType is the expected data interface type name that the cast failed to match.
 		ToType string
 	}
+
+	/// AbnormalState represents that the data hub is in an abnormal state and cannot be used.
+	AbnormalState struct{}
 )
 
 // DataAcc provides access to data connections and coordinates data sources within a logic
@@ -114,6 +117,10 @@ func newDataAccWithCommitOrder(names []string) *DataAcc {
 		dataConnMap:         make(map[string]dataConnContainer),
 		fixed:               false,
 	}
+}
+
+func (acc *DataAcc) isAbnormal() bool {
+	return acc.localDataSrcManager.isAbnormal
 }
 
 func (acc *DataAcc) uses(name string, ds DataSrc) {
@@ -172,8 +179,15 @@ func (acc *DataAcc) commitOrRollback(err errs.Err) errs.Err {
 func (acc *DataAcc) end() {
 	clear(acc.dataConnMap)
 	acc.dataConnManager.close()
-
 	acc.fixed = false
+}
+
+func (acc *DataAcc) abend() {
+	acc.localDataSrcManager.isAbnormal = true
+	clear(acc.dataConnMap)
+	clear(acc.dataSrcMap)
+	acc.dataConnManager.abend()
+	acc.localDataSrcManager.closeOnPanic()
 }
 
 // GetDataConn retrieves an active connection of the specified type C from the DataAcc.

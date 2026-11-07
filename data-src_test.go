@@ -221,7 +221,7 @@ func TestDataSrc(t *testing.T) {
 			assert.Len(t, errors, 1)
 			assert.Equal(t, errors[0].Index, 1)
 			assert.Equal(t, errors[0].Name, "bar")
-			assert.Equal(t, errors[0].Err.Error(), "github.com/sttk/errs.Err {reason:XXX file:test-commons_test.go line:331}")
+			assert.Equal(t, errors[0].Err.Error(), "github.com/sttk/errs.Err {reason:XXX file:test-commons_test.go line:343}")
 		}()
 
 		assert.Equal(t, logger.Logs(), []string{
@@ -356,7 +356,7 @@ func TestDataSrc(t *testing.T) {
 			assert.Len(t, errors, 1)
 			assert.Equal(t, errors[0].Index, 2)
 			assert.Equal(t, errors[0].Name, "foo")
-			assert.Equal(t, errors[0].Err.Error(), "github.com/sttk/errs.Err {reason:XXX file:test-commons_test.go line:331}")
+			assert.Equal(t, errors[0].Err.Error(), "github.com/sttk/errs.Err {reason:XXX file:test-commons_test.go line:343}")
 		}()
 
 		assert.Equal(t, logger.Logs(), []string{

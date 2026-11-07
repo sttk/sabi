@@ -97,6 +97,14 @@ func (mgr *dataSrcManager) remove(name string) {
 	}
 }
 
+func (mgr *dataSrcManager) closeOnPanic() {
+	for i := len(mgr.listReady) - 1; i >= 0; i-- {
+		closeDataSrcSafely(mgr.listReady[i].ds)
+	}
+	mgr.listReady = nil
+	mgr.listUnready = nil
+}
+
 func (mgr *dataSrcManager) close() {
 	var firstPanic any
 

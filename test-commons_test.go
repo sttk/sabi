@@ -149,10 +149,14 @@ func (conn *SyncDataConn) OnTxnFailure(ag *AsyncGroup, reports []TxnFailureRepor
 
 func (conn *SyncDataConn) Close() {
 	if conn.fail == Fail_ClosePanicked {
-		conn.logger.PushBack(fmt.Sprintf("SyncDataConn#OnTxnFailure %d panicked", conn.id))
+		conn.logger.PushBack(fmt.Sprintf("SyncDataConn#Close %d panicked", conn.id))
 		panic("close panicked")
 	}
 	conn.logger.PushBack(fmt.Sprintf("SyncDataConn#Close %d", conn.id))
+}
+
+func (conn *SyncDataConn) Abend() {
+	conn.logger.PushBack(fmt.Sprintf("SyncDataConn#Abend %d", conn.id))
 }
 
 type AsyncDataConn struct {
@@ -267,6 +271,10 @@ func (conn *AsyncDataConn) Close() {
 	conn.logger.PushBack(fmt.Sprintf("AsyncDataConn#Close %d", conn.id))
 }
 
+func (conn *AsyncDataConn) Abend() {
+	conn.logger.PushBack(fmt.Sprintf("AsyncDataConn#Abend %d", conn.id))
+}
+
 type NoCommitDataConn struct {
 	id     int8
 	fail   Fail
@@ -312,6 +320,10 @@ func (conn *NoCommitDataConn) OnTxnFailure(ag *AsyncGroup, reports []TxnFailureR
 
 func (conn *NoCommitDataConn) Close() {
 	conn.logger.PushBack(fmt.Sprintf("NoCommitDataConn#Close %d", conn.id))
+}
+
+func (conn *NoCommitDataConn) Abend() {
+	conn.logger.PushBack(fmt.Sprintf("NoCommitDataConn#Abend %d", conn.id))
 }
 
 type SyncDataSrc struct {

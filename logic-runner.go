@@ -67,6 +67,10 @@ func (runner *LogicRunner) Disuses(name string) {
 // completion. It returns an error if initialization, type-casting to D, or the logic function
 // fails.
 func (runner *LogicRunner) Run[D any](logic func(D) errs.Err) errs.Err {
+	if runner.dataAcc.isAbnormal() {
+		return errs.New(AbnormalState{})
+	}
+
 	data, ok := runner.dataAcc.dataHub.(D)
 	if !ok {
 		fromType := typeNameOf(runner.dataAcc.dataHub)
@@ -78,9 +82,17 @@ func (runner *LogicRunner) Run[D any](logic func(D) errs.Err) errs.Err {
 	if err.IsNotOk() {
 		return err
 	}
-	defer runner.dataAcc.end()
 
-	return logic(data)
+	defer func() {
+		if p := recover(); p != nil {
+			runner.dataAcc.abend()
+			panic(p)
+		}
+	}()
+
+	err = logic(data)
+	runner.dataAcc.end()
+	return err
 }
 
 // Start begins a method chain for executing multiple non-transactional business logic functions
@@ -106,10 +118,18 @@ func (runner *LogicRunner) Txn[D any](logic func(D) errs.Err) errs.Err {
 	if err.IsNotOk() {
 		return err
 	}
-	defer runner.dataAcc.end()
+
+	defer func() {
+		if p := recover(); p != nil {
+			runner.dataAcc.abend()
+			panic(p)
+		}
+	}()
 
 	err = logic(data)
-	return runner.dataAcc.commitOrRollback(err)
+	err = runner.dataAcc.commitOrRollback(err)
+	runner.dataAcc.end()
+	return err
 }
 
 // BeginTxn begins a method chain for executing multiple business logic functions within a
