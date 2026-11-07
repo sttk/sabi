@@ -5,9 +5,18 @@
 package sabi
 
 import (
+	"fmt"
 	"sync"
 
 	"github.com/sttk/errs"
+)
+
+type /* error reasons */ (
+	// Indicates that an asynchronous function panicked.
+	ThreadPanicked struct {
+		// The panic payload message.
+		Payload string
+	}
 )
 
 // ErrEntry represents an error encountered during a specific task,
@@ -61,6 +70,14 @@ func (ag *AsyncGroup) Add(fn func() errs.Err) {
 	ag.wg.Add(1)
 	go func(index int, name string) {
 		defer ag.wg.Done()
+		defer func() {
+			if p := recover(); p != nil {
+				ag.addErr(index, name, errs.New(ThreadPanicked{
+					Payload: fmt.Sprintf("%v", p),
+				}))
+			}
+		}()
+
 		err := fn()
 		if err.IsNotOk() {
 			ag.addErr(index, name, err)
