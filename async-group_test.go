@@ -27,8 +27,8 @@ func TestAsyncGroup(t *testing.T) {
 			return errs.Ok()
 		}
 
-		ag._index = 123
-		ag._name = "foo"
+		ag.index = 123
+		ag.name = "foo"
 		ag.Add(fn)
 		assert.False(t, executed.Load())
 
@@ -49,8 +49,8 @@ func TestAsyncGroup(t *testing.T) {
 			return errs.New(FailToDoSomething{})
 		}
 
-		ag._index = 123
-		ag._name = "foo"
+		ag.index = 123
+		ag.name = "foo"
 		ag.Add(fn)
 		assert.False(t, executed.Load())
 
@@ -92,14 +92,14 @@ func TestAsyncGroup(t *testing.T) {
 			return errs.New(Reason2{})
 		}
 
-		ag._index = 12
-		ag._name = "foo"
+		ag.index = 12
+		ag.name = "foo"
 		ag.Add(fn0)
-		ag._index = 34
-		ag._name = "bar"
+		ag.index = 34
+		ag.name = "bar"
 		ag.Add(fn1)
-		ag._index = 56
-		ag._name = "baz"
+		ag.index = 56
+		ag.name = "baz"
 		ag.Add(fn2)
 
 		errors := ag.join()
@@ -135,5 +135,50 @@ func TestAsyncGroup(t *testing.T) {
 		//default:
 		//	assert.Fail(t, errors[2].Err.Error())
 		//}
+	})
+
+	t.Run("panic", func(t *testing.T) {
+		var ag AsyncGroup
+
+		var executed0, executed1, executed2 atomic.Bool
+
+		fn0 := func() errs.Err {
+			time.Sleep(800)
+			executed0.Store(true)
+			return errs.Ok()
+		}
+		fn1 := func() errs.Err {
+			time.Sleep(400)
+			executed1.Store(true)
+			panic("fn1 panicked")
+		}
+		fn2 := func() errs.Err {
+			time.Sleep(100)
+			executed2.Store(true)
+			return errs.Ok()
+		}
+
+		ag.index = 12
+		ag.name = "foo"
+		ag.Add(fn0)
+		ag.index = 34
+		ag.name = "bar"
+		ag.Add(fn1)
+		ag.index = 56
+		ag.name = "baz"
+		ag.Add(fn2)
+
+		errors := ag.join()
+		assert.Len(t, errors, 1)
+		assert.True(t, executed0.Load())
+		assert.True(t, executed1.Load())
+		assert.True(t, executed2.Load())
+
+		switch r := errors[0].Err.Reason().(type) {
+		case ThreadPanicked:
+			assert.Equal(t, r.Payload, "fn1 panicked")
+		default:
+			panic("bad")
+		}
 	})
 }

@@ -431,6 +431,7 @@ func TestOfLogicRunner(t *testing.T) {
 			"SyncDataSrc#New 3",
 			"SyncDataSrc#Setup 1",
 			"SyncDataSrc#Setup 2 failed",
+			"SyncDataSrc#Close 2",
 			"SyncDataSrc#Close 1",
 		})
 	})
@@ -635,6 +636,7 @@ func TestOfLogicRunner(t *testing.T) {
 			"SyncDataSrc#New 3",
 			"SyncDataSrc#Setup 1",
 			"SyncDataSrc#Setup 2 failed",
+			"SyncDataSrc#Close 2",
 			"SyncDataSrc#Close 1",
 		})
 	})
@@ -791,6 +793,7 @@ func TestOfLogicRunner(t *testing.T) {
 			"SyncDataSrc#New 3",
 			"SyncDataSrc#Setup 1",
 			"SyncDataSrc#Setup 2 failed",
+			"SyncDataSrc#Close 2",
 			"SyncDataSrc#Close 1",
 		})
 	})
@@ -906,11 +909,11 @@ func TestOfLogicRunner(t *testing.T) {
 			"SyncDataConn#Rollback 2",
 			"SyncDataConn#Rollback 3",
 			"SyncDataConn#OnTxnFailure 1",
-			"TxnFailureReport=[{DataConnName:foo DataConnType:*sabi.SyncDataConn Cause:{State:NoneByUncommitted Err:github.com/sttk/errs.Err {}} Rollback:{State:NoneByRolledBack Err:github.com/sttk/errs.Err {}}} {DataConnName:bar DataConnType:*sabi.SyncDataConn Cause:{State:LogicFailure Err:github.com/sttk/errs.Err {reason:zzz file:test-commons_test.go line:86}} Rollback:{State:NoneByRolledBack Err:github.com/sttk/errs.Err {}}} {DataConnName:baz DataConnType:*sabi.SyncDataConn Cause:{State:NoneByUncommitted Err:github.com/sttk/errs.Err {}} Rollback:{State:NoneByRolledBack Err:github.com/sttk/errs.Err {}}}]",
+			"TxnFailureReport=[{DataConnName:foo DataConnType:*sabi.SyncDataConn Cause:{State:NoneByUncommitted Err:github.com/sttk/errs.Err {}} Rollback:{State:NoneByRolledBack Err:github.com/sttk/errs.Err {}}} {DataConnName:bar DataConnType:*sabi.SyncDataConn Cause:{State:LogicFailure Err:github.com/sttk/errs.Err {reason:zzz file:test-commons_test.go line:99}} Rollback:{State:NoneByRolledBack Err:github.com/sttk/errs.Err {}}} {DataConnName:baz DataConnType:*sabi.SyncDataConn Cause:{State:NoneByUncommitted Err:github.com/sttk/errs.Err {}} Rollback:{State:NoneByRolledBack Err:github.com/sttk/errs.Err {}}}]",
 			"SyncDataConn#OnTxnFailure 2",
-			"TxnFailureReport=[{DataConnName:foo DataConnType:*sabi.SyncDataConn Cause:{State:NoneByUncommitted Err:github.com/sttk/errs.Err {}} Rollback:{State:NoneByRolledBack Err:github.com/sttk/errs.Err {}}} {DataConnName:bar DataConnType:*sabi.SyncDataConn Cause:{State:LogicFailure Err:github.com/sttk/errs.Err {reason:zzz file:test-commons_test.go line:86}} Rollback:{State:NoneByRolledBack Err:github.com/sttk/errs.Err {}}} {DataConnName:baz DataConnType:*sabi.SyncDataConn Cause:{State:NoneByUncommitted Err:github.com/sttk/errs.Err {}} Rollback:{State:NoneByRolledBack Err:github.com/sttk/errs.Err {}}}]",
+			"TxnFailureReport=[{DataConnName:foo DataConnType:*sabi.SyncDataConn Cause:{State:NoneByUncommitted Err:github.com/sttk/errs.Err {}} Rollback:{State:NoneByRolledBack Err:github.com/sttk/errs.Err {}}} {DataConnName:bar DataConnType:*sabi.SyncDataConn Cause:{State:LogicFailure Err:github.com/sttk/errs.Err {reason:zzz file:test-commons_test.go line:99}} Rollback:{State:NoneByRolledBack Err:github.com/sttk/errs.Err {}}} {DataConnName:baz DataConnType:*sabi.SyncDataConn Cause:{State:NoneByUncommitted Err:github.com/sttk/errs.Err {}} Rollback:{State:NoneByRolledBack Err:github.com/sttk/errs.Err {}}}]",
 			"SyncDataConn#OnTxnFailure 3",
-			"TxnFailureReport=[{DataConnName:foo DataConnType:*sabi.SyncDataConn Cause:{State:NoneByUncommitted Err:github.com/sttk/errs.Err {}} Rollback:{State:NoneByRolledBack Err:github.com/sttk/errs.Err {}}} {DataConnName:bar DataConnType:*sabi.SyncDataConn Cause:{State:LogicFailure Err:github.com/sttk/errs.Err {reason:zzz file:test-commons_test.go line:86}} Rollback:{State:NoneByRolledBack Err:github.com/sttk/errs.Err {}}} {DataConnName:baz DataConnType:*sabi.SyncDataConn Cause:{State:NoneByUncommitted Err:github.com/sttk/errs.Err {}} Rollback:{State:NoneByRolledBack Err:github.com/sttk/errs.Err {}}}]",
+			"TxnFailureReport=[{DataConnName:foo DataConnType:*sabi.SyncDataConn Cause:{State:NoneByUncommitted Err:github.com/sttk/errs.Err {}} Rollback:{State:NoneByRolledBack Err:github.com/sttk/errs.Err {}}} {DataConnName:bar DataConnType:*sabi.SyncDataConn Cause:{State:LogicFailure Err:github.com/sttk/errs.Err {reason:zzz file:test-commons_test.go line:99}} Rollback:{State:NoneByRolledBack Err:github.com/sttk/errs.Err {}}} {DataConnName:baz DataConnType:*sabi.SyncDataConn Cause:{State:NoneByUncommitted Err:github.com/sttk/errs.Err {}} Rollback:{State:NoneByRolledBack Err:github.com/sttk/errs.Err {}}}]",
 			"SyncDataConn#Close 3",
 			"SyncDataConn#Close 2",
 			"SyncDataConn#Close 1",
@@ -979,11 +982,11 @@ func TestOfLogicRunner(t *testing.T) {
 			"SyncDataConn#Rollback 2",
 			"SyncDataConn#Rollback 3",
 			"SyncDataConn#OnTxnFailure 1",
-			"TxnFailureReport=[{DataConnName:foo DataConnType:*sabi.SyncDataConn Cause:{State:NoneByCommitted Err:github.com/sttk/errs.Err {}} Rollback:{State:NoneByNotRolledBack Err:github.com/sttk/errs.Err {}}} {DataConnName:bar DataConnType:*sabi.SyncDataConn Cause:{State:CommitFailure Err:github.com/sttk/errs.Err {reason:ZZZ file:test-commons_test.go line:76}} Rollback:{State:NoneByRolledBack Err:github.com/sttk/errs.Err {}}} {DataConnName:baz DataConnType:*sabi.SyncDataConn Cause:{State:NoneByUncommitted Err:github.com/sttk/errs.Err {}} Rollback:{State:NoneByRolledBack Err:github.com/sttk/errs.Err {}}}]",
+			"TxnFailureReport=[{DataConnName:foo DataConnType:*sabi.SyncDataConn Cause:{State:NoneByCommitted Err:github.com/sttk/errs.Err {}} Rollback:{State:NoneByNotRolledBack Err:github.com/sttk/errs.Err {}}} {DataConnName:bar DataConnType:*sabi.SyncDataConn Cause:{State:CommitFailure Err:github.com/sttk/errs.Err {reason:ZZZ file:test-commons_test.go line:86}} Rollback:{State:NoneByRolledBack Err:github.com/sttk/errs.Err {}}} {DataConnName:baz DataConnType:*sabi.SyncDataConn Cause:{State:NoneByUncommitted Err:github.com/sttk/errs.Err {}} Rollback:{State:NoneByRolledBack Err:github.com/sttk/errs.Err {}}}]",
 			"SyncDataConn#OnTxnFailure 2",
-			"TxnFailureReport=[{DataConnName:foo DataConnType:*sabi.SyncDataConn Cause:{State:NoneByCommitted Err:github.com/sttk/errs.Err {}} Rollback:{State:NoneByNotRolledBack Err:github.com/sttk/errs.Err {}}} {DataConnName:bar DataConnType:*sabi.SyncDataConn Cause:{State:CommitFailure Err:github.com/sttk/errs.Err {reason:ZZZ file:test-commons_test.go line:76}} Rollback:{State:NoneByRolledBack Err:github.com/sttk/errs.Err {}}} {DataConnName:baz DataConnType:*sabi.SyncDataConn Cause:{State:NoneByUncommitted Err:github.com/sttk/errs.Err {}} Rollback:{State:NoneByRolledBack Err:github.com/sttk/errs.Err {}}}]",
+			"TxnFailureReport=[{DataConnName:foo DataConnType:*sabi.SyncDataConn Cause:{State:NoneByCommitted Err:github.com/sttk/errs.Err {}} Rollback:{State:NoneByNotRolledBack Err:github.com/sttk/errs.Err {}}} {DataConnName:bar DataConnType:*sabi.SyncDataConn Cause:{State:CommitFailure Err:github.com/sttk/errs.Err {reason:ZZZ file:test-commons_test.go line:86}} Rollback:{State:NoneByRolledBack Err:github.com/sttk/errs.Err {}}} {DataConnName:baz DataConnType:*sabi.SyncDataConn Cause:{State:NoneByUncommitted Err:github.com/sttk/errs.Err {}} Rollback:{State:NoneByRolledBack Err:github.com/sttk/errs.Err {}}}]",
 			"SyncDataConn#OnTxnFailure 3",
-			"TxnFailureReport=[{DataConnName:foo DataConnType:*sabi.SyncDataConn Cause:{State:NoneByCommitted Err:github.com/sttk/errs.Err {}} Rollback:{State:NoneByNotRolledBack Err:github.com/sttk/errs.Err {}}} {DataConnName:bar DataConnType:*sabi.SyncDataConn Cause:{State:CommitFailure Err:github.com/sttk/errs.Err {reason:ZZZ file:test-commons_test.go line:76}} Rollback:{State:NoneByRolledBack Err:github.com/sttk/errs.Err {}}} {DataConnName:baz DataConnType:*sabi.SyncDataConn Cause:{State:NoneByUncommitted Err:github.com/sttk/errs.Err {}} Rollback:{State:NoneByRolledBack Err:github.com/sttk/errs.Err {}}}]",
+			"TxnFailureReport=[{DataConnName:foo DataConnType:*sabi.SyncDataConn Cause:{State:NoneByCommitted Err:github.com/sttk/errs.Err {}} Rollback:{State:NoneByNotRolledBack Err:github.com/sttk/errs.Err {}}} {DataConnName:bar DataConnType:*sabi.SyncDataConn Cause:{State:CommitFailure Err:github.com/sttk/errs.Err {reason:ZZZ file:test-commons_test.go line:86}} Rollback:{State:NoneByRolledBack Err:github.com/sttk/errs.Err {}}} {DataConnName:baz DataConnType:*sabi.SyncDataConn Cause:{State:NoneByUncommitted Err:github.com/sttk/errs.Err {}} Rollback:{State:NoneByRolledBack Err:github.com/sttk/errs.Err {}}}]",
 			"SyncDataConn#Close 3",
 			"SyncDataConn#Close 2",
 			"SyncDataConn#Close 1",
@@ -1054,11 +1057,11 @@ func TestOfLogicRunner(t *testing.T) {
 			"SyncDataConn#PostCommit 2 failed",
 			"SyncDataConn#PostCommit 3",
 			"SyncDataConn#OnTxnFailure 1",
-			"TxnFailureReport=[{DataConnName:foo DataConnType:*sabi.SyncDataConn Cause:{State:NoneByCommitted Err:github.com/sttk/errs.Err {}} Rollback:{State:NoneByNotRolledBack Err:github.com/sttk/errs.Err {}}} {DataConnName:bar DataConnType:*sabi.SyncDataConn Cause:{State:PostCommitFailure Err:github.com/sttk/errs.Err {reason:!!! file:test-commons_test.go line:98}} Rollback:{State:NoneByNotRolledBack Err:github.com/sttk/errs.Err {}}} {DataConnName:baz DataConnType:*sabi.SyncDataConn Cause:{State:NoneByCommitted Err:github.com/sttk/errs.Err {}} Rollback:{State:NoneByNotRolledBack Err:github.com/sttk/errs.Err {}}}]",
+			"TxnFailureReport=[{DataConnName:foo DataConnType:*sabi.SyncDataConn Cause:{State:NoneByCommitted Err:github.com/sttk/errs.Err {}} Rollback:{State:NoneByNotRolledBack Err:github.com/sttk/errs.Err {}}} {DataConnName:bar DataConnType:*sabi.SyncDataConn Cause:{State:PostCommitFailure Err:github.com/sttk/errs.Err {reason:!!! file:test-commons_test.go line:114}} Rollback:{State:NoneByNotRolledBack Err:github.com/sttk/errs.Err {}}} {DataConnName:baz DataConnType:*sabi.SyncDataConn Cause:{State:NoneByCommitted Err:github.com/sttk/errs.Err {}} Rollback:{State:NoneByNotRolledBack Err:github.com/sttk/errs.Err {}}}]",
 			"SyncDataConn#OnTxnFailure 2",
-			"TxnFailureReport=[{DataConnName:foo DataConnType:*sabi.SyncDataConn Cause:{State:NoneByCommitted Err:github.com/sttk/errs.Err {}} Rollback:{State:NoneByNotRolledBack Err:github.com/sttk/errs.Err {}}} {DataConnName:bar DataConnType:*sabi.SyncDataConn Cause:{State:PostCommitFailure Err:github.com/sttk/errs.Err {reason:!!! file:test-commons_test.go line:98}} Rollback:{State:NoneByNotRolledBack Err:github.com/sttk/errs.Err {}}} {DataConnName:baz DataConnType:*sabi.SyncDataConn Cause:{State:NoneByCommitted Err:github.com/sttk/errs.Err {}} Rollback:{State:NoneByNotRolledBack Err:github.com/sttk/errs.Err {}}}]",
+			"TxnFailureReport=[{DataConnName:foo DataConnType:*sabi.SyncDataConn Cause:{State:NoneByCommitted Err:github.com/sttk/errs.Err {}} Rollback:{State:NoneByNotRolledBack Err:github.com/sttk/errs.Err {}}} {DataConnName:bar DataConnType:*sabi.SyncDataConn Cause:{State:PostCommitFailure Err:github.com/sttk/errs.Err {reason:!!! file:test-commons_test.go line:114}} Rollback:{State:NoneByNotRolledBack Err:github.com/sttk/errs.Err {}}} {DataConnName:baz DataConnType:*sabi.SyncDataConn Cause:{State:NoneByCommitted Err:github.com/sttk/errs.Err {}} Rollback:{State:NoneByNotRolledBack Err:github.com/sttk/errs.Err {}}}]",
 			"SyncDataConn#OnTxnFailure 3",
-			"TxnFailureReport=[{DataConnName:foo DataConnType:*sabi.SyncDataConn Cause:{State:NoneByCommitted Err:github.com/sttk/errs.Err {}} Rollback:{State:NoneByNotRolledBack Err:github.com/sttk/errs.Err {}}} {DataConnName:bar DataConnType:*sabi.SyncDataConn Cause:{State:PostCommitFailure Err:github.com/sttk/errs.Err {reason:!!! file:test-commons_test.go line:98}} Rollback:{State:NoneByNotRolledBack Err:github.com/sttk/errs.Err {}}} {DataConnName:baz DataConnType:*sabi.SyncDataConn Cause:{State:NoneByCommitted Err:github.com/sttk/errs.Err {}} Rollback:{State:NoneByNotRolledBack Err:github.com/sttk/errs.Err {}}}]",
+			"TxnFailureReport=[{DataConnName:foo DataConnType:*sabi.SyncDataConn Cause:{State:NoneByCommitted Err:github.com/sttk/errs.Err {}} Rollback:{State:NoneByNotRolledBack Err:github.com/sttk/errs.Err {}}} {DataConnName:bar DataConnType:*sabi.SyncDataConn Cause:{State:PostCommitFailure Err:github.com/sttk/errs.Err {reason:!!! file:test-commons_test.go line:114}} Rollback:{State:NoneByNotRolledBack Err:github.com/sttk/errs.Err {}}} {DataConnName:baz DataConnType:*sabi.SyncDataConn Cause:{State:NoneByCommitted Err:github.com/sttk/errs.Err {}} Rollback:{State:NoneByNotRolledBack Err:github.com/sttk/errs.Err {}}}]",
 			"SyncDataConn#Close 3",
 			"SyncDataConn#Close 2",
 			"SyncDataConn#Close 1",
@@ -1120,11 +1123,11 @@ func TestOfLogicRunner(t *testing.T) {
 			"SyncDataConn#Rollback 2 failed",
 			"SyncDataConn#Rollback 3",
 			"SyncDataConn#OnTxnFailure 1",
-			"TxnFailureReport=[{DataConnName:foo DataConnType:*sabi.SyncDataConn Cause:{State:NoneByUncommitted Err:github.com/sttk/errs.Err {}} Rollback:{State:NoneByRolledBack Err:github.com/sttk/errs.Err {}}} {DataConnName:bar DataConnType:*sabi.SyncDataConn Cause:{State:NoneByUncommitted Err:github.com/sttk/errs.Err {}} Rollback:{State:RollbackFailure Err:github.com/sttk/errs.Err {reason:??? file:test-commons_test.go line:111}}} {DataConnName:baz DataConnType:*sabi.SyncDataConn Cause:{State:NoneByUncommitted Err:github.com/sttk/errs.Err {}} Rollback:{State:NoneByRolledBack Err:github.com/sttk/errs.Err {}}}]",
+			"TxnFailureReport=[{DataConnName:foo DataConnType:*sabi.SyncDataConn Cause:{State:NoneByUncommitted Err:github.com/sttk/errs.Err {}} Rollback:{State:NoneByRolledBack Err:github.com/sttk/errs.Err {}}} {DataConnName:bar DataConnType:*sabi.SyncDataConn Cause:{State:NoneByUncommitted Err:github.com/sttk/errs.Err {}} Rollback:{State:RollbackFailure Err:github.com/sttk/errs.Err {reason:??? file:test-commons_test.go line:130}}} {DataConnName:baz DataConnType:*sabi.SyncDataConn Cause:{State:NoneByUncommitted Err:github.com/sttk/errs.Err {}} Rollback:{State:NoneByRolledBack Err:github.com/sttk/errs.Err {}}}]",
 			"SyncDataConn#OnTxnFailure 2",
-			"TxnFailureReport=[{DataConnName:foo DataConnType:*sabi.SyncDataConn Cause:{State:NoneByUncommitted Err:github.com/sttk/errs.Err {}} Rollback:{State:NoneByRolledBack Err:github.com/sttk/errs.Err {}}} {DataConnName:bar DataConnType:*sabi.SyncDataConn Cause:{State:NoneByUncommitted Err:github.com/sttk/errs.Err {}} Rollback:{State:RollbackFailure Err:github.com/sttk/errs.Err {reason:??? file:test-commons_test.go line:111}}} {DataConnName:baz DataConnType:*sabi.SyncDataConn Cause:{State:NoneByUncommitted Err:github.com/sttk/errs.Err {}} Rollback:{State:NoneByRolledBack Err:github.com/sttk/errs.Err {}}}]",
+			"TxnFailureReport=[{DataConnName:foo DataConnType:*sabi.SyncDataConn Cause:{State:NoneByUncommitted Err:github.com/sttk/errs.Err {}} Rollback:{State:NoneByRolledBack Err:github.com/sttk/errs.Err {}}} {DataConnName:bar DataConnType:*sabi.SyncDataConn Cause:{State:NoneByUncommitted Err:github.com/sttk/errs.Err {}} Rollback:{State:RollbackFailure Err:github.com/sttk/errs.Err {reason:??? file:test-commons_test.go line:130}}} {DataConnName:baz DataConnType:*sabi.SyncDataConn Cause:{State:NoneByUncommitted Err:github.com/sttk/errs.Err {}} Rollback:{State:NoneByRolledBack Err:github.com/sttk/errs.Err {}}}]",
 			"SyncDataConn#OnTxnFailure 3",
-			"TxnFailureReport=[{DataConnName:foo DataConnType:*sabi.SyncDataConn Cause:{State:NoneByUncommitted Err:github.com/sttk/errs.Err {}} Rollback:{State:NoneByRolledBack Err:github.com/sttk/errs.Err {}}} {DataConnName:bar DataConnType:*sabi.SyncDataConn Cause:{State:NoneByUncommitted Err:github.com/sttk/errs.Err {}} Rollback:{State:RollbackFailure Err:github.com/sttk/errs.Err {reason:??? file:test-commons_test.go line:111}}} {DataConnName:baz DataConnType:*sabi.SyncDataConn Cause:{State:NoneByUncommitted Err:github.com/sttk/errs.Err {}} Rollback:{State:NoneByRolledBack Err:github.com/sttk/errs.Err {}}}]",
+			"TxnFailureReport=[{DataConnName:foo DataConnType:*sabi.SyncDataConn Cause:{State:NoneByUncommitted Err:github.com/sttk/errs.Err {}} Rollback:{State:NoneByRolledBack Err:github.com/sttk/errs.Err {}}} {DataConnName:bar DataConnType:*sabi.SyncDataConn Cause:{State:NoneByUncommitted Err:github.com/sttk/errs.Err {}} Rollback:{State:RollbackFailure Err:github.com/sttk/errs.Err {reason:??? file:test-commons_test.go line:130}}} {DataConnName:baz DataConnType:*sabi.SyncDataConn Cause:{State:NoneByUncommitted Err:github.com/sttk/errs.Err {}} Rollback:{State:NoneByRolledBack Err:github.com/sttk/errs.Err {}}}]",
 			"SyncDataConn#Close 3",
 			"SyncDataConn#Close 2",
 			"SyncDataConn#Close 1",
@@ -1207,6 +1210,7 @@ func TestOfLogicRunner(t *testing.T) {
 			"SyncDataSrc#New 3",
 			"SyncDataSrc#Setup 1",
 			"SyncDataSrc#Setup 2 failed",
+			"SyncDataSrc#Close 2",
 			"SyncDataSrc#Close 1",
 		})
 	})
@@ -1850,6 +1854,547 @@ func TestOfLogicRunner(t *testing.T) {
 				"SyncDataSrc#Close 2",
 				"SyncDataSrc#Close 1",
 			})
+		})
+	})
+
+	t.Run("panic: run logic", func(t *testing.T) {
+		logger := NewLogger()
+
+		func() {
+			runner := NewLogicRunner(NewDataHub(func(da *DataAcc) any {
+				return da
+			}))
+
+			runner.Uses("foo", NewSyncDataSrc(1, logger, Fail_None))
+			runner.Uses("bar", NewSyncDataSrc(2, logger, Fail_None))
+
+			assert.Len(t, runner.dataAcc.localDataSrcManager.listUnready, 2)
+			assert.Len(t, runner.dataAcc.localDataSrcManager.listReady, 0)
+			assert.True(t, runner.dataAcc.localDataSrcManager.local)
+			assert.Len(t, runner.dataAcc.dataSrcMap, 0)
+			assert.Len(t, runner.dataAcc.dataConnManager.list, 0)
+			assert.Len(t, runner.dataAcc.dataConnManager.indexMap, 0)
+			assert.False(t, runner.dataAcc.fixed)
+
+			defer func() {
+				p := recover()
+				assert.Equal(t, p, "run logic panic")
+
+				assert.Len(t, runner.dataAcc.localDataSrcManager.listUnready, 0)
+				assert.Len(t, runner.dataAcc.localDataSrcManager.listReady, 0)
+				assert.True(t, runner.dataAcc.localDataSrcManager.local)
+				assert.Len(t, runner.dataAcc.dataSrcMap, 0)
+				assert.Len(t, runner.dataAcc.dataConnManager.list, 0)
+				assert.Len(t, runner.dataAcc.dataConnManager.indexMap, 0)
+				assert.True(t, runner.dataAcc.fixed)
+			}()
+
+			runner.Run(func(da *DataAcc) errs.Err {
+				conn1, err := da.GetDataConn[*SyncDataConn]("foo")
+				if err.IsNotOk() {
+					return err
+				}
+				assert.NotNil(t, conn1)
+				conn2, err := da.GetDataConn[*SyncDataConn]("bar")
+				if err.IsNotOk() {
+					return err
+				}
+				assert.NotNil(t, conn2)
+				logger.PushBack("Run the logic but panicked")
+				panic("run logic panic")
+			})
+		}()
+
+		assert.Equal(t, logger.Logs(), []string{
+			"SyncDataSrc#New 1",
+			"SyncDataSrc#New 2",
+			"SyncDataSrc#Setup 1",
+			"SyncDataSrc#Setup 2",
+			"SyncDataSrc#CreateDataConn 1",
+			"SyncDataConn#New 1",
+			"SyncDataSrc#CreateDataConn 2",
+			"SyncDataConn#New 2",
+			"Run the logic but panicked",
+			"SyncDataConn#Abend 2",
+			"SyncDataConn#Abend 1",
+			"SyncDataSrc#Close 2",
+			"SyncDataSrc#Close 1",
+		})
+	})
+
+	t.Run("panic: run close", func(t *testing.T) {
+		logger := NewLogger()
+
+		func() {
+			runner := NewLogicRunner(NewDataHub(func(da *DataAcc) any {
+				return da
+			}))
+
+			runner.Uses("foo", NewSyncDataSrc(1, logger, Fail_None))
+			runner.Uses("bar", NewSyncDataSrc(2, logger, Fail_ClosePanicked))
+
+			assert.Len(t, runner.dataAcc.localDataSrcManager.listUnready, 2)
+			assert.Len(t, runner.dataAcc.localDataSrcManager.listReady, 0)
+			assert.True(t, runner.dataAcc.localDataSrcManager.local)
+			assert.Len(t, runner.dataAcc.dataSrcMap, 0)
+			assert.Len(t, runner.dataAcc.dataConnManager.list, 0)
+			assert.Len(t, runner.dataAcc.dataConnManager.indexMap, 0)
+			assert.False(t, runner.dataAcc.fixed)
+
+			defer func() {
+				p := recover()
+				assert.Equal(t, p, "close panicked")
+
+				assert.Len(t, runner.dataAcc.localDataSrcManager.listUnready, 0)
+				assert.Len(t, runner.dataAcc.localDataSrcManager.listReady, 0)
+				assert.True(t, runner.dataAcc.localDataSrcManager.local)
+				assert.Len(t, runner.dataAcc.dataSrcMap, 0)
+				assert.Len(t, runner.dataAcc.dataConnManager.list, 0)
+				assert.Len(t, runner.dataAcc.dataConnManager.indexMap, 0)
+				assert.True(t, runner.dataAcc.fixed)
+			}()
+
+			runner.Run(func(da *DataAcc) errs.Err {
+				conn1, err := da.GetDataConn[*SyncDataConn]("foo")
+				if err.IsNotOk() {
+					return err
+				}
+				assert.NotNil(t, conn1)
+				conn2, err := da.GetDataConn[*SyncDataConn]("bar")
+				if err.IsNotOk() {
+					return err
+				}
+				assert.NotNil(t, conn2)
+				logger.PushBack("Run the logic")
+				return errs.Ok()
+			})
+		}()
+
+		assert.Equal(t, logger.Logs(), []string{
+			"SyncDataSrc#New 1",
+			"SyncDataSrc#New 2",
+			"SyncDataSrc#Setup 1",
+			"SyncDataSrc#Setup 2",
+			"SyncDataSrc#CreateDataConn 1",
+			"SyncDataConn#New 1",
+			"SyncDataSrc#CreateDataConn 2",
+			"SyncDataConn#New 2",
+			"Run the logic",
+			"SyncDataConn#Close 2 panicked",
+			"SyncDataConn#Close 1",
+			"SyncDataSrc#Close 2",
+			"SyncDataSrc#Close 1",
+		})
+	})
+
+	t.Run("panic: txn logic", func(t *testing.T) {
+		logger := NewLogger()
+
+		func() {
+			runner := NewLogicRunner(NewDataHub(func(da *DataAcc) any {
+				return da
+			}))
+
+			runner.Uses("foo", NewSyncDataSrc(1, logger, Fail_None))
+			runner.Uses("bar", NewSyncDataSrc(2, logger, Fail_None))
+
+			assert.Len(t, runner.dataAcc.localDataSrcManager.listUnready, 2)
+			assert.Len(t, runner.dataAcc.localDataSrcManager.listReady, 0)
+			assert.True(t, runner.dataAcc.localDataSrcManager.local)
+			assert.Len(t, runner.dataAcc.dataSrcMap, 0)
+			assert.Len(t, runner.dataAcc.dataConnManager.list, 0)
+			assert.Len(t, runner.dataAcc.dataConnManager.indexMap, 0)
+			assert.False(t, runner.dataAcc.fixed)
+
+			defer func() {
+				p := recover()
+				assert.Equal(t, p, "run logic panic")
+
+				assert.Len(t, runner.dataAcc.localDataSrcManager.listUnready, 0)
+				assert.Len(t, runner.dataAcc.localDataSrcManager.listReady, 0)
+				assert.True(t, runner.dataAcc.localDataSrcManager.local)
+				assert.Len(t, runner.dataAcc.dataSrcMap, 0)
+				assert.Len(t, runner.dataAcc.dataConnManager.list, 0)
+				assert.Len(t, runner.dataAcc.dataConnManager.indexMap, 0)
+				assert.True(t, runner.dataAcc.fixed)
+			}()
+
+			runner.Txn(func(da *DataAcc) errs.Err {
+				conn1, err := da.GetDataConn[*SyncDataConn]("foo")
+				if err.IsNotOk() {
+					return err
+				}
+				assert.NotNil(t, conn1)
+				conn2, err := da.GetDataConn[*SyncDataConn]("bar")
+				if err.IsNotOk() {
+					return err
+				}
+				assert.NotNil(t, conn2)
+				logger.PushBack("Run the logic but panicked")
+				panic("run logic panic")
+			})
+		}()
+
+		assert.Equal(t, logger.Logs(), []string{
+			"SyncDataSrc#New 1",
+			"SyncDataSrc#New 2",
+			"SyncDataSrc#Setup 1",
+			"SyncDataSrc#Setup 2",
+			"SyncDataSrc#CreateDataConn 1",
+			"SyncDataConn#New 1",
+			"SyncDataSrc#CreateDataConn 2",
+			"SyncDataConn#New 2",
+			"Run the logic but panicked",
+			"SyncDataConn#Abend 2",
+			"SyncDataConn#Abend 1",
+			"SyncDataSrc#Close 2",
+			"SyncDataSrc#Close 1",
+		})
+	})
+
+	t.Run("panic: pre commit", func(t *testing.T) {
+		logger := NewLogger()
+
+		func() {
+			runner := NewLogicRunner(NewDataHub(func(da *DataAcc) any {
+				return da
+			}))
+
+			runner.Uses("foo", NewSyncDataSrc(1, logger, Fail_PreCommitPanicked))
+			runner.Uses("bar", NewSyncDataSrc(2, logger, Fail_None))
+
+			assert.Len(t, runner.dataAcc.localDataSrcManager.listUnready, 2)
+			assert.Len(t, runner.dataAcc.localDataSrcManager.listReady, 0)
+			assert.True(t, runner.dataAcc.localDataSrcManager.local)
+			assert.Len(t, runner.dataAcc.dataSrcMap, 0)
+			assert.Len(t, runner.dataAcc.dataConnManager.list, 0)
+			assert.Len(t, runner.dataAcc.dataConnManager.indexMap, 0)
+			assert.False(t, runner.dataAcc.fixed)
+
+			defer func() {
+				p := recover()
+				assert.Equal(t, p, "preCommit panicked")
+
+				assert.Len(t, runner.dataAcc.localDataSrcManager.listUnready, 0)
+				assert.Len(t, runner.dataAcc.localDataSrcManager.listReady, 0)
+				assert.True(t, runner.dataAcc.localDataSrcManager.local)
+				assert.Len(t, runner.dataAcc.dataSrcMap, 0)
+				assert.Len(t, runner.dataAcc.dataConnManager.list, 0)
+				assert.Len(t, runner.dataAcc.dataConnManager.indexMap, 0)
+				assert.True(t, runner.dataAcc.fixed)
+			}()
+
+			runner.Txn(func(da *DataAcc) errs.Err {
+				conn1, err := da.GetDataConn[*SyncDataConn]("foo")
+				if err.IsNotOk() {
+					return err
+				}
+				assert.NotNil(t, conn1)
+				conn2, err := da.GetDataConn[*SyncDataConn]("bar")
+				if err.IsNotOk() {
+					return err
+				}
+				assert.NotNil(t, conn2)
+				logger.PushBack("Run the logic")
+				return errs.Ok()
+			})
+		}()
+
+		assert.Equal(t, logger.Logs(), []string{
+			"SyncDataSrc#New 1",
+			"SyncDataSrc#New 2",
+			"SyncDataSrc#Setup 1",
+			"SyncDataSrc#Setup 2",
+			"SyncDataSrc#CreateDataConn 1",
+			"SyncDataConn#New 1",
+			"SyncDataSrc#CreateDataConn 2",
+			"SyncDataConn#New 2",
+			"Run the logic",
+			"SyncDataConn#PreCommit 1 panicked",
+			"SyncDataConn#Abend 2",
+			"SyncDataConn#Abend 1",
+			"SyncDataSrc#Close 2",
+			"SyncDataSrc#Close 1",
+		})
+	})
+
+	t.Run("panic: commit", func(t *testing.T) {
+		logger := NewLogger()
+
+		func() {
+			runner := NewLogicRunner(NewDataHub(func(da *DataAcc) any {
+				return da
+			}))
+
+			runner.Uses("foo", NewSyncDataSrc(1, logger, Fail_CommitPanicked))
+			runner.Uses("bar", NewSyncDataSrc(2, logger, Fail_None))
+
+			assert.Len(t, runner.dataAcc.localDataSrcManager.listUnready, 2)
+			assert.Len(t, runner.dataAcc.localDataSrcManager.listReady, 0)
+			assert.True(t, runner.dataAcc.localDataSrcManager.local)
+			assert.Len(t, runner.dataAcc.dataSrcMap, 0)
+			assert.Len(t, runner.dataAcc.dataConnManager.list, 0)
+			assert.Len(t, runner.dataAcc.dataConnManager.indexMap, 0)
+			assert.False(t, runner.dataAcc.fixed)
+
+			defer func() {
+				p := recover()
+				assert.Equal(t, p, "commit panicked")
+
+				assert.Len(t, runner.dataAcc.localDataSrcManager.listUnready, 0)
+				assert.Len(t, runner.dataAcc.localDataSrcManager.listReady, 0)
+				assert.True(t, runner.dataAcc.localDataSrcManager.local)
+				assert.Len(t, runner.dataAcc.dataSrcMap, 0)
+				assert.Len(t, runner.dataAcc.dataConnManager.list, 0)
+				assert.Len(t, runner.dataAcc.dataConnManager.indexMap, 0)
+				assert.True(t, runner.dataAcc.fixed)
+			}()
+
+			runner.Txn(func(da *DataAcc) errs.Err {
+				conn1, err := da.GetDataConn[*SyncDataConn]("foo")
+				if err.IsNotOk() {
+					return err
+				}
+				assert.NotNil(t, conn1)
+				conn2, err := da.GetDataConn[*SyncDataConn]("bar")
+				if err.IsNotOk() {
+					return err
+				}
+				assert.NotNil(t, conn2)
+				logger.PushBack("Run the logic")
+				return errs.Ok()
+			})
+		}()
+
+		assert.Equal(t, logger.Logs(), []string{
+			"SyncDataSrc#New 1",
+			"SyncDataSrc#New 2",
+			"SyncDataSrc#Setup 1",
+			"SyncDataSrc#Setup 2",
+			"SyncDataSrc#CreateDataConn 1",
+			"SyncDataConn#New 1",
+			"SyncDataSrc#CreateDataConn 2",
+			"SyncDataConn#New 2",
+			"Run the logic",
+			"SyncDataConn#PreCommit 1",
+			"SyncDataConn#PreCommit 2",
+			"SyncDataConn#Commit 1 panicked",
+			"SyncDataConn#Abend 2",
+			"SyncDataConn#Abend 1",
+			"SyncDataSrc#Close 2",
+			"SyncDataSrc#Close 1",
+		})
+	})
+
+	t.Run("panic: post commit", func(t *testing.T) {
+		logger := NewLogger()
+
+		func() {
+			runner := NewLogicRunner(NewDataHub(func(da *DataAcc) any {
+				return da
+			}))
+
+			runner.Uses("foo", NewSyncDataSrc(1, logger, Fail_PostCommitPanicked))
+			runner.Uses("bar", NewSyncDataSrc(2, logger, Fail_None))
+
+			assert.Len(t, runner.dataAcc.localDataSrcManager.listUnready, 2)
+			assert.Len(t, runner.dataAcc.localDataSrcManager.listReady, 0)
+			assert.True(t, runner.dataAcc.localDataSrcManager.local)
+			assert.Len(t, runner.dataAcc.dataSrcMap, 0)
+			assert.Len(t, runner.dataAcc.dataConnManager.list, 0)
+			assert.Len(t, runner.dataAcc.dataConnManager.indexMap, 0)
+			assert.False(t, runner.dataAcc.fixed)
+
+			defer func() {
+				p := recover()
+				assert.Equal(t, p, "postCommit panicked")
+
+				assert.Len(t, runner.dataAcc.localDataSrcManager.listUnready, 0)
+				assert.Len(t, runner.dataAcc.localDataSrcManager.listReady, 0)
+				assert.True(t, runner.dataAcc.localDataSrcManager.local)
+				assert.Len(t, runner.dataAcc.dataSrcMap, 0)
+				assert.Len(t, runner.dataAcc.dataConnManager.list, 0)
+				assert.Len(t, runner.dataAcc.dataConnManager.indexMap, 0)
+				assert.True(t, runner.dataAcc.fixed)
+			}()
+
+			runner.Txn(func(da *DataAcc) errs.Err {
+				conn1, err := da.GetDataConn[*SyncDataConn]("foo")
+				if err.IsNotOk() {
+					return err
+				}
+				assert.NotNil(t, conn1)
+				conn2, err := da.GetDataConn[*SyncDataConn]("bar")
+				if err.IsNotOk() {
+					return err
+				}
+				assert.NotNil(t, conn2)
+				logger.PushBack("Run the logic")
+				return errs.Ok()
+			})
+		}()
+
+		assert.Equal(t, logger.Logs(), []string{
+			"SyncDataSrc#New 1",
+			"SyncDataSrc#New 2",
+			"SyncDataSrc#Setup 1",
+			"SyncDataSrc#Setup 2",
+			"SyncDataSrc#CreateDataConn 1",
+			"SyncDataConn#New 1",
+			"SyncDataSrc#CreateDataConn 2",
+			"SyncDataConn#New 2",
+			"Run the logic",
+			"SyncDataConn#PreCommit 1",
+			"SyncDataConn#PreCommit 2",
+			"SyncDataConn#Commit 1",
+			"SyncDataConn#Commit 2",
+			"SyncDataConn#PostCommit 1 panicked",
+			"SyncDataConn#Abend 2",
+			"SyncDataConn#Abend 1",
+			"SyncDataSrc#Close 2",
+			"SyncDataSrc#Close 1",
+		})
+	})
+
+	t.Run("panic: rollback", func(t *testing.T) {
+		logger := NewLogger()
+
+		func() {
+			runner := NewLogicRunner(NewDataHub(func(da *DataAcc) any {
+				return da
+			}))
+
+			runner.Uses("foo", NewSyncDataSrc(1, logger, Fail_RollbackPanicked))
+			runner.Uses("bar", NewSyncDataSrc(2, logger, Fail_RollbackPanicked))
+
+			assert.Len(t, runner.dataAcc.localDataSrcManager.listUnready, 2)
+			assert.Len(t, runner.dataAcc.localDataSrcManager.listReady, 0)
+			assert.True(t, runner.dataAcc.localDataSrcManager.local)
+			assert.Len(t, runner.dataAcc.dataSrcMap, 0)
+			assert.Len(t, runner.dataAcc.dataConnManager.list, 0)
+			assert.Len(t, runner.dataAcc.dataConnManager.indexMap, 0)
+			assert.False(t, runner.dataAcc.fixed)
+
+			defer func() {
+				p := recover()
+				assert.Equal(t, p, "rollback panicked")
+
+				assert.Len(t, runner.dataAcc.localDataSrcManager.listUnready, 0)
+				assert.Len(t, runner.dataAcc.localDataSrcManager.listReady, 0)
+				assert.True(t, runner.dataAcc.localDataSrcManager.local)
+				assert.Len(t, runner.dataAcc.dataSrcMap, 0)
+				assert.Len(t, runner.dataAcc.dataConnManager.list, 0)
+				assert.Len(t, runner.dataAcc.dataConnManager.indexMap, 0)
+				assert.True(t, runner.dataAcc.fixed)
+			}()
+
+			runner.Txn(func(da *DataAcc) errs.Err {
+				conn1, err := da.GetDataConn[*SyncDataConn]("foo")
+				if err.IsNotOk() {
+					return err
+				}
+				assert.NotNil(t, conn1)
+				conn2, err := da.GetDataConn[*SyncDataConn]("bar")
+				if err.IsNotOk() {
+					return err
+				}
+				assert.NotNil(t, conn2)
+				logger.PushBack("Run the logic but error")
+				return errs.New("run logic error")
+			})
+		}()
+
+		assert.Equal(t, logger.Logs(), []string{
+			"SyncDataSrc#New 1",
+			"SyncDataSrc#New 2",
+			"SyncDataSrc#Setup 1",
+			"SyncDataSrc#Setup 2",
+			"SyncDataSrc#CreateDataConn 1",
+			"SyncDataConn#New 1",
+			"SyncDataSrc#CreateDataConn 2",
+			"SyncDataConn#New 2",
+			"Run the logic but error",
+			"SyncDataConn#Rollback 1 panicked",
+			"SyncDataConn#Rollback 2 panicked",
+			"SyncDataConn#OnTxnFailure 1",
+			"TxnFailureReport=[{DataConnName:foo DataConnType:*sabi.SyncDataConn Cause:{State:NoneByUncommitted Err:github.com/sttk/errs.Err {}} Rollback:{State:RollbackFailure Err:github.com/sttk/errs.Err {reason:rollback panicked file:data-conn.go line:284}}} {DataConnName:bar DataConnType:*sabi.SyncDataConn Cause:{State:NoneByUncommitted Err:github.com/sttk/errs.Err {}} Rollback:{State:RollbackFailure Err:github.com/sttk/errs.Err {reason:rollback panicked file:data-conn.go line:284}}}]",
+			"SyncDataConn#OnTxnFailure 2",
+			"TxnFailureReport=[{DataConnName:foo DataConnType:*sabi.SyncDataConn Cause:{State:NoneByUncommitted Err:github.com/sttk/errs.Err {}} Rollback:{State:RollbackFailure Err:github.com/sttk/errs.Err {reason:rollback panicked file:data-conn.go line:284}}} {DataConnName:bar DataConnType:*sabi.SyncDataConn Cause:{State:NoneByUncommitted Err:github.com/sttk/errs.Err {}} Rollback:{State:RollbackFailure Err:github.com/sttk/errs.Err {reason:rollback panicked file:data-conn.go line:284}}}]",
+			"SyncDataConn#Abend 2",
+			"SyncDataConn#Abend 1",
+			"SyncDataSrc#Close 2",
+			"SyncDataSrc#Close 1",
+		})
+	})
+
+	t.Run("panic: close", func(t *testing.T) {
+		logger := NewLogger()
+
+		func() {
+			runner := NewLogicRunner(NewDataHub(func(da *DataAcc) any {
+				return da
+			}))
+
+			runner.Uses("foo", NewSyncDataSrc(1, logger, Fail_ClosePanicked))
+			runner.Uses("bar", NewSyncDataSrc(2, logger, Fail_ClosePanicked))
+
+			assert.Len(t, runner.dataAcc.localDataSrcManager.listUnready, 2)
+			assert.Len(t, runner.dataAcc.localDataSrcManager.listReady, 0)
+			assert.True(t, runner.dataAcc.localDataSrcManager.local)
+			assert.Len(t, runner.dataAcc.dataSrcMap, 0)
+			assert.Len(t, runner.dataAcc.dataConnManager.list, 0)
+			assert.Len(t, runner.dataAcc.dataConnManager.indexMap, 0)
+			assert.False(t, runner.dataAcc.fixed)
+
+			defer func() {
+				p := recover()
+				assert.Equal(t, p, "close panicked")
+
+				assert.Len(t, runner.dataAcc.localDataSrcManager.listUnready, 0)
+				assert.Len(t, runner.dataAcc.localDataSrcManager.listReady, 0)
+				assert.True(t, runner.dataAcc.localDataSrcManager.local)
+				assert.Len(t, runner.dataAcc.dataSrcMap, 0)
+				assert.Len(t, runner.dataAcc.dataConnManager.list, 0)
+				assert.Len(t, runner.dataAcc.dataConnManager.indexMap, 0)
+				assert.True(t, runner.dataAcc.fixed)
+			}()
+
+			runner.Txn(func(da *DataAcc) errs.Err {
+				conn1, err := da.GetDataConn[*SyncDataConn]("foo")
+				if err.IsNotOk() {
+					return err
+				}
+				assert.NotNil(t, conn1)
+				conn2, err := da.GetDataConn[*SyncDataConn]("bar")
+				if err.IsNotOk() {
+					return err
+				}
+				assert.NotNil(t, conn2)
+				logger.PushBack("Run the logic")
+				return errs.Ok()
+			})
+		}()
+
+		assert.Equal(t, logger.Logs(), []string{
+			"SyncDataSrc#New 1",
+			"SyncDataSrc#New 2",
+			"SyncDataSrc#Setup 1",
+			"SyncDataSrc#Setup 2",
+			"SyncDataSrc#CreateDataConn 1",
+			"SyncDataConn#New 1",
+			"SyncDataSrc#CreateDataConn 2",
+			"SyncDataConn#New 2",
+			"Run the logic",
+			"SyncDataConn#PreCommit 1",
+			"SyncDataConn#PreCommit 2",
+			"SyncDataConn#Commit 1",
+			"SyncDataConn#Commit 2",
+			"SyncDataConn#PostCommit 1",
+			"SyncDataConn#PostCommit 2",
+			"SyncDataConn#Close 2 panicked",
+			"SyncDataConn#Close 1 panicked",
+			"SyncDataSrc#Close 2",
+			"SyncDataSrc#Close 1",
 		})
 	})
 }

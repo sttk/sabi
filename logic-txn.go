@@ -45,6 +45,10 @@ func (run *LogicTxn) Run[D any](logic func(D) errs.Err) *LogicTxn {
 	index := run.index
 	run.index = index + 1
 
+	if run.dataAcc.isAbnormal() {
+		return run
+	}
+
 	switch run.errAt {
 	case logicErrAtRun:
 		if len(run.errors) == 0 {
@@ -59,6 +63,13 @@ func (run *LogicTxn) Run[D any](logic func(D) errs.Err) *LogicTxn {
 					Err:   err,
 				})
 			} else {
+				defer func() {
+					if p := recover(); p != nil {
+						run.dataAcc.abend()
+						panic(p)
+					}
+				}()
+
 				if err := logic(data); err.IsNotOk() {
 					run.errors = append(run.errors, ErrEntry{
 						Index: index,
@@ -79,6 +90,10 @@ func (run *LogicTxn) RunForce[D any](logic func(D) errs.Err) *LogicTxn {
 	index := run.index
 	run.index = index + 1
 
+	if run.dataAcc.isAbnormal() {
+		return run
+	}
+
 	switch run.errAt {
 	case logicErrAtRun:
 		data, ok := run.dataAcc.dataHub.(D)
@@ -92,6 +107,13 @@ func (run *LogicTxn) RunForce[D any](logic func(D) errs.Err) *LogicTxn {
 				Err:   err,
 			})
 		} else {
+			defer func() {
+				if p := recover(); p != nil {
+					run.dataAcc.abend()
+					panic(p)
+				}
+			}()
+
 			if err := logic(data); err.IsNotOk() {
 				run.errors = append(run.errors, ErrEntry{
 					Index: index,
@@ -112,6 +134,10 @@ func (run *LogicTxn) RunOrBlock[D any](logic func(D) errs.Err) *LogicTxn {
 	index := run.index
 	run.index = index + 1
 
+	if run.dataAcc.isAbnormal() {
+		return run
+	}
+
 	switch run.errAt {
 	case logicErrAtRun:
 		if len(run.errors) == 0 {
@@ -126,6 +152,13 @@ func (run *LogicTxn) RunOrBlock[D any](logic func(D) errs.Err) *LogicTxn {
 					Err:   err,
 				})
 			} else {
+				defer func() {
+					if p := recover(); p != nil {
+						run.dataAcc.abend()
+						panic(p)
+					}
+				}()
+
 				if err := logic(data); err.IsNotOk() {
 					run.errors = append(run.errors, ErrEntry{
 						Index: index,
@@ -146,6 +179,17 @@ func (run *LogicTxn) RunOrBlock[D any](logic func(D) errs.Err) *LogicTxn {
 // It releases active connection resources and returns an error if any logic or commit step
 // failed.
 func (run *LogicTxn) EndTxn() errs.Err {
+	if run.dataAcc.isAbnormal() {
+		return errs.New(AbnormalState{})
+	}
+
+	defer func() {
+		if p := recover(); p != nil {
+			run.dataAcc.abend()
+			panic(p)
+		}
+	}()
+
 	switch run.errAt {
 	case logicErrAtBegin:
 		run.dataAcc.end()

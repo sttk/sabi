@@ -57,6 +57,10 @@ func (run *LogicRun) Run[D any](logic func(D) errs.Err) *LogicRun {
 	index := run.index
 	run.index = index + 1
 
+	if run.dataAcc.isAbnormal() {
+		return run
+	}
+
 	switch run.errAt {
 	case logicErrAtRun:
 		if len(run.errors) == 0 {
@@ -71,6 +75,13 @@ func (run *LogicRun) Run[D any](logic func(D) errs.Err) *LogicRun {
 					Err:   err,
 				})
 			} else {
+				defer func() {
+					if p := recover(); p != nil {
+						run.dataAcc.abend()
+						panic(p)
+					}
+				}()
+
 				if err := logic(data); err.IsNotOk() {
 					run.errors = append(run.errors, ErrEntry{
 						Index: index,
@@ -91,6 +102,10 @@ func (run *LogicRun) RunForce[D any](logic func(D) errs.Err) *LogicRun {
 	index := run.index
 	run.index = index + 1
 
+	if run.dataAcc.isAbnormal() {
+		return run
+	}
+
 	switch run.errAt {
 	case logicErrAtRun:
 		data, ok := run.dataAcc.dataHub.(D)
@@ -104,6 +119,13 @@ func (run *LogicRun) RunForce[D any](logic func(D) errs.Err) *LogicRun {
 				Err:   err,
 			})
 		} else {
+			defer func() {
+				if p := recover(); p != nil {
+					run.dataAcc.abend()
+					panic(p)
+				}
+			}()
+
 			if err := logic(data); err.IsNotOk() {
 				run.errors = append(run.errors, ErrEntry{
 					Index: index,
@@ -124,6 +146,10 @@ func (run *LogicRun) RunOrBlock[D any](logic func(D) errs.Err) *LogicRun {
 	index := run.index
 	run.index = index + 1
 
+	if run.dataAcc.isAbnormal() {
+		return run
+	}
+
 	switch run.errAt {
 	case logicErrAtRun:
 		if len(run.errors) == 0 {
@@ -138,6 +164,13 @@ func (run *LogicRun) RunOrBlock[D any](logic func(D) errs.Err) *LogicRun {
 					Err:   err,
 				})
 			} else {
+				defer func() {
+					if p := recover(); p != nil {
+						run.dataAcc.abend()
+						panic(p)
+					}
+				}()
+
 				if err := logic(data); err.IsNotOk() {
 					run.errors = append(run.errors, ErrEntry{
 						Index: index,
@@ -155,6 +188,17 @@ func (run *LogicRun) RunOrBlock[D any](logic func(D) errs.Err) *LogicRun {
 // End finishes the execution chain, cleans up resources if not nested, and returns an error
 // indicating any failure that occurred during execution.
 func (run *LogicRun) End() errs.Err {
+	if run.dataAcc.isAbnormal() {
+		return errs.New(AbnormalState{})
+	}
+
+	defer func() {
+		if p := recover(); p != nil {
+			run.dataAcc.abend()
+			panic(p)
+		}
+	}()
+
 	if !run.nested {
 		run.dataAcc.end()
 	}

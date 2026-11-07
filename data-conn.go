@@ -81,6 +81,9 @@ type DataConn interface {
 	// Close releases any resources associated with the connection. It is called
 	// during cleanup after the transaction has concluded.
 	Close()
+
+	// Abnormally terminates the data connection, typically invoked upon a panic.
+	Abend()
 }
 
 type dataConnContainer struct {
@@ -145,11 +148,11 @@ func (mgr *dataConnManager) commit(reports []TxnFailureReport) errs.Err {
 		if mgr.list[i].conn == nil {
 			continue
 		}
-		ag._name = mgr.list[i].name
-		ag._index = ii
+		ag.name = mgr.list[i].name
+		ag.index = ii
 		ii++
 		if err := mgr.list[i].conn.PreCommit(&ag); err.IsNotOk() {
-			ag.addErr(ag._index, ag._name, err)
+			ag.addErr(ag.index, ag.name, err)
 			break
 		}
 	}
@@ -169,12 +172,12 @@ func (mgr *dataConnManager) commit(reports []TxnFailureReport) errs.Err {
 		if mgr.list[i].conn == nil {
 			continue
 		}
-		ag._name = mgr.list[i].name
-		ag._index = ii
+		ag.name = mgr.list[i].name
+		ag.index = ii
 		ii++
 		if !mgr.list[i].conn.IsCommitted() {
 			if err := mgr.list[i].conn.Commit(&ag); err.IsNotOk() {
-				ag.addErr(ag._index, ag._name, err)
+				ag.addErr(ag.index, ag.name, err)
 				break
 			}
 		}
@@ -197,11 +200,11 @@ func (mgr *dataConnManager) commit(reports []TxnFailureReport) errs.Err {
 		if mgr.list[i].conn == nil {
 			continue
 		}
-		ag._name = mgr.list[i].name
-		ag._index = ii
+		ag.name = mgr.list[i].name
+		ag.index = ii
 		ii++
 		if err := mgr.list[i].conn.PostCommit(&ag); err.IsNotOk() {
-			ag.addErr(ag._index, ag._name, err)
+			ag.addErr(ag.index, ag.name, err)
 			// don't break
 		}
 	}
@@ -219,28 +222,35 @@ func (mgr *dataConnManager) commit(reports []TxnFailureReport) errs.Err {
 }
 
 func (mgr *dataConnManager) rollback(reports []TxnFailureReport) {
+	var firstPanic any
+
 	ag := AsyncGroup{}
-	ii := 0
+	iRep := 0
 	for i := range mgr.list {
 		if mgr.list[i].conn == nil {
 			continue
 		}
-		ag._name = mgr.list[i].name
-		ag._index = ii
-		ii++
+		ag.name = mgr.list[i].name
+		ag.index = iRep
+		iRep++
 		if mgr.list[i].conn.IsCommitted() {
-			if reports[ag._index].Cause.State == NoneByUncommitted {
-				reports[ag._index].Cause.State = NoneByCommitted
+			if reports[ag.index].Cause.State == NoneByUncommitted {
+				reports[ag.index].Cause.State = NoneByCommitted
 			}
 			continue
 		}
 		if mgr.committed {
 			continue
 		}
-		if err := mgr.list[i].conn.Rollback(&ag); err.IsNotOk() {
-			ag.addErr(ag._index, ag._name, err)
+
+		err, p := rollbackSafely(mgr.list[i].conn, &ag)
+		if err.IsNotOk() {
+			ag.addErr(ag.index, ag.name, err)
 		} else {
-			reports[ag._index].Rollback.State = NoneByRolledBack
+			reports[ag.index].Rollback.State = NoneByRolledBack
+		}
+		if p != nil && firstPanic == nil {
+			firstPanic = p
 		}
 	}
 	errors := ag.join()
@@ -255,10 +265,38 @@ func (mgr *dataConnManager) rollback(reports []TxnFailureReport) {
 	ag = AsyncGroup{}
 	for i := range mgr.list {
 		if mgr.list[i].conn != nil {
-			mgr.list[i].conn.OnTxnFailure(&ag, reports)
+			if p := onTxnFailureSafely(mgr.list[i].conn, &ag, reports); p != nil && firstPanic == nil {
+				firstPanic = p
+			}
 		}
 	}
 	_ = ag.join()
+
+	if firstPanic != nil {
+		panic(firstPanic)
+	}
+}
+
+func rollbackSafely(dc DataConn, ag *AsyncGroup) (err errs.Err, recovered any) {
+	defer func() {
+		if p := recover(); p != nil {
+			recovered = p
+			err = errs.New(p)
+		}
+	}()
+
+	return dc.Rollback(ag), nil
+}
+
+func onTxnFailureSafely(dc DataConn, ag *AsyncGroup, reports []TxnFailureReport) (recovered any) {
+	defer func() {
+		if p := recover(); p != nil {
+			recovered = p
+		}
+	}()
+
+	dc.OnTxnFailure(ag, reports)
+	return nil
 }
 
 func (mgr *dataConnManager) close() {
@@ -267,11 +305,55 @@ func (mgr *dataConnManager) close() {
 		mgr.indexMap[mgr.list[i].name] = i
 	}
 
+	var firstPanic any
+
 	for i := len(mgr.list) - 1; i >= 0; i-- {
 		if mgr.list[i].conn != nil {
-			mgr.list[i].conn.Close()
+			if p := closeSafely(mgr.list[i].conn); p != nil && firstPanic == nil {
+				firstPanic = p
+			}
 			mgr.list[i].conn = nil
 		}
 	}
 	mgr.list = mgr.list[0:mgr.orderedCount]
+	mgr.committed = false
+
+	if firstPanic != nil {
+		panic(firstPanic)
+	}
+}
+
+func closeSafely(dc DataConn) (recovered any) {
+	defer func() {
+		if p := recover(); p != nil {
+			recovered = p
+		}
+	}()
+
+	dc.Close()
+	return nil
+}
+
+func (mgr *dataConnManager) abend() {
+	clear(mgr.indexMap)
+
+	for i := len(mgr.list) - 1; i >= 0; i-- {
+		if mgr.list[i].conn != nil {
+			abendSafely(mgr.list[i].conn)
+			mgr.list[i].conn = nil
+		}
+	}
+	mgr.list = nil
+	mgr.committed = false
+}
+
+func abendSafely(dc DataConn) (recovered any) {
+	defer func() {
+		if p := recover(); p != nil {
+			recovered = p
+		}
+	}()
+
+	dc.Abend()
+	return nil
 }

@@ -407,4 +407,272 @@ func TestLogicRun(t *testing.T) {
 			"SyncDataSrc#Close 1",
 		})
 	})
+
+	t.Run("panic: Run", func(t *testing.T) {
+		logger := NewLogger()
+
+		func() {
+			runner := NewLogicRunner(NewDataHub(func(acc *DataAcc) any {
+				return acc
+			}))
+			defer runner.Close()
+
+			runner.Uses("foo", NewSyncDataSrc(1, logger, Fail_None))
+			runner.Uses("bar", NewSyncDataSrc(2, logger, Fail_None))
+
+			assert.Len(t, runner.dataAcc.localDataSrcManager.listUnready, 2)
+			assert.Len(t, runner.dataAcc.localDataSrcManager.listReady, 0)
+			assert.True(t, runner.dataAcc.localDataSrcManager.local)
+			assert.Len(t, runner.dataAcc.dataSrcMap, 0)
+			assert.Len(t, runner.dataAcc.dataConnMap, 0)
+			assert.Len(t, runner.dataAcc.dataConnManager.list, 0)
+			assert.Len(t, runner.dataAcc.dataConnManager.indexMap, 0)
+			assert.False(t, runner.dataAcc.fixed)
+
+			defer func() {
+				p := recover()
+				assert.Equal(t, p, "Run logic panic")
+
+				assert.Len(t, runner.dataAcc.localDataSrcManager.listUnready, 0)
+				assert.Len(t, runner.dataAcc.localDataSrcManager.listReady, 0)
+				assert.True(t, runner.dataAcc.localDataSrcManager.local)
+				assert.Len(t, runner.dataAcc.dataSrcMap, 0)
+				assert.Len(t, runner.dataAcc.dataConnMap, 0)
+				assert.Len(t, runner.dataAcc.dataConnManager.list, 0)
+				assert.Len(t, runner.dataAcc.dataConnManager.indexMap, 0)
+				assert.True(t, runner.dataAcc.fixed)
+			}()
+
+			runner.
+				Start().
+				Run(func(data *DataAcc) errs.Err {
+					conn1, err := data.GetDataConn[*SyncDataConn]("foo")
+					assert.True(t, err.IsOk())
+					assert.NotNil(t, conn1)
+					conn2, err := data.GetDataConn[*SyncDataConn]("bar")
+					assert.True(t, err.IsOk())
+					assert.NotNil(t, conn2)
+					logger.PushBack("Run the logic but panicked")
+					panic("Run logic panic")
+				}).
+				End()
+		}()
+
+		assert.Equal(t, logger.Logs(), []string{
+			"SyncDataSrc#New 1",
+			"SyncDataSrc#New 2",
+			"SyncDataSrc#Setup 1",
+			"SyncDataSrc#Setup 2",
+			"SyncDataSrc#CreateDataConn 1",
+			"SyncDataConn#New 1",
+			"SyncDataSrc#CreateDataConn 2",
+			"SyncDataConn#New 2",
+			"Run the logic but panicked",
+			"SyncDataConn#Abend 2",
+			"SyncDataConn#Abend 1",
+			"SyncDataSrc#Close 2",
+			"SyncDataSrc#Close 1",
+		})
+	})
+
+	t.Run("panic: RunForce", func(t *testing.T) {
+		logger := NewLogger()
+
+		func() {
+			runner := NewLogicRunner(NewDataHub(func(acc *DataAcc) any {
+				return acc
+			}))
+			defer runner.Close()
+
+			runner.Uses("foo", NewSyncDataSrc(1, logger, Fail_None))
+			runner.Uses("bar", NewSyncDataSrc(2, logger, Fail_None))
+
+			assert.Len(t, runner.dataAcc.localDataSrcManager.listUnready, 2)
+			assert.Len(t, runner.dataAcc.localDataSrcManager.listReady, 0)
+			assert.True(t, runner.dataAcc.localDataSrcManager.local)
+			assert.Len(t, runner.dataAcc.dataSrcMap, 0)
+			assert.Len(t, runner.dataAcc.dataConnMap, 0)
+			assert.Len(t, runner.dataAcc.dataConnManager.list, 0)
+			assert.Len(t, runner.dataAcc.dataConnManager.indexMap, 0)
+			assert.False(t, runner.dataAcc.fixed)
+
+			defer func() {
+				p := recover()
+				assert.Equal(t, p, "Run logic panic")
+
+				assert.Len(t, runner.dataAcc.localDataSrcManager.listUnready, 0)
+				assert.Len(t, runner.dataAcc.localDataSrcManager.listReady, 0)
+				assert.True(t, runner.dataAcc.localDataSrcManager.local)
+				assert.Len(t, runner.dataAcc.dataSrcMap, 0)
+				assert.Len(t, runner.dataAcc.dataConnMap, 0)
+				assert.Len(t, runner.dataAcc.dataConnManager.list, 0)
+				assert.Len(t, runner.dataAcc.dataConnManager.indexMap, 0)
+				assert.True(t, runner.dataAcc.fixed)
+			}()
+
+			runner.
+				Start().
+				RunForce(func(data *DataAcc) errs.Err {
+					conn1, err := data.GetDataConn[*SyncDataConn]("foo")
+					assert.True(t, err.IsOk())
+					assert.NotNil(t, conn1)
+					conn2, err := data.GetDataConn[*SyncDataConn]("bar")
+					assert.True(t, err.IsOk())
+					assert.NotNil(t, conn2)
+					logger.PushBack("Run the logic but panicked")
+					panic("Run logic panic")
+				}).
+				End()
+		}()
+
+		assert.Equal(t, logger.Logs(), []string{
+			"SyncDataSrc#New 1",
+			"SyncDataSrc#New 2",
+			"SyncDataSrc#Setup 1",
+			"SyncDataSrc#Setup 2",
+			"SyncDataSrc#CreateDataConn 1",
+			"SyncDataConn#New 1",
+			"SyncDataSrc#CreateDataConn 2",
+			"SyncDataConn#New 2",
+			"Run the logic but panicked",
+			"SyncDataConn#Abend 2",
+			"SyncDataConn#Abend 1",
+			"SyncDataSrc#Close 2",
+			"SyncDataSrc#Close 1",
+		})
+	})
+
+	t.Run("panic: RunOrBlock", func(t *testing.T) {
+		logger := NewLogger()
+
+		func() {
+			runner := NewLogicRunner(NewDataHub(func(acc *DataAcc) any {
+				return acc
+			}))
+			defer runner.Close()
+
+			runner.Uses("foo", NewSyncDataSrc(1, logger, Fail_None))
+			runner.Uses("bar", NewSyncDataSrc(2, logger, Fail_None))
+
+			assert.Len(t, runner.dataAcc.localDataSrcManager.listUnready, 2)
+			assert.Len(t, runner.dataAcc.localDataSrcManager.listReady, 0)
+			assert.True(t, runner.dataAcc.localDataSrcManager.local)
+			assert.Len(t, runner.dataAcc.dataSrcMap, 0)
+			assert.Len(t, runner.dataAcc.dataConnMap, 0)
+			assert.Len(t, runner.dataAcc.dataConnManager.list, 0)
+			assert.Len(t, runner.dataAcc.dataConnManager.indexMap, 0)
+			assert.False(t, runner.dataAcc.fixed)
+
+			defer func() {
+				p := recover()
+				assert.Equal(t, p, "Run logic panic")
+
+				assert.Len(t, runner.dataAcc.localDataSrcManager.listUnready, 0)
+				assert.Len(t, runner.dataAcc.localDataSrcManager.listReady, 0)
+				assert.True(t, runner.dataAcc.localDataSrcManager.local)
+				assert.Len(t, runner.dataAcc.dataSrcMap, 0)
+				assert.Len(t, runner.dataAcc.dataConnMap, 0)
+				assert.Len(t, runner.dataAcc.dataConnManager.list, 0)
+				assert.Len(t, runner.dataAcc.dataConnManager.indexMap, 0)
+				assert.True(t, runner.dataAcc.fixed)
+			}()
+
+			runner.
+				Start().
+				RunOrBlock(func(data *DataAcc) errs.Err {
+					conn1, err := data.GetDataConn[*SyncDataConn]("foo")
+					assert.True(t, err.IsOk())
+					assert.NotNil(t, conn1)
+					conn2, err := data.GetDataConn[*SyncDataConn]("bar")
+					assert.True(t, err.IsOk())
+					assert.NotNil(t, conn2)
+					logger.PushBack("Run the logic but panicked")
+					panic("Run logic panic")
+				}).
+				End()
+		}()
+
+		assert.Equal(t, logger.Logs(), []string{
+			"SyncDataSrc#New 1",
+			"SyncDataSrc#New 2",
+			"SyncDataSrc#Setup 1",
+			"SyncDataSrc#Setup 2",
+			"SyncDataSrc#CreateDataConn 1",
+			"SyncDataConn#New 1",
+			"SyncDataSrc#CreateDataConn 2",
+			"SyncDataConn#New 2",
+			"Run the logic but panicked",
+			"SyncDataConn#Abend 2",
+			"SyncDataConn#Abend 1",
+			"SyncDataSrc#Close 2",
+			"SyncDataSrc#Close 1",
+		})
+	})
+
+	t.Run("panic: Close", func(t *testing.T) {
+		logger := NewLogger()
+
+		func() {
+			runner := NewLogicRunner(NewDataHub(func(acc *DataAcc) any {
+				return acc
+			}))
+			defer runner.Close()
+
+			runner.Uses("foo", NewSyncDataSrc(1, logger, Fail_ClosePanicked))
+			runner.Uses("bar", NewSyncDataSrc(2, logger, Fail_ClosePanicked))
+
+			assert.Len(t, runner.dataAcc.localDataSrcManager.listUnready, 2)
+			assert.Len(t, runner.dataAcc.localDataSrcManager.listReady, 0)
+			assert.True(t, runner.dataAcc.localDataSrcManager.local)
+			assert.Len(t, runner.dataAcc.dataSrcMap, 0)
+			assert.Len(t, runner.dataAcc.dataConnMap, 0)
+			assert.Len(t, runner.dataAcc.dataConnManager.list, 0)
+			assert.Len(t, runner.dataAcc.dataConnManager.indexMap, 0)
+			assert.False(t, runner.dataAcc.fixed)
+
+			defer func() {
+				p := recover()
+				assert.Equal(t, p, "close panicked")
+
+				assert.Len(t, runner.dataAcc.localDataSrcManager.listUnready, 0)
+				assert.Len(t, runner.dataAcc.localDataSrcManager.listReady, 0)
+				assert.True(t, runner.dataAcc.localDataSrcManager.local)
+				assert.Len(t, runner.dataAcc.dataSrcMap, 0)
+				assert.Len(t, runner.dataAcc.dataConnMap, 0)
+				assert.Len(t, runner.dataAcc.dataConnManager.list, 0)
+				assert.Len(t, runner.dataAcc.dataConnManager.indexMap, 0)
+				assert.True(t, runner.dataAcc.fixed)
+			}()
+
+			runner.
+				Start().
+				Run(func(data *DataAcc) errs.Err {
+					conn1, err := data.GetDataConn[*SyncDataConn]("foo")
+					assert.True(t, err.IsOk())
+					assert.NotNil(t, conn1)
+					conn2, err := data.GetDataConn[*SyncDataConn]("bar")
+					assert.True(t, err.IsOk())
+					assert.NotNil(t, conn2)
+					logger.PushBack("Run the logic")
+					return errs.Ok()
+				}).
+				End()
+		}()
+
+		assert.Equal(t, logger.Logs(), []string{
+			"SyncDataSrc#New 1",
+			"SyncDataSrc#New 2",
+			"SyncDataSrc#Setup 1",
+			"SyncDataSrc#Setup 2",
+			"SyncDataSrc#CreateDataConn 1",
+			"SyncDataConn#New 1",
+			"SyncDataSrc#CreateDataConn 2",
+			"SyncDataConn#New 2",
+			"Run the logic",
+			"SyncDataConn#Close 2 panicked",
+			"SyncDataConn#Close 1 panicked",
+			"SyncDataSrc#Close 2",
+			"SyncDataSrc#Close 1",
+		})
+	})
 }
