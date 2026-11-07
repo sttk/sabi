@@ -147,9 +147,31 @@ func (acc *DataAcc) disuses(name string) {
 
 func (acc *DataAcc) close() {
 	clear(acc.dataConnMap)
-	acc.dataConnManager.close()
 	clear(acc.dataSrcMap)
-	acc.localDataSrcManager.close()
+
+	var firstPanic any
+
+	func() {
+		defer func() {
+			if p := recover(); p != nil && firstPanic == nil {
+				firstPanic = p
+			}
+		}()
+		acc.dataConnManager.close()
+	}()
+
+	func() {
+		defer func() {
+			if p := recover(); p != nil && firstPanic == nil {
+				firstPanic = p
+			}
+		}()
+		acc.localDataSrcManager.close()
+	}()
+
+	if firstPanic != nil {
+		panic(firstPanic)
+	}
 }
 
 func (acc *DataAcc) begin() errs.Err {
