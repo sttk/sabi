@@ -281,6 +281,7 @@ func rollbackSafely(dc DataConn, ag *AsyncGroup) (err errs.Err, recovered any) {
 	defer func() {
 		if p := recover(); p != nil {
 			recovered = p
+			err = errs.New(p)
 		}
 	}()
 
