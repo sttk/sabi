@@ -107,6 +107,10 @@ func (runner *LogicRunner) Start() *LogicRun {
 // It returns an error if initialization, type-casting to D, the logic function, or commit
 // fails.
 func (runner *LogicRunner) Txn[D any](logic func(D) errs.Err) errs.Err {
+	if runner.dataAcc.isAbnormal() {
+		return errs.New(AbnormalState{})
+	}
+
 	data, ok := runner.dataAcc.dataHub.(D)
 	if !ok {
 		fromType := typeNameOf(runner.dataAcc.dataHub)
