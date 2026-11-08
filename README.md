@@ -54,7 +54,7 @@ go get github.com/sttk/sabi
 To get a specific version of this package, run the following command:
 
 ```bash
-go get github.com/sttk/sabi@v0.10.1
+go get github.com/sttk/sabi@v0.10.2
 ```
 
 ## Usage
@@ -246,7 +246,7 @@ This framework supports Go 1.27 or later.
 ```sh
 % go-fav 1.27.3
 go version go1.27.3 darwin/amd64
-ok  	github.com/sttk/sabi	0.346s	coverage: 100.0% of statements
+ok  	github.com/sttk/sabi	0.358s	coverage: 96.1% of statements
 
 %
 ```
@@ -260,7 +260,7 @@ See the file LICENSE in this distribution for more details.
 
 
 [repo-url]: https://github.com/sttk/sabi
-[release-img]: https://img.shields.io/badge/release-0.10.1-0f9999.svg
+[release-img]: https://img.shields.io/badge/release-0.10.2-0f9999.svg
 [release-url]: https://github.com/sttk/sabi/releases
 [pkg-dev-img]: https://pkg.go.dev/badge/github.com/sttk/sabi.svg
 [pkg-dev-url]: https://pkg.go.dev/github.com/sttk/sabi
