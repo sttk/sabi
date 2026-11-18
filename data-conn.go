@@ -131,7 +131,7 @@ func (mgr *dataConnManager) add(cont dataConnContainer) {
 	}
 }
 
-func (mgr *dataConnManager) newFailureReports() []TxnFailureReport {
+func (mgr *dataConnManager) newTxnFailureReports() []TxnFailureReport {
 	reps := make([]TxnFailureReport, 0, len(mgr.indexMap))
 	for i := range mgr.list {
 		if mgr.list[i].conn != nil {

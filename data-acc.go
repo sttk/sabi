@@ -188,7 +188,7 @@ func (acc *DataAcc) begin() errs.Err {
 }
 
 func (acc *DataAcc) commitOrRollback(err errs.Err) errs.Err {
-	reports := acc.dataConnManager.newFailureReports()
+	reports := acc.dataConnManager.newTxnFailureReports()
 	if err.IsOk() {
 		err = acc.dataConnManager.commit(reports)
 	}

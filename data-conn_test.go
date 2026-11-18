@@ -148,7 +148,7 @@ func TestDataConn(t *testing.T) {
 
 		manager := newDataConnManager()
 
-		reports := manager.newFailureReports()
+		reports := manager.newTxnFailureReports()
 		assert.Equal(t, len(reports), 0)
 
 		conn1 := NewSyncDataConn(1, logger, Fail_None)
@@ -157,7 +157,7 @@ func TestDataConn(t *testing.T) {
 		conn2 := NewAsyncDataConn(2, logger, Fail_None)
 		manager.add(dataConnContainer{name: "bar", conn: conn2})
 
-		reports = manager.newFailureReports()
+		reports = manager.newTxnFailureReports()
 		assert.Equal(t, len(reports), 2)
 
 		report := reports[0]
@@ -182,7 +182,7 @@ func TestDataConn(t *testing.T) {
 			conn2 := NewAsyncDataConn(2, logger, Fail_None)
 			manager.add(dataConnContainer{name: "bar", conn: conn2})
 
-			reports := manager.newFailureReports()
+			reports := manager.newTxnFailureReports()
 			assert.Equal(t, manager.commit(reports), errs.Ok())
 			manager.rollback(reports)
 		}()
@@ -221,7 +221,7 @@ func TestDataConn(t *testing.T) {
 			conn3 := NewSyncDataConn(3, logger, Fail_None)
 			manager.add(dataConnContainer{name: "qux", conn: conn3})
 
-			reports := manager.newFailureReports()
+			reports := manager.newTxnFailureReports()
 			assert.Equal(t, manager.commit(reports), errs.Ok())
 			manager.rollback(reports)
 		}()
@@ -264,7 +264,7 @@ func TestDataConn(t *testing.T) {
 			conn2 := NewAsyncDataConn(2, logger, Fail_PreCommit)
 			manager.add(dataConnContainer{name: "bar", conn: conn2})
 
-			reports := manager.newFailureReports()
+			reports := manager.newTxnFailureReports()
 
 			err := manager.commit(reports)
 			switch r := err.Reason().(type) {
@@ -308,7 +308,7 @@ func TestDataConn(t *testing.T) {
 			conn2 := NewSyncDataConn(2, logger, Fail_PreCommit)
 			manager.add(dataConnContainer{name: "bar", conn: conn2})
 
-			reports := manager.newFailureReports()
+			reports := manager.newTxnFailureReports()
 
 			err := manager.commit(reports)
 			switch r := err.Reason().(type) {
@@ -356,7 +356,7 @@ func TestDataConn(t *testing.T) {
 			conn2 := NewAsyncDataConn(2, logger, Fail_PreCommit)
 			manager.add(dataConnContainer{name: "bar", conn: conn2})
 
-			reports := manager.newFailureReports()
+			reports := manager.newTxnFailureReports()
 
 			err := manager.commit(reports)
 			switch r := err.Reason().(type) {
@@ -401,7 +401,7 @@ func TestDataConn(t *testing.T) {
 			conn2 := NewAsyncDataConn(2, logger, Fail_Commit)
 			manager.add(dataConnContainer{name: "bar", conn: conn2})
 
-			reports := manager.newFailureReports()
+			reports := manager.newTxnFailureReports()
 
 			err := manager.commit(reports)
 			switch r := err.Reason().(type) {
@@ -447,7 +447,7 @@ func TestDataConn(t *testing.T) {
 			conn1 := NewSyncDataConn(2, logger, Fail_Commit)
 			manager.add(dataConnContainer{name: "bar", conn: conn1})
 
-			reports := manager.newFailureReports()
+			reports := manager.newTxnFailureReports()
 
 			err := manager.commit(reports)
 			switch r := err.Reason().(type) {
@@ -497,7 +497,7 @@ func TestDataConn(t *testing.T) {
 			conn2 := NewAsyncDataConn(2, logger, Fail_Commit)
 			manager.add(dataConnContainer{name: "bar", conn: conn2})
 
-			reports := manager.newFailureReports()
+			reports := manager.newTxnFailureReports()
 
 			err := manager.commit(reports)
 			switch r := err.Reason().(type) {
@@ -543,7 +543,7 @@ func TestDataConn(t *testing.T) {
 			conn2 := NewAsyncDataConn(2, logger, Fail_PostCommit)
 			manager.add(dataConnContainer{name: "bar", conn: conn2})
 
-			reports := manager.newFailureReports()
+			reports := manager.newTxnFailureReports()
 
 			err := manager.commit(reports)
 			switch r := err.Reason().(type) {
@@ -593,7 +593,7 @@ func TestDataConn(t *testing.T) {
 			conn2 := NewSyncDataConn(1, logger, Fail_PostCommit)
 			manager.add(dataConnContainer{name: "foo", conn: conn2})
 
-			reports := manager.newFailureReports()
+			reports := manager.newTxnFailureReports()
 
 			err := manager.commit(reports)
 			switch r := err.Reason().(type) {
@@ -643,7 +643,7 @@ func TestDataConn(t *testing.T) {
 			conn2 := NewAsyncDataConn(2, logger, Fail_PostCommit)
 			manager.add(dataConnContainer{name: "bar", conn: conn2})
 
-			reports := manager.newFailureReports()
+			reports := manager.newTxnFailureReports()
 
 			err := manager.commit(reports)
 			switch r := err.Reason().(type) {
@@ -693,7 +693,7 @@ func TestDataConn(t *testing.T) {
 			conn3 := NewNoCommitDataConn(3, logger, Fail_None)
 			manager.add(dataConnContainer{name: "baz", conn: conn3})
 
-			reports := manager.newFailureReports()
+			reports := manager.newTxnFailureReports()
 
 			err := manager.commit(reports)
 			switch r := err.Reason().(type) {
@@ -746,7 +746,7 @@ func TestDataConn(t *testing.T) {
 			conn2 := NewAsyncDataConn(2, logger, Fail_None)
 			manager.add(dataConnContainer{name: "bar", conn: conn2})
 
-			reports := manager.newFailureReports()
+			reports := manager.newTxnFailureReports()
 			manager.rollback(reports)
 		}()
 
@@ -777,7 +777,7 @@ func TestDataConn(t *testing.T) {
 			conn2 := NewSyncDataConn(2, logger, Fail_None)
 			manager.add(dataConnContainer{name: "bar", conn: conn2})
 
-			reports := manager.newFailureReports()
+			reports := manager.newTxnFailureReports()
 			manager.rollback(reports)
 		}()
 
@@ -808,7 +808,7 @@ func TestDataConn(t *testing.T) {
 			conn2 := NewSyncDataConn(2, logger, Fail_Rollback)
 			manager.add(dataConnContainer{name: "bar", conn: conn2})
 
-			reports := manager.newFailureReports()
+			reports := manager.newTxnFailureReports()
 			manager.rollback(reports)
 		}()
 
@@ -839,7 +839,7 @@ func TestDataConn(t *testing.T) {
 			conn2 := NewAsyncDataConn(2, logger, Fail_None)
 			manager.add(dataConnContainer{name: "bar", conn: conn2})
 
-			reports := manager.newFailureReports()
+			reports := manager.newTxnFailureReports()
 			manager.rollback(reports)
 		}()
 
@@ -870,7 +870,7 @@ func TestDataConn(t *testing.T) {
 			conn2 := NewAsyncDataConn(2, logger, Fail_Rollback)
 			manager.add(dataConnContainer{name: "bar", conn: conn2})
 
-			reports := manager.newFailureReports()
+			reports := manager.newTxnFailureReports()
 
 			err := manager.commit(reports)
 			switch r := err.Reason().(type) {
@@ -916,7 +916,7 @@ func TestDataConn(t *testing.T) {
 			conn2 := NewAsyncDataConn(2, logger, Fail_Commit)
 			manager.add(dataConnContainer{name: "bar", conn: conn2})
 
-			reports := manager.newFailureReports()
+			reports := manager.newTxnFailureReports()
 
 			err := manager.commit(reports)
 			switch r := err.Reason().(type) {
@@ -962,7 +962,7 @@ func TestDataConn(t *testing.T) {
 			conn2 := NewAsyncDataConn(2, logger, Fail_PreCommitBecomeCommitted)
 			manager.add(dataConnContainer{name: "bar", conn: conn2})
 
-			reports := manager.newFailureReports()
+			reports := manager.newTxnFailureReports()
 
 			err := manager.commit(reports)
 			assert.True(t, err.IsOk())
@@ -999,7 +999,7 @@ func TestDataConn(t *testing.T) {
 			conn2 := NewAsyncDataConn(2, logger, Fail_Commit)
 			manager.add(dataConnContainer{name: "bar", conn: conn2})
 
-			reports := manager.newFailureReports()
+			reports := manager.newTxnFailureReports()
 
 			err := manager.commit(reports)
 			switch r := err.Reason().(type) {

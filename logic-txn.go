@@ -195,7 +195,7 @@ func (run *LogicTxn) EndTxn() errs.Err {
 		run.dataAcc.end()
 		return run.errors[0].Err
 	default:
-		reports := run.dataAcc.dataConnManager.newFailureReports()
+		reports := run.dataAcc.dataConnManager.newTxnFailureReports()
 		if len(run.errors) == 0 {
 			err := run.dataAcc.dataConnManager.commit(reports)
 			if err.IsNotOk() {
